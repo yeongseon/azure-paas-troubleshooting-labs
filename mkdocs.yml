@@ -58,7 +58,11 @@ markdown_extensions:
       permalink: true
       toc_depth: 3
   - tables
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: vegalite
+          class: vegalite
+          format: !!python/name:mkdocs_charts_plugin.fences.fence_vegalite
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.tabbed:
@@ -68,6 +72,12 @@ markdown_extensions:
 
 plugins:
   - search
+  - charts
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/vega@5
+  - https://cdn.jsdelivr.net/npm/vega-lite@5
+  - https://cdn.jsdelivr.net/npm/vega-embed@6
 
 extra:
   social:
