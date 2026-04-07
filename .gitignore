@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Docs
+site/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
+# Azure
+local.settings.json

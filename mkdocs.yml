@@ -1,0 +1,77 @@
+site_name: Azure PaaS Troubleshooting Labs
+site_description: Support-engineer-style troubleshooting experiments for Azure App Service, Azure Functions, and Azure Container Apps
+site_author: Yeongseon Choe
+repo_url: https://github.com/yeongseon/azure-paas-troubleshooting-labs
+site_url: https://yeongseon.github.io/azure-paas-troubleshooting-labs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - toc.integrate
+
+nav:
+  - Home: index.md
+  - About: about.md
+  - Methodology:
+      - Experiment Framework: methodology/experiment-framework.md
+      - Evidence Levels: methodology/evidence-levels.md
+      - Platform vs App Boundary: methodology/platform-vs-app-boundary.md
+      - Interpretation Guidelines: methodology/interpretation-guidelines.md
+  - App Service:
+      - Overview: app-service/index.md
+      - Memory Pressure:
+          - Overview: app-service/memory-pressure/overview.md
+      - procfs Interpretation:
+          - Overview: app-service/procfs-interpretation/overview.md
+      - Slow Requests:
+          - Overview: app-service/slow-requests/overview.md
+      - Zip vs Container:
+          - Overview: app-service/zip-vs-container/overview.md
+  - Functions:
+      - Overview: functions/index.md
+      - Flex Consumption Storage:
+          - Overview: functions/flex-consumption-storage/overview.md
+      - Cold Start:
+          - Overview: functions/cold-start/overview.md
+      - Dependency Visibility:
+          - Overview: functions/dependency-visibility/overview.md
+  - Container Apps:
+      - Overview: container-apps/index.md
+      - Ingress SNI / Host Header:
+          - Overview: container-apps/ingress-sni-host-header/overview.md
+      - Private Endpoint FQDN vs IP:
+          - Overview: container-apps/private-endpoint-fqdn-vs-ip/overview.md
+      - Startup Probes:
+          - Overview: container-apps/startup-probes/overview.md
+  - Patterns:
+      - Symptom to Hypothesis: patterns/symptom-to-hypothesis.md
+      - False Positives: patterns/false-positives.md
+      - Metric Misreads: patterns/metric-misreads.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - tables
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.inlinehilite
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yeongseon/azure-paas-troubleshooting-labs
+  copyright: |
+    © 2025 Yeongseon Choe – MIT Licensed
