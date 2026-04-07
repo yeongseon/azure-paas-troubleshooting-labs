@@ -3,6 +3,9 @@
 !!! info "Status: Draft - Awaiting Execution"
     This experiment design is complete, but the measurements in **Results** are **SIMULATED** and based on documented Azure Functions behavior plus reasonable engineering assumptions. No live customer or lab measurements are claimed on this page.
 
+!!! warning "Execution Blocked"
+    Attempted execution on 2026-04-07 was blocked by Azure subscription policy (`Microsoft.Storage/storageAccounts/allowSharedKeyAccess` set to `deny`). Storage account creation for Function Apps failed with error: "Shared key access is not permitted because storage SAS and Account Key are disabled by storage policy." Awaiting policy exception or alternative subscription.
+
 ## 1. Question
 
 What is the relative contribution of host startup, package restoration, framework initialization, and application code execution to total cold start duration on Azure Functions for Python 3.11 and Node.js 20 on Consumption and Flex Consumption?
