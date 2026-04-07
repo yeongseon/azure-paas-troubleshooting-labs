@@ -17,7 +17,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install mkdocs-material pymdown-extensions
+        run: pip install mkdocs-material pymdown-extensions mkdocs-charts-plugin
 
       - name: Build MkDocs (strict mode)
         run: mkdocs build --strict

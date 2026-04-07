@@ -1,6 +1,6 @@
 # Startup, Readiness, and Liveness Probe Interactions
 
-!!! info "Status: Published (실험 완료 2026-04-07)"
+!!! info "Status: Published (2026-04-07)"
 
 ## 1. Question
 
@@ -582,7 +582,7 @@ boot
 
 ## 12. What this proves
 
-If the planned results are observed, this experiment should be able to prove the following within this test setup:
+Within this test setup, the experiment proved the following:
 
 - startup probe failure budget directly determines whether a slow-starting container survives long enough to finish initialization
 - readiness failure can block traffic routing without necessarily causing restarts
@@ -591,7 +591,7 @@ If the planned results are observed, this experiment should be able to prove the
 
 ## 13. What this does NOT prove
 
-Even after execution, this experiment will not by itself prove:
+Even with the observed results, this experiment does not prove:
 
 - behavior for every Container Apps workload profile or every region
 - exact internal kubelet implementation details beyond what is externally observable in Container Apps

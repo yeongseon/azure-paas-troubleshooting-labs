@@ -16,6 +16,7 @@ theme:
 nav:
   - Home: index.md
   - About: about.md
+  - Setup: repo-setup.md
   - Methodology:
       - Experiment Framework: methodology/experiment-framework.md
       - Evidence Levels: methodology/evidence-levels.md
