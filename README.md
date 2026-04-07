@@ -90,6 +90,26 @@ This repository is the troubleshooting companion to the practical guide series. 
 | [lab-memory-pressure](https://github.com/yeongseon/lab-memory-pressure) | Individual lab: plan-level memory pressure (Flask + Node.js) |
 | [lab-node-memory-pressure](https://github.com/yeongseon/lab-node-memory-pressure) | Individual lab: Node.js memory pressure on B1 Linux |
 
+## Migration from Legacy Repos
+
+This repository consolidates experiments previously hosted in individual repositories:
+
+| Legacy Repository | Status | Migrated To |
+|---|---|---|
+| [lab-memory-pressure](https://github.com/yeongseon/lab-memory-pressure) | Archived | [App Service: Memory Pressure](docs/app-service/memory-pressure/overview.md) |
+| [lab-node-memory-pressure](https://github.com/yeongseon/lab-node-memory-pressure) | Archived | [App Service: Memory Pressure](docs/app-service/memory-pressure/overview.md) (Node.js comparison) |
+
+### Why Consolidate?
+
+- **Discoverability**: Single location for all PaaS troubleshooting experiments
+- **Cross-referencing**: Easy comparison across services (App Service vs Functions vs Container Apps)
+- **Consistent methodology**: Shared experiment template and evidence model
+- **Easier maintenance**: Single documentation site, unified CI/CD
+
+### Legacy Repo Policy
+
+Legacy repositories are archived but remain accessible for reference. New experiments should be added to this consolidated repository.
+
 ## Disclaimer
 
 This project is an independent community project and is not affiliated with,

@@ -12,7 +12,33 @@ The target audience is Azure support engineers, escalation engineers, and platfo
 
 This site is the troubleshooting companion to the [practical guide series](https://github.com/yeongseon?tab=repositories&q=practical-guide), not a replacement. The guides cover broad reference material; these labs cover deep, narrow investigation.
 
-## Site map
+## Experiment Status Overview
+
+| Service | Experiment | Status | Last Updated |
+|---------|-----------|--------|-------------|
+| App Service | [Memory Pressure](app-service/memory-pressure/overview.md) | **Published** | 2025-07 |
+| Functions | [Cold Start](functions/cold-start/overview.md) | Draft — Awaiting Execution | — |
+| Container Apps | [Startup Probes](container-apps/startup-probes/overview.md) | Draft — Awaiting Execution | — |
+
+!!! success "MVP Milestone"
+    The first experiment — **App Service Memory Pressure** — is complete. It covers plan-level degradation, swap thrashing, and kernel page reclaim effects on shared Linux plans.
+
+## Getting Started
+
+New to this project? Start here:
+
+1. **Read the methodology** — [Experiment Framework](methodology/experiment-framework.md) explains the standardized structure every experiment follows.
+2. **Understand evidence levels** — [Evidence Levels](methodology/evidence-levels.md) defines how findings are tagged with calibrated confidence.
+3. **Try the published experiment** — [Memory Pressure](app-service/memory-pressure/overview.md) is the first completed experiment; start there for a concrete example.
+
+## Quick Links
+
+- **[App Service Labs](app-service/index.md)** — Memory pressure, procfs, slow requests, deployment methods
+- **[Functions Labs](functions/index.md)** — Cold start, storage edge cases, dependency visibility
+- **[Container Apps Labs](container-apps/index.md)** — Ingress routing, private endpoints, probe interactions
+- **[Methodology](methodology/experiment-framework.md)** — Experiment framework, evidence model, interpretation guidelines
+
+## Site Map
 
 ### Methodology
 
@@ -23,7 +49,7 @@ This site is the troubleshooting companion to the [practical guide series](https
 
 ### App Service Labs
 
-- [Memory Pressure](app-service/memory-pressure/overview.md) — plan-level degradation, swap thrashing, kernel page reclaim
+- [Memory Pressure](app-service/memory-pressure/overview.md) — plan-level degradation, swap thrashing, kernel page reclaim — **Published**
 - [procfs Interpretation](app-service/procfs-interpretation/overview.md) — /proc reliability and limits in Linux containers
 - [Slow Requests](app-service/slow-requests/overview.md) — frontend timeout vs. worker-side delay vs. dependency latency
 - [Zip Deploy vs Container](app-service/zip-vs-container/overview.md) — deployment method behavioral differences
@@ -31,14 +57,14 @@ This site is the troubleshooting companion to the [practical guide series](https
 ### Functions Labs
 
 - [Flex Consumption Storage](functions/flex-consumption-storage/overview.md) — storage identity misconfiguration edge cases
-- [Cold Start](functions/cold-start/overview.md) — dependency initialization and cold start duration breakdown
+- [Cold Start](functions/cold-start/overview.md) — dependency initialization and cold start duration breakdown — *Draft*
 - [Dependency Visibility](functions/dependency-visibility/overview.md) — outbound dependency observability limits
 
 ### Container Apps Labs
 
 - [Ingress SNI / Host Header](container-apps/ingress-sni-host-header/overview.md) — SNI and host header routing behavior
 - [Private Endpoint FQDN vs IP](container-apps/private-endpoint-fqdn-vs-ip/overview.md) — FQDN vs. direct IP access differences
-- [Startup Probes](container-apps/startup-probes/overview.md) — probe interaction and failure patterns
+- [Startup Probes](container-apps/startup-probes/overview.md) — probe interaction and failure patterns — *Draft*
 
 ### Patterns
 
