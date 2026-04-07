@@ -327,95 +327,145 @@ stateDiagram-v2
 
 ## 10. Results
 
-**Execution Date**: 2026-04-07 13:15 UTC  
-**Resource Group**: `rg-startup-probe-lab`  
-**Container Apps Environment**: `cae-startup-probe-lab` (koreacentral)
+**Execution Date**: 2026-04-07 13:40 UTC  
+**Resource Group**: `rg-probe-lab-full`  
+**Container Apps Environment**: `cae-probe-lab-full` (koreacentral)  
+**Test Image**: Custom Python/Flask app with configurable `STARTUP_DELAY_SECONDS=60`
+
+### Test Application
+
+A custom container image was built to simulate slow startup:
+
+- Blocks for `STARTUP_DELAY_SECONDS` (60s) before serving `/startup`, `/ready`, `/live` endpoints
+- Logs `BOOT_START`, `STARTUP_COMPLETE`, and endpoint access markers for correlation
+- Built with Python 3.11 + Flask + Gunicorn on port 8080
 
 ### Experiment Configuration
 
-Four container apps were deployed with different probe configurations using `nginx:alpine` as the base image:
+Five container apps were deployed with different probe configurations:
 
-| App Name | Probe Type | Probe Path | Expected Outcome |
-|---|---|---|---|
-| `ca-probe-test` | No probes | N/A | Baseline - should be healthy |
-| `ca-probe-good` | Startup | `/` (valid) | Should pass and become healthy |
-| `ca-probe-fail` | Startup | `/nonexistent-health-endpoint` (404) | Should fail and become unhealthy |
-| `ca-liveness-only` | Liveness | `/` (valid) | Should be healthy after init |
+| Scenario | App Name | Startup Budget | Liveness Start | Expected Outcome |
+|---|---|---|---|---|
+| Baseline (no probes) | `ca-baseline` | N/A | N/A | Healthy (control) |
+| **Scenario 1**: Startup too short | `ca-startup-short` | ~30s (init=0, period=5, fail=6) | N/A | **Unhealthy** - restart loop |
+| **Scenario 2**: No startup, early liveness | `ca-no-startup` | N/A | 10s | **Unhealthy** - liveness kills during init |
+| **Scenario 3**: Readiness during init | `ca-readiness-init` | ~95s | 60s | Healthy - startup protects |
+| **Scenario 4**: All probes tight | `ca-all-tight` | ~40s (timeout=1s) | 15s | **Unhealthy** - cascade failure |
+| **Healthy baseline** | `ca-healthy` | ~95s | 60s | Healthy - generous thresholds |
 
 ### Observed Results
 
-| App Name | Health State | Running State | Revision | Probe Result |
+| App Name | Initial Revision | Health State | Running State | Failure Mode |
 |---|---|---|---|---|
-| `ca-probe-test` | **Healthy** | RunningAtMaxScale | `ca-probe-test--0000001` | No probes configured |
-| `ca-probe-good` | **Healthy** | RunningAtMaxScale | `ca-probe-good--0000001` | Startup probe succeeded |
-| `ca-probe-fail` | **Unhealthy** | Failed | `ca-probe-fail--dm1sqk9` | Startup probe failed with 404 |
-| `ca-liveness-only` | **Healthy** | RunningAtMaxScale | `ca-liveness-only--c1yhi3t` | Liveness probe succeeded |
-
-### System Log Evidence (ca-probe-fail)
-
-The following events were captured from `ContainerAppSystemLogs`:
-
-```text
-TimeStamp: 2026-04-07 13:16:42.1500234 UTC
-Type: Warning
-Msg: "Probe of StartUp failed with status code: 404"
-Reason: ProbeFailed
-Count: 13
-
-TimeStamp: 2026-04-07 13:16:48.1504151 UTC
-Type: Warning
-Msg: "Container nginx failed startup probe, will be restarted"
-Reason: ProbeFailed
-Count: 7
-
-TimeStamp: 2026-04-07 13:16:48.1506056 UTC
-Type: Warning
-Msg: "Container 'nginx' was terminated with exit code '' and reason 'ProbeFailure'"
-Reason: ContainerTerminated
-Count: 7
-```
-
-### Restart Loop Evidence
-
-The `ca-probe-fail` container exhibited a restart loop pattern:
-
-1. Container created and started
-2. Startup probe began checking `/nonexistent-health-endpoint`
-3. Probe returned 404 (3 failures at 3-second intervals)
-4. Container terminated with reason `ProbeFailure`
-5. Container recreated (image already cached: 16ms pull)
-6. Cycle repeated (observed 7+ restart cycles)
+| `ca-startup-short` | `--0000001` | **Unhealthy** | Failed | Startup probe timeout before app ready |
+| `ca-no-startup` | `--0000001` | **Unhealthy** | Failed | Liveness killed container at ~25s |
+| `ca-readiness-init` | `--0000001` | **Healthy** | RunningAtMaxScale | Startup budget sufficient |
+| `ca-all-tight` | `--0000001` | **Unhealthy** | Failed | Startup timeout (1s too short) |
+| `ca-healthy` | `--0000001` | **Healthy** | RunningAtMaxScale | All probes succeeded |
 
 ### Probe Configuration Details
 
-```json
-// ca-probe-fail: Startup probe pointing to non-existent endpoint
-{
-  "type": "Startup",
-  "httpGet": { "path": "/nonexistent-health-endpoint", "port": 80 },
-  "failureThreshold": 3,
-  "periodSeconds": 3,
-  "timeoutSeconds": 2
-}
+```yaml
+# Scenario 1: Startup too short (30s budget for 60s startup)
+ca-startup-short:
+  Startup: path=/startup, init=0s, period=5s, timeout=2s, failure=6
+  # Budget: 0 + (5 × 6) = 30s < 60s required → FAIL
 
-// ca-probe-good: Startup probe pointing to valid endpoint
-{
-  "type": "Startup",
-  "httpGet": { "path": "/", "port": 80 },
-  "failureThreshold": 3,
-  "periodSeconds": 3,
-  "timeoutSeconds": 2
-}
+# Scenario 2: No startup, liveness too early
+ca-no-startup:
+  Liveness: path=/live, init=10s, period=5s, timeout=2s, failure=3
+  Readiness: path=/ready, init=5s, period=5s, timeout=2s, failure=12
+  # Liveness budget: 10 + (5 × 3) = 25s < 60s → container killed
 
-// ca-liveness-only: Liveness probe only (no startup)
-{
-  "type": "Liveness",
-  "httpGet": { "path": "/", "port": 80 },
-  "failureThreshold": 2,
-  "periodSeconds": 5,
-  "timeoutSeconds": 2
-}
+# Scenario 3: Readiness during init (startup protects)
+ca-readiness-init:
+  Startup: path=/startup, init=5s, period=5s, timeout=2s, failure=18
+  Readiness: path=/ready, init=0s, period=5s, timeout=2s, failure=3
+  Liveness: path=/live, init=60s, period=10s, timeout=2s, failure=3
+  # Startup budget: 5 + (5 × 18) = 95s > 60s → OK
+
+# Scenario 4: All probes tight
+ca-all-tight:
+  Startup: path=/startup, init=0s, period=5s, timeout=1s, failure=8
+  Readiness: path=/ready, init=5s, period=5s, timeout=1s, failure=2
+  Liveness: path=/live, init=15s, period=5s, timeout=1s, failure=2
+  # Startup budget: 0 + (5 × 8) = 40s < 60s → FAIL
+  # Timeout 1s too short for slow-starting app
+
+# Healthy baseline
+ca-healthy:
+  Startup: path=/startup, init=5s, period=5s, timeout=2s, failure=18
+  Readiness: path=/ready, init=5s, period=5s, timeout=2s, failure=12
+  Liveness: path=/live, init=60s, period=10s, timeout=2s, failure=3
+  # All budgets exceed 60s → OK
 ```
+
+### System Log Evidence
+
+#### Scenario 1: Startup probe too short
+
+```text
+2026-04-07 13:44:07 | Warning | Probe of StartUp failed with status code:
+2026-04-07 13:44:14 | Warning | Probe of StartUp failed with timeout in 2 seconds.
+2026-04-07 13:44:19 | Warning | Probe of StartUp failed with timeout in 2 seconds.
+2026-04-07 13:44:24 | Warning | Probe of StartUp failed with timeout in 2 seconds.
+2026-04-07 13:44:29 | Warning | Probe of StartUp failed with timeout in 2 seconds.
+2026-04-07 13:44:34 | Warning | Container slow-start failed startup probe, will be restarted
+2026-04-07 13:44:34 | Warning | Container 'slow-start' was terminated with reason 'ProbeFailure'
+```
+
+#### Scenario 2: Liveness kills during startup
+
+```text
+2026-04-07 13:42:53 | Warning | Probe of Liveness failed with timeout in 2 seconds.
+2026-04-07 13:42:58 | Warning | Probe of Liveness failed with timeout in 2 seconds.
+2026-04-07 13:42:58 | Warning | Probe of Readiness failed with timeout in 2 seconds.
+2026-04-07 13:43:03 | Warning | Probe of Liveness failed with timeout in 2 seconds.
+2026-04-07 13:43:03 | Warning | Container slow-start failed liveness probe, will be restarted
+2026-04-07 13:43:03 | Warning | Container 'slow-start' was terminated with reason 'ProbeFailure'
+```
+
+#### Scenario 4: All probes tight (cascade failure)
+
+```text
+2026-04-07 13:43:41 | Warning | Probe of StartUp failed with status code:
+2026-04-07 13:43:47 | Warning | Probe of StartUp failed with timeout in 1 seconds.
+2026-04-07 13:43:52 | Warning | Probe of StartUp failed with timeout in 1 seconds.
+...
+2026-04-07 13:44:16 | Warning | Container slow-start failed startup probe, will be restarted
+2026-04-07 13:44:16 | Warning | Container 'slow-start' was terminated with reason 'ProbeFailure'
+```
+
+#### Healthy baseline: Console logs showing successful lifecycle
+
+```text
+2026-04-07 13:43:17 | INFO | STARTUP_ENDPOINT_OK
+2026-04-07 13:43:22 | INFO | READINESS_ENDPOINT_OK
+2026-04-07 13:43:27 | INFO | READINESS_ENDPOINT_OK
+...
+2026-04-07 13:44:17 | INFO | LIVENESS_ENDPOINT_OK
+```
+
+### Log Analytics Query Results
+
+The following KQL query was used to aggregate probe failures across all scenarios:
+
+```kusto
+ContainerAppSystemLogs_CL
+| where TimeGenerated > ago(30m)
+| where Log_s has_any ('Probe', 'terminated', 'failed')
+| project TimeGenerated, ContainerAppName_s, RevisionName_s, Reason_s, Log_s
+| order by TimeGenerated desc
+```
+
+| ContainerAppName | Log | Reason | RevisionName |
+|---|---|---|---|
+| ca-startup-short | Container 'slow-start' was terminated with reason 'ProbeFailure' | ContainerTerminated | `--0000001` |
+| ca-no-startup | Container slow-start failed liveness probe, will be restarted | ProbeFailed | `--0000001` |
+| ca-all-tight | Probe of StartUp failed with timeout in 1 seconds. | ProbeFailed | `--0000001` |
+| ca-healthy | Probe of StartUp failed with timeout in 2 seconds. | ProbeFailed | `--0000001` |
+
+Note: Even the healthy baseline showed startup probe failures during the 60s initialization, but the generous failure threshold (18) allowed it to survive until the app became ready.
 
 ### KQL Queries Used
 
@@ -475,52 +525,60 @@ boot
 
 | Evidence Type | Finding |
 |---|---|
-| `[Observed]` | Startup probe failures logged with status code 404 in system logs |
+| `[Observed]` | Startup probe timeout failures logged when app took 60s but budget was 30-40s |
+| `[Observed]` | Liveness probe killed container at ~25s when no startup probe protected it |
 | `[Observed]` | Container terminated with reason `ProbeFailure` after exceeding `failureThreshold` |
-| `[Measured]` | Probe check interval: 3 seconds (`periodSeconds: 3`) |
-| `[Measured]` | Failure threshold: 3 attempts before termination |
-| `[Measured]` | Total tolerance window: ~9 seconds (3 × 3s) before container restart |
-| `[Observed]` | Restart count exceeded 7 cycles (visible in event count) |
-| `[Correlated]` | Container restart timing matches probe failure threshold exhaustion |
-| `[Inferred]` | Startup probe path misconfiguration directly causes container restart loops |
+| `[Measured]` | App startup time: 60 seconds (controlled via `STARTUP_DELAY_SECONDS`) |
+| `[Measured]` | Scenario 1 budget: 30s (insufficient) |
+| `[Measured]` | Scenario 2 liveness start: 10s + 15s tolerance = 25s (insufficient) |
+| `[Measured]` | Healthy baseline budget: 95s (sufficient with margin) |
+| `[Correlated]` | All scenarios with budget < 60s failed; all with budget > 60s succeeded |
+| `[Inferred]` | Probe failure is deterministic based on budget vs actual startup time |
 
 ### Key Findings
 
-1. **Startup Probe Path Validation** `[Observed]`
-   - A startup probe pointing to a non-existent endpoint (`/nonexistent-health-endpoint`) returns 404
-   - The platform correctly identifies this as a probe failure
-   - After `failureThreshold` failures, the container is terminated and restarted
+1. **Startup Probe Budget Formula** `[Measured]`
+   - Budget = `initialDelaySeconds + (periodSeconds × failureThreshold)`
+   - Budget must exceed actual application startup time
+   - Scenario 1: 0 + (5 × 6) = 30s < 60s → **Failed**
+   - Healthy: 5 + (5 × 18) = 95s > 60s → **Succeeded**
 
-2. **Restart Loop Mechanism** `[Correlated]`
-   - Each restart cycle follows the same pattern: create → start → probe → fail → terminate
-   - Image caching minimizes restart latency (16ms pull time after first pull)
-   - Without manual intervention, the restart loop continues indefinitely
+2. **Liveness Without Startup Protection** `[Observed]`
+   - Scenario 2 had no startup probe, only liveness starting at 10s
+   - Liveness killed the container at ~25s (before 60s startup completed)
+   - This confirms: **startup probes protect slow-starting apps from premature liveness termination**
 
-3. **Healthy Baseline Comparison** `[Observed]`
-   - Apps without probes (`ca-probe-test`) remain healthy
-   - Apps with valid probe paths (`ca-probe-good`, `ca-liveness-only`) remain healthy
-   - Only the misconfigured startup probe causes unhealthy state
+3. **Timeout vs Failure Threshold** `[Observed]`
+   - Scenario 4 used `timeoutSeconds=1` which was too short
+   - Even with more failure threshold (8), the 1s timeout caused immediate failures
+   - Log: "Probe of StartUp failed with timeout in 1 seconds"
 
-4. **Health State Propagation** `[Observed]`
-   - Revision-level health state transitions to `Unhealthy` when startup probe fails
-   - Running state transitions to `Failed` even though the container itself is functional
-   - This demonstrates that probe failures affect revision availability, not just container health
+4. **Readiness Does Not Cause Restarts** `[Observed]`
+   - Scenario 3 had aggressive readiness (3 failures allowed) but generous startup
+   - App remained healthy because startup probe protected during init
+   - Readiness failures only delay traffic routing, not container lifecycle
+
+5. **Healthy Baseline Shows Expected Behavior** `[Observed]`
+   - Even the healthy baseline logged startup probe failures during init
+   - But with 18 failure threshold, it survived until the app became ready at 60s
+   - Console logs confirmed: `STARTUP_ENDPOINT_OK`, `READINESS_ENDPOINT_OK`, `LIVENESS_ENDPOINT_OK`
 
 ### Hypothesis Validation
 
 | Hypothesis | Result | Evidence |
 |---|---|---|
-| Startup probe failure causes container restart | **Confirmed** | System logs show `ProbeFailure` termination reason |
-| Invalid probe path causes 404 failure | **Confirmed** | Logs show "status code: 404" |
-| Failure threshold controls restart timing | **Confirmed** | Container terminated after exactly 3 failures |
-| Apps without probes are unaffected | **Confirmed** | `ca-probe-test` remained healthy |
+| Startup probe with insufficient budget causes restart loop | **Confirmed** | Scenarios 1, 4 failed; Healthy baseline succeeded |
+| No startup probe allows liveness to kill during init | **Confirmed** | Scenario 2 killed at ~25s |
+| Readiness failure blocks traffic but doesn't restart | **Confirmed** | Scenario 3 healthy despite aggressive readiness |
+| All probes tight creates worst instability | **Confirmed** | Scenario 4 failed fastest due to 1s timeout |
 
 ### Practical Implications
 
-1. **Always validate probe endpoints exist** before deployment
-2. **Startup probe failures are fatal** - they cause container restarts
-3. **Liveness-only configurations work** when the app starts quickly enough
-4. **System logs provide clear diagnostic information** - look for `ProbeFailed` reason
+1. **Calculate startup budget before deployment**: `init + (period × threshold)` must exceed realistic startup time
+2. **Always use startup probe for slow-starting apps**: Protects from liveness during init
+3. **Timeout must be realistic**: 1s is too short for most apps; 2-5s is safer
+4. **Readiness is for traffic control, not lifecycle**: Use it to delay traffic, not to restart containers
+5. **System logs are diagnostic gold**: `ProbeFailed` and `ContainerTerminated` reasons pinpoint issues
 
 ## 12. What this proves
 

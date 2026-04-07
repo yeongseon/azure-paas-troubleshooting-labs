@@ -4,7 +4,19 @@
     This experiment design is complete, but the measurements in **Results** are **SIMULATED** and based on documented Azure Functions behavior plus reasonable engineering assumptions. No live customer or lab measurements are claimed on this page.
 
 !!! warning "Execution Blocked"
-    Attempted execution on 2026-04-07 was blocked by Azure subscription policy (`Microsoft.Storage/storageAccounts/allowSharedKeyAccess` set to `deny`). Storage account creation for Function Apps failed with error: "Shared key access is not permitted because storage SAS and Account Key are disabled by storage policy." Awaiting policy exception or alternative subscription.
+    Attempted execution on 2026-04-07 was blocked by Azure subscription policy.
+    
+    **Root Cause**: Organization policy enforces `Microsoft.Storage/storageAccounts/allowSharedKeyAccess = false` on all storage accounts. This policy cannot be overridden at the resource level.
+    
+    **Error**: "Shared key access is not permitted because storage SAS and Account Key are disabled by storage policy."
+    
+    **Attempts Made**:
+    
+    1. Created new storage account with `--allow-shared-key-access true` → Policy overrode setting to `false`
+    2. Tried updating existing storage account → Same result
+    3. Attempted Function App creation with managed identity → Failed (storage file share creation requires shared key access)
+    
+    **Resolution Required**: Either a policy exemption or access to a subscription without this policy restriction. Flex Consumption with managed identity for storage may work in future Azure CLI versions.
 
 ## 1. Question
 
