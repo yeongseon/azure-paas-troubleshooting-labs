@@ -1,5 +1,9 @@
 # Memory Pressure on Shared App Service Plans
 
+!!! info "Status: Published"
+    Experiment completed with real data collected on 2026-04-02 from Azure App Service B1 (koreacentral).
+    Runtime comparison includes Flask/ZIP Deploy and Node.js/Custom Container variants.
+
 ## 1. Question
 
 When multiple applications share a single Azure App Service Plan and aggregate memory utilization climbs above 85%, what breaks first? Does steady-state request latency degrade, or do failures only appear during state transitions such as startup, restart, and scaling events? And does the Linux kernel's page reclaim machinery (kswapd, direct reclaim, swap I/O) impose a measurable CPU tax even when application code is idle?
