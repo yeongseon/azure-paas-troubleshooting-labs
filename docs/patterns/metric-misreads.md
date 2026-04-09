@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Common Metric Misreads
 
 Specific cases where Azure platform metrics are misinterpreted, leading to incorrect conclusions or misdirected troubleshooting.

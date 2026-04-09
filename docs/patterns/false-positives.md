@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # False Positives and Misleading Signals
 
 A catalog of situations where metrics or diagnostic signals suggest a problem that does not actually exist, or point to the wrong root cause. Recognizing these patterns prevents unnecessary escalation and misdirected remediation.

@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Azure PaaS Troubleshooting Labs
 
 Reproducible experiments for Azure App Service, Azure Functions, and Azure Container Apps.

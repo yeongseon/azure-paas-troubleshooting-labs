@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Evidence Levels
 
 A core differentiator of this repository is the explicit tagging of evidence levels. Every claim in an experiment is categorized by the strength of its supporting evidence.

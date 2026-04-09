@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Experiment Framework
 
 Every experiment in this repository follows a standardized structure. This consistency ensures that results are comparable, limits are stated, and readers can quickly locate the information they need.

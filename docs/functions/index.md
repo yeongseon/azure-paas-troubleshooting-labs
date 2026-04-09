@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Functions Labs
 
 Azure Functions troubleshooting experiments focused on cold start behavior, scaling edge cases, dependency visibility, and hosting model differences.

@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # About This Project
 
 ## Background

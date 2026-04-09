@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Symptom to Hypothesis Mapping
 
 A reference for common customer-reported symptoms and the hypotheses worth investigating first. This is not exhaustive — it is a structured starting point for investigation.

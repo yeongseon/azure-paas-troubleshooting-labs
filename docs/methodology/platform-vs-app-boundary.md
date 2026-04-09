@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Platform vs. Application Boundary
 
 In Azure PaaS, the platform (infrastructure managed by Azure) and the application (customer code and configuration) share responsibility for request processing. Effective troubleshooting requires identifying which layer is responsible for an observed behavior.

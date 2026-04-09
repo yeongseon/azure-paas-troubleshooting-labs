@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Interpretation Guidelines
 
 How to read experiment results, communicate findings, and avoid common reasoning errors.

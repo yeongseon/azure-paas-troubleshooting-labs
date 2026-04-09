@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Repository Setup Checklist
 
 This document tracks repository configuration tasks.

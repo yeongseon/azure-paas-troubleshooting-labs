@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # App Service Labs
 
 Azure App Service troubleshooting experiments focused on worker behavior, memory management, deployment patterns, and platform/application boundary interpretation.

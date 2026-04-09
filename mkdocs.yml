@@ -52,6 +52,8 @@ nav:
       - Symptom to Hypothesis: patterns/symptom-to-hypothesis.md
       - False Positives: patterns/false-positives.md
       - Metric Misreads: patterns/metric-misreads.md
+  - Reference:
+      - Validation Status: reference/validation-status.md
 
 markdown_extensions:
   - admonition

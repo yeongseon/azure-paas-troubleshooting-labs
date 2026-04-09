@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Container Apps Labs
 
 Azure Container Apps troubleshooting experiments focused on ingress behavior, networking edge cases, and container lifecycle management.

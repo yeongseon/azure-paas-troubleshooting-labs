@@ -1,3 +1,18 @@
+---
+hide:
+  - toc
+validation:
+  az_cli:
+    last_tested: null
+    result: not_tested
+  bicep:
+    last_tested: null
+    result: not_tested
+  terraform:
+    last_tested: null
+    result: not_tested
+---
+
 # Flex Consumption Storage Identity Edge Cases
 
 !!! info "Status: Planned"
