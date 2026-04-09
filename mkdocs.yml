@@ -19,6 +19,7 @@ nav:
   - Setup: repo-setup.md
   - Methodology:
       - Experiment Framework: methodology/experiment-framework.md
+      - Statistical Methods: methodology/statistical-methods.md
       - Evidence Levels: methodology/evidence-levels.md
       - Platform vs App Boundary: methodology/platform-vs-app-boundary.md
       - Interpretation Guidelines: methodology/interpretation-guidelines.md
@@ -26,6 +27,14 @@ nav:
       - Overview: app-service/index.md
       - Memory Pressure:
           - Overview: app-service/memory-pressure/overview.md
+      - SNAT Exhaustion:
+          - Overview: app-service/snat-exhaustion/overview.md
+      - Health Check Eviction:
+          - Overview: app-service/health-check-eviction/overview.md
+      - Filesystem Persistence:
+          - Overview: app-service/filesystem-persistence/overview.md
+      - Custom DNS Resolution:
+          - Overview: app-service/custom-dns-resolution/overview.md
       - procfs Interpretation:
           - Overview: app-service/procfs-interpretation/overview.md
       - Slow Requests:
@@ -34,6 +43,14 @@ nav:
           - Overview: app-service/zip-vs-container/overview.md
   - Functions:
       - Overview: functions/index.md
+      - Flex Router Queueing:
+          - Overview: functions/flex-router-queueing/overview.md
+      - HTTP Concurrency Cliffs:
+          - Overview: functions/http-concurrency-cliffs/overview.md
+      - Telemetry Auth Blackhole:
+          - Overview: functions/telemetry-auth-blackhole/overview.md
+      - Flex Site Update Strategy:
+          - Overview: functions/flex-site-update-strategy/overview.md
       - Flex Consumption Storage:
           - Overview: functions/flex-consumption-storage/overview.md
       - Cold Start:
@@ -42,6 +59,20 @@ nav:
           - Overview: functions/dependency-visibility/overview.md
   - Container Apps:
       - Overview: container-apps/index.md
+      - Scale-to-Zero 503:
+          - Overview: container-apps/scale-to-zero-502/overview.md
+      - Target Port Detection:
+          - Overview: container-apps/target-port-detection/overview.md
+      - OOM Visibility Gap:
+          - Overview: container-apps/oom-visibility-gap/overview.md
+  - Cross-cutting:
+      - Overview: cross-cutting/index.md
+      - MI RBAC Propagation:
+          - Overview: cross-cutting/mi-rbac-propagation/overview.md
+      - PE DNS Negative Cache:
+          - Overview: cross-cutting/pe-dns-negative-cache/overview.md
+      - Custom DNS Forwarding:
+          - Overview: container-apps/custom-dns-forwarding/overview.md
       - Ingress SNI / Host Header:
           - Overview: container-apps/ingress-sni-host-header/overview.md
       - Private Endpoint FQDN vs IP:

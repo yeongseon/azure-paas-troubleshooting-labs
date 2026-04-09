@@ -29,21 +29,38 @@ This is not a practical guide, not a tutorial, and not a Microsoft Learn replace
 ### App Service
 
 - **Memory Pressure** — plan-level degradation, swap thrashing, kernel page reclaim effects
+- **SNAT Exhaustion** — connection failures without CPU/memory pressure
+- **Health Check Eviction** — cascading outage from partial dependency failure
+- **Filesystem Persistence** — /home vs writable layer data survival across restarts
+- **Custom DNS Resolution** — private name resolution drift after VNet changes
 - **procfs Interpretation** — reliability and limits of /proc data inside Linux containers
 - **Slow Requests** — frontend timeout vs. worker-side delay vs. dependency latency
 - **Zip Deploy vs Container** — behavioral differences across deployment methods
 
 ### Functions
 
+- **Flex Router Queueing** — hidden latency between request arrival and function invocation
+- **HTTP Concurrency Cliffs** — per-instance degradation thresholds on Flex Consumption
+- **Telemetry Auth Blackhole** — monitoring misconfiguration preventing host startup
+- **Flex Site Update Strategy** — in-flight request behavior during deployment
 - **Flex Consumption Storage** — storage identity misconfiguration edge cases
 - **Cold Start** — dependency initialization, host startup sequence, cold start duration breakdown
 - **Dependency Visibility** — limitations of observing outbound dependency behavior through available telemetry
 
 ### Container Apps
 
+- **Scale-to-Zero 503/Timeout** — first-request failure modes after idle scale-down
+- **Target Port Detection** — auto-detection failures causing 502 on running containers
+- **OOM Visibility Gap** — observability gaps across metrics and logs for OOM kills
+- **Custom DNS Forwarding** — outbound resolution failure with unreachable custom DNS
 - **Ingress SNI / Host Header** — SNI and host header routing behavior, custom domain edge cases
 - **Private Endpoint FQDN vs IP** — behavioral differences between FQDN and direct IP access
 - **Startup Probes** — interaction between startup, readiness, and liveness probes
+
+### Cross-cutting Experiments
+
+- **Managed Identity RBAC Propagation** — role assignment delay and token cache interaction across services
+- **Private Endpoint DNS Negative Caching** — extended outages from DNS negative cache during PE cutover
 
 ### Cross-cutting Patterns
 
@@ -60,6 +77,8 @@ Each experiment follows a standardized structure:
 This structure enforces separation between observed facts and interpretation, and requires every experiment to state both what it proves and what it does not prove.
 
 See [Experiment Framework](docs/methodology/experiment-framework.md) for the full template.
+
+Performance experiments require repeated independent runs with statistical analysis. See [Statistical Methods](docs/methodology/statistical-methods.md) for the methodology.
 
 ## Evidence model
 

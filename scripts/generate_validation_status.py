@@ -21,15 +21,29 @@ STALENESS_DAYS = 90
 
 EXPERIMENT_PATHS = [
     ("App Service", "Memory Pressure", "app-service/memory-pressure/overview.md"),
+    ("App Service", "SNAT Exhaustion", "app-service/snat-exhaustion/overview.md"),
+    ("App Service", "Health Check Eviction", "app-service/health-check-eviction/overview.md"),
+    ("App Service", "Filesystem Persistence", "app-service/filesystem-persistence/overview.md"),
+    ("App Service", "Custom DNS Resolution", "app-service/custom-dns-resolution/overview.md"),
     ("App Service", "procfs Interpretation", "app-service/procfs-interpretation/overview.md"),
     ("App Service", "Slow Requests", "app-service/slow-requests/overview.md"),
     ("App Service", "Zip vs Container", "app-service/zip-vs-container/overview.md"),
+    ("Functions", "Flex Router Queueing", "functions/flex-router-queueing/overview.md"),
+    ("Functions", "HTTP Concurrency Cliffs", "functions/http-concurrency-cliffs/overview.md"),
+    ("Functions", "Telemetry Auth Blackhole", "functions/telemetry-auth-blackhole/overview.md"),
+    ("Functions", "Flex Site Update Strategy", "functions/flex-site-update-strategy/overview.md"),
     ("Functions", "Flex Consumption Storage", "functions/flex-consumption-storage/overview.md"),
     ("Functions", "Cold Start", "functions/cold-start/overview.md"),
     ("Functions", "Dependency Visibility", "functions/dependency-visibility/overview.md"),
+    ("Container Apps", "Scale-to-Zero 503", "container-apps/scale-to-zero-502/overview.md"),
+    ("Container Apps", "Target Port Detection", "container-apps/target-port-detection/overview.md"),
+    ("Container Apps", "OOM Visibility Gap", "container-apps/oom-visibility-gap/overview.md"),
+    ("Container Apps", "Custom DNS Forwarding", "container-apps/custom-dns-forwarding/overview.md"),
     ("Container Apps", "Ingress SNI / Host Header", "container-apps/ingress-sni-host-header/overview.md"),
     ("Container Apps", "Private Endpoint FQDN vs IP", "container-apps/private-endpoint-fqdn-vs-ip/overview.md"),
     ("Container Apps", "Startup Probes", "container-apps/startup-probes/overview.md"),
+    ("Cross-cutting", "MI RBAC Propagation", "cross-cutting/mi-rbac-propagation/overview.md"),
+    ("Cross-cutting", "PE DNS Negative Cache", "cross-cutting/pe-dns-negative-cache/overview.md"),
 ]
 
 VALIDATION_METHODS = ["az_cli", "bicep", "terraform"]
