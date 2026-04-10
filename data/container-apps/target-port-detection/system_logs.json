@@ -1,0 +1,8 @@
+[
+  {"TimeStamp": "2026-04-10T13:52:54.3700965+00:00", "Type": "Normal", "RevisionName": "ca-port-test--1js43tj", "ReplicaName": "ca-port-test--1js43tj-64478c59b8-7txnt", "Msg": "Created container 'ca-port-test'", "Reason": "ContainerCreated"},
+  {"TimeStamp": "2026-04-10T13:52:54.3795635+00:00", "Type": "Normal", "RevisionName": "ca-port-test--1js43tj", "ReplicaName": "ca-port-test--1js43tj-64478c59b8-7txnt", "Msg": "Started container 'ca-port-test'", "Reason": "ContainerStarted"},
+  {"TimeStamp": "2026-04-10T13:52:54.4410302+00:00", "Type": "Warning", "RevisionName": "ca-port-test--1js43tj", "ReplicaName": "ca-port-test--1js43tj-7d8f95b58d-5dfnr", "Msg": "Probe of StartUp failed with status code: 1", "Reason": "ProbeFailed", "Count": 177},
+  {"TimeStamp": "2026-04-10T13:52:55.4387019+00:00", "Type": "Warning", "RevisionName": "ca-port-test--1js43tj", "ReplicaName": "ca-port-test--1js43tj-7d8f95b58d-5dfnr", "Msg": "Probe of StartUp failed with status code: 1", "Reason": "ProbeFailed", "Count": 178},
+  {"TimeStamp": "2026-04-10T13:53:07.692665+00:00", "Type": "Warning", "RevisionName": "ca-port-test--1js43tj", "ReplicaName": "ca-port-test--1js43tj-7d8f95b58d-5dfnr", "Msg": "Container 'ca-port-test' was terminated with exit code '' and reason 'ManuallyStopped'", "Reason": "ContainerTerminated", "Count": 1},
+  {"note": "Between count 177 and termination, probe failure count reached 190 — approximately 190 failed startup probes at 1/second while targetPort was set to 80 but app listened on 8080"}
+]

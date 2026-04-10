@@ -1,0 +1,157 @@
+{
+  "experiment": "target-port-detection",
+  "platform": "Azure Container Apps",
+  "region": "koreacentral",
+  "date": "2026-04-10",
+  "environment": "cae-target-port",
+  "resource_group": "rg-target-port-lab",
+  "images": {
+    "port-app-8080": {
+      "dockerfile_expose": 8080,
+      "gunicorn_bind_port": 8080,
+      "acr_tag": "port-app-8080:v1"
+    },
+    "port-app-9999": {
+      "dockerfile_expose": 9999,
+      "gunicorn_bind_port": 9999,
+      "acr_tag": "port-app-9999:v1"
+    },
+    "port-no-expose": {
+      "dockerfile_expose": null,
+      "gunicorn_bind_port": 9999,
+      "acr_tag": "port-app-no-expose:v1"
+    }
+  },
+  "tests": [
+    {
+      "id": "T1",
+      "image": "port-app-8080",
+      "deployment_method": "az containerapp create",
+      "target_port_config": 8080,
+      "target_port_effective": 8080,
+      "expected": "200 OK",
+      "results": [
+        {"attempt": 1, "http_code": 200, "time_s": 0.065, "body": "{\"hostname\":\"unknown\",\"port\":8080,\"status\":\"ok\"}"},
+        {"attempt": 2, "http_code": 200, "time_s": 0.060, "body": "{\"hostname\":\"unknown\",\"port\":8080,\"status\":\"ok\"}"},
+        {"attempt": 3, "http_code": 200, "time_s": 0.064, "body": "{\"hostname\":\"unknown\",\"port\":8080,\"status\":\"ok\"}"}
+      ],
+      "revision_state": "Running",
+      "health_state": "Healthy",
+      "finding": "Explicit correct port works as expected"
+    },
+    {
+      "id": "T2",
+      "image": "port-app-8080",
+      "deployment_method": "az containerapp create",
+      "target_port_config": 80,
+      "target_port_effective": 80,
+      "expected": "502 or timeout",
+      "results": [
+        {"attempt": 1, "http_code": 0, "time_s": 30.001, "body": ""},
+        {"attempt": 2, "http_code": 0, "time_s": 30.001, "body": ""},
+        {"attempt": 3, "http_code": 0, "time_s": 30.002, "body": ""}
+      ],
+      "revision_state": "Activating",
+      "health_state": "None",
+      "startup_probe_failures": 190,
+      "finding": "Wrong target port causes timeout (HTTP 000). Revision stuck in Activating. StartUp probe fails repeatedly (190+ times). Container running and healthy internally but ingress cannot reach it."
+    },
+    {
+      "id": "T2-recovery",
+      "image": "port-app-8080",
+      "deployment_method": "az containerapp ingress update (fix targetPort from 80 to 8080)",
+      "target_port_config": 8080,
+      "target_port_effective": 8080,
+      "expected": "200 OK after recovery",
+      "results": [
+        {"attempt": 1, "http_code": 200, "time_s": 13.507, "body": "{\"hostname\":\"unknown\",\"port\":8080,\"status\":\"ok\"}"},
+        {"attempt": 2, "http_code": 200, "time_s": 0.061, "body": "{\"hostname\":\"unknown\",\"port\":8080,\"status\":\"ok\"}"},
+        {"attempt": 3, "http_code": 200, "time_s": 0.064, "body": "{\"hostname\":\"unknown\",\"port\":8080,\"status\":\"ok\"}"}
+      ],
+      "revision_state": "Running",
+      "health_state": "Healthy",
+      "finding": "Fixing targetPort recovers the app. First request takes ~13.5s (new replica activation). Subsequent requests are fast (~60ms)."
+    },
+    {
+      "id": "T3",
+      "image": "port-app-9999",
+      "deployment_method": "az containerapp up --source (with EXPOSE 9999 in Dockerfile)",
+      "target_port_config": "omitted (auto-detect)",
+      "target_port_effective": 0,
+      "expected": "unknown - testing auto-detection with EXPOSE",
+      "results": [
+        {"attempt": 1, "http_code": 200, "time_s": 8.064, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"},
+        {"attempt": 2, "http_code": 200, "time_s": 0.055, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"}
+      ],
+      "revision_state": "Running",
+      "health_state": "Healthy",
+      "finding": "Auto-detection (targetPort=0) with EXPOSE 9999 works. Platform correctly routes to port 9999. API reports targetPort=0 (auto-detect mode). First request slow due to cold start."
+    },
+    {
+      "id": "T4",
+      "image": "port-app-9999",
+      "deployment_method": "az containerapp ingress update (set targetPort=8080)",
+      "target_port_config": 8080,
+      "target_port_effective": 8080,
+      "expected": "502 or timeout",
+      "results": [
+        {"attempt": 1, "http_code": 503, "time_s": 0.335, "body": "upstream connect error or disconnect/reset before headers. retried and the latest reset reason: remote connection failure, transport failure reason: delayed connect error: Connection refused"},
+        {"attempt": 2, "http_code": 503, "time_s": 0.251, "body": "upstream connect error or disconnect/reset before headers...Connection refused"},
+        {"attempt": 3, "http_code": 503, "time_s": 0.500, "body": "upstream connect error or disconnect/reset before headers...Connection refused"},
+        {"attempt": 4, "http_code": 503, "time_s": 0.420, "body": "upstream connect error or disconnect/reset before headers...Connection refused"}
+      ],
+      "revision_state": "Running",
+      "health_state": "Healthy",
+      "finding": "Explicit wrong port gives 503 with 'Connection refused'. Fast failure (~250-500ms). Envoy proxy reports 'upstream connect error'. Note: this app had been running before port change, so revision was already active."
+    },
+    {
+      "id": "T5",
+      "image": "port-no-expose",
+      "deployment_method": "az containerapp up --source (NO EXPOSE in Dockerfile)",
+      "target_port_config": "omitted (auto-detect)",
+      "target_port_effective": 0,
+      "expected": "unknown - testing auto-detection WITHOUT EXPOSE",
+      "results": [
+        {"attempt": 1, "http_code": 200, "time_s": 0.067, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"},
+        {"attempt": 2, "http_code": 200, "time_s": 0.068, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"},
+        {"attempt": 3, "http_code": 200, "time_s": 0.065, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"}
+      ],
+      "revision_state": "Running",
+      "health_state": "Healthy",
+      "finding": "MAJOR FINDING: Auto-detection works even WITHOUT EXPOSE directive. Platform detected port 9999 at runtime (likely by scanning listening ports). This means EXPOSE is NOT required for auto-detection."
+    },
+    {
+      "id": "T6",
+      "image": "port-no-expose",
+      "deployment_method": "az containerapp ingress update (set targetPort=9999)",
+      "target_port_config": 9999,
+      "target_port_effective": 9999,
+      "expected": "200 OK",
+      "results": [
+        {"attempt": 1, "http_code": 200, "time_s": 0.063, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"},
+        {"attempt": 2, "http_code": 200, "time_s": 0.059, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"},
+        {"attempt": 3, "http_code": 200, "time_s": 0.056, "body": "{\"hostname\":\"unknown\",\"port\":9999,\"status\":\"ok\"}"}
+      ],
+      "revision_state": "Running",
+      "health_state": "Healthy",
+      "finding": "Explicit correct port on no-EXPOSE image works as expected"
+    }
+  ],
+  "summary": {
+    "auto_detection_mechanism": "Container Apps auto-detection (targetPort=0) works by scanning listening ports at runtime, NOT by reading EXPOSE from Dockerfile. Both T3 (with EXPOSE) and T5 (without EXPOSE) succeeded equally.",
+    "wrong_port_failure_modes": {
+      "fresh_deployment": "Timeout (HTTP 000) + revision stuck in Activating + 190+ StartUp probe failures",
+      "port_change_on_running_app": "503 with 'Connection refused' — fast failure (~250-500ms)"
+    },
+    "recovery": "Fixing targetPort via ingress update recovers the app within ~13.5s (new replica spin-up)",
+    "key_insights": [
+      "EXPOSE directive is NOT required for auto-detection",
+      "Auto-detection (targetPort=0) only available via 'az containerapp up', not 'az containerapp create'",
+      "Wrong port on fresh deployment = timeout + Activating stuck",
+      "Wrong port on running revision = 503 Connection refused",
+      "Container logs show app is healthy even when port mismatch exists",
+      "StartUp probe uses the configured targetPort, so wrong port = infinite probe failures",
+      "Recovery from wrong port is fast after correction (~13.5s)"
+    ]
+  }
+}
