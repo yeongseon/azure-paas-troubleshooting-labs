@@ -1,0 +1,49 @@
+{
+  "experiment": "oom-visibility-gap",
+  "metrics_query_time": "2026-04-10T14:20:00Z",
+  "working_set_bytes": {
+    "metric": "WorkingSetBytes",
+    "interval": "PT1M",
+    "unit": "MB (converted from bytes)",
+    "data": [
+      {"timestamp": "2026-04-10T14:08:00Z", "average_mb": 202.9, "note": "Run 1 gradual OOM — avg misses ~496MB peak"},
+      {"timestamp": "2026-04-10T14:09:00Z", "average_mb": 33.9, "note": "Post-OOM baseline"},
+      {"timestamp": "2026-04-10T14:10:00Z", "average_mb": 33.9},
+      {"timestamp": "2026-04-10T14:11:00Z", "average_mb": 33.9},
+      {"timestamp": "2026-04-10T14:12:00Z", "average_mb": 33.9},
+      {"timestamp": "2026-04-10T14:13:00Z", "average_mb": 33.9},
+      {"timestamp": "2026-04-10T14:14:00Z", "average_mb": 34.0, "note": "Runs 2-3 started"},
+      {"timestamp": "2026-04-10T14:15:00Z", "average_mb": 113.8, "note": "Runs 3-5 — multiple OOMs, avg blended"},
+      {"timestamp": "2026-04-10T14:16:00Z", "average_mb": 35.0, "note": "Post-OOM baseline"}
+    ]
+  },
+  "restart_count": {
+    "metric": "RestartCount",
+    "interval": "PT1M",
+    "data": [
+      {"timestamp": "2026-04-10T14:10:00Z", "maximum": 1.0, "note": "First OOM at 14:07 — 3min reporting delay"},
+      {"timestamp": "2026-04-10T14:15:00Z", "maximum": 1.0, "note": "Multiple OOMs in 14:14-14:15 — still shows max=1"}
+    ],
+    "key_finding": "RestartCount shows '1' even after 5+ OOM kills. The metric tracks container restarts, not worker restarts. Since gunicorn absorbed the OOM internally, container never actually restarted."
+  },
+  "replica_api": {
+    "restartCount": 0,
+    "runningState": "Running",
+    "startedAt": "2026-04-10T14:06:53Z",
+    "note": "Container start time unchanged after all 5 OOM kills — proves the container itself never restarted"
+  },
+  "system_logs": {
+    "total_events_after_initial_creation": 0,
+    "oom_events": 0,
+    "exit_code_137_events": 0,
+    "container_terminated_events": 0,
+    "key_finding": "ZERO system log entries after 14:06:53Z despite 5 OOM kills. ContainerAppSystemLogs_CL captured initial deployment only."
+  },
+  "console_logs": {
+    "sigkill_messages_captured": true,
+    "total_sigkill_messages": 9,
+    "message_format": "[ERROR] Worker (pid:N) was sent SIGKILL! Perhaps out of memory?",
+    "source": "gunicorn master process logging to stdout",
+    "key_finding": "Console logs are the ONLY place where OOM evidence exists. The gunicorn master process logs SIGKILL, but this is application-level logging — not platform-level."
+  }
+}

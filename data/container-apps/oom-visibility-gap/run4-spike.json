@@ -1,0 +1,46 @@
+{
+  "experiment": "oom-visibility-gap",
+  "run": 4,
+  "variant": "spike",
+  "parameters": {
+    "spike_mb": 500,
+    "container_memory_limit": "0.5Gi",
+    "container_cpu": "0.25 vCPU"
+  },
+  "timeline": {
+    "spike_triggered": "2026-04-10T14:15:06Z",
+    "client_error_received": "2026-04-10T14:15:07Z",
+    "new_worker_confirmed": "2026-04-10T14:15:18Z"
+  },
+  "spike_data": {
+    "before_state": {
+      "pid": 37,
+      "allocated_mb": 0.0,
+      "vmrss_mb": 32.14
+    },
+    "after_state": {
+      "pid": 56,
+      "allocated_mb": 0.0,
+      "vmrss_mb": 32.06,
+      "recovery_time_seconds": 3
+    }
+  },
+  "oom_event": {
+    "client_error": "upstream connect error or disconnect/reset before headers. retried and the latest reset reason: connection termination",
+    "gunicorn_log_sequence": [
+      "[2026-04-10 14:15:07 +0000] [1] [ERROR] Worker (pid:37) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:15:07 +0000] [40] [INFO] Booting worker with pid: 40",
+      "[2026-04-10 14:15:09 +0000] [1] [ERROR] Worker (pid:40) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:15:09 +0000] [43] [INFO] Booting worker with pid: 43",
+      "[2026-04-10 14:15:10 +0000] [1] [ERROR] Worker (pid:43) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:15:10 +0000] [47] [INFO] Booting worker with pid: 47",
+      "[2026-04-10 14:15:12 +0000] [1] [ERROR] Worker (pid:47) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:15:12 +0000] [50] [INFO] Booting worker with pid: 50",
+      "[2026-04-10 14:15:13 +0000] [1] [ERROR] Worker (pid:50) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:15:13 +0000] [53] [INFO] Booting worker with pid: 53",
+      "[2026-04-10 14:15:15 +0000] [1] [ERROR] Worker (pid:53) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:15:15 +0000] [56] [INFO] Booting worker with pid: 56"
+    ],
+    "total_workers_killed": 6
+  }
+}

@@ -35,7 +35,7 @@ This dashboard tracks when each experiment was last validated against a real Azu
 | [Dependency Visibility](../functions/dependency-visibility/overview.md) | Functions | Planned | ➖ | ➖ | ➖ | — | Not tested |
 | [Scale-to-Zero 503](../container-apps/scale-to-zero-502/overview.md) | Container Apps | Published | ➖ | ➖ | ➖ | — | Not tested |
 | [Target Port Detection](../container-apps/target-port-detection/overview.md) | Container Apps | Published | ➖ | ➖ | ➖ | — | Not tested |
-| [OOM Visibility Gap](../container-apps/oom-visibility-gap/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
+| [OOM Visibility Gap](../container-apps/oom-visibility-gap/overview.md) | Container Apps | Published | ➖ | ➖ | ➖ | — | Not tested |
 | [Custom DNS Forwarding](../container-apps/custom-dns-forwarding/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
 | [Ingress SNI / Host Header](../container-apps/ingress-sni-host-header/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
 | [Private Endpoint FQDN vs IP](../container-apps/private-endpoint-fqdn-vs-ip/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
@@ -48,9 +48,9 @@ This dashboard tracks when each experiment was last validated against a real Azu
 | Metric | Count |
 |---|---|
 | Total experiments | 24 |
-| Published | 6 |
+| Published | 7 |
 | Draft | 1 |
-| Planned | 16 |
+| Planned | 15 |
 | Tested (any method) | 0 |
 | Stale (>90d) | 0 |
 

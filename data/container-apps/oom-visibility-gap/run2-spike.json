@@ -1,0 +1,53 @@
+{
+  "experiment": "oom-visibility-gap",
+  "run": 2,
+  "variant": "spike",
+  "parameters": {
+    "spike_mb": 500,
+    "container_memory_limit": "0.5Gi",
+    "container_cpu": "0.25 vCPU"
+  },
+  "timeline": {
+    "spike_triggered": "2026-04-10T14:14:06Z",
+    "client_error_received": "2026-04-10T14:14:07Z",
+    "new_worker_confirmed": "2026-04-10T14:14:09Z"
+  },
+  "spike_data": {
+    "before_state": {
+      "pid": 12,
+      "allocated_mb": 0.0,
+      "vmrss_mb": 32.21
+    },
+    "after_state": {
+      "pid": 32,
+      "allocated_mb": 0.0,
+      "vmrss_mb": 32.06,
+      "recovery_time_seconds": 3
+    }
+  },
+  "oom_event": {
+    "client_error": "upstream connect error or disconnect/reset before headers. retried and the latest reset reason: connection termination",
+    "gunicorn_log_sequence": [
+      "[2026-04-10 14:14:07 +0000] [1] [ERROR] Worker (pid:12) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:14:07 +0000] [16] [INFO] Booting worker with pid: 16",
+      "[2026-04-10 14:14:08 +0000] [1] [ERROR] Worker (pid:16) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:14:08 +0000] [19] [INFO] Booting worker with pid: 19",
+      "[2026-04-10 14:14:10 +0000] [1] [ERROR] Worker (pid:19) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:14:10 +0000] [22] [INFO] Booting worker with pid: 22",
+      "[2026-04-10 14:14:12 +0000] [1] [ERROR] Worker (pid:22) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:14:12 +0000] [26] [INFO] Booting worker with pid: 26",
+      "[2026-04-10 14:14:13 +0000] [1] [ERROR] Worker (pid:26) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:14:13 +0000] [29] [INFO] Booting worker with pid: 29",
+      "[2026-04-10 14:14:15 +0000] [1] [ERROR] Worker (pid:29) was sent SIGKILL! Perhaps out of memory?",
+      "[2026-04-10 14:14:15 +0000] [32] [INFO] Booting worker with pid: 32"
+    ],
+    "total_workers_killed": 6,
+    "note": "Gunicorn's HTTP request queuing caused multiple new workers to inherit the pending spike request, creating a kill-restart loop until the request timed out"
+  },
+  "observability_evidence": {
+    "system_logs_oom_event": false,
+    "console_logs_sigkill": true,
+    "client_saw_error": true,
+    "client_error_type": "upstream connect error / connection termination"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "experiment": "oom-visibility-gap",
+  "run": 1,
+  "variant": "gradual",
+  "parameters": {
+    "chunk_mb": 16,
+    "pause_seconds": 0.5,
+    "target_mb": 600,
+    "container_memory_limit": "0.5Gi",
+    "container_cpu": "0.25 vCPU"
+  },
+  "timeline": {
+    "container_created": "2026-04-10T14:06:53Z",
+    "allocation_started": "2026-04-10T14:07:37Z",
+    "last_successful_log": "2026-04-10T14:07:51Z",
+    "oom_kill_estimated": "2026-04-10T14:07:51Z",
+    "new_worker_booted": "2026-04-10T14:07:51Z"
+  },
+  "allocation_progression": [
+    {"time": "14:07:37", "allocated_mb": 16, "rss_mb": 47.94},
+    {"time": "14:07:37", "allocated_mb": 32, "rss_mb": 63.96},
+    {"time": "14:07:38", "allocated_mb": 48, "rss_mb": 79.96},
+    {"time": "14:07:38", "allocated_mb": 64, "rss_mb": 95.96},
+    {"time": "14:07:39", "allocated_mb": 80, "rss_mb": 111.97},
+    {"time": "14:07:39", "allocated_mb": 96, "rss_mb": 127.97},
+    {"time": "14:07:40", "allocated_mb": 112, "rss_mb": 143.98},
+    {"time": "14:07:40", "allocated_mb": 128, "rss_mb": 159.98},
+    {"time": "14:07:41", "allocated_mb": 144, "rss_mb": 175.98},
+    {"time": "14:07:41", "allocated_mb": 160, "rss_mb": 191.99},
+    {"time": "14:07:42", "allocated_mb": 176, "rss_mb": 207.99},
+    {"time": "14:07:42", "allocated_mb": 192, "rss_mb": 224.0},
+    {"time": "14:07:43", "allocated_mb": 208, "rss_mb": 240.0},
+    {"time": "14:07:44", "allocated_mb": 224, "rss_mb": 256.0},
+    {"time": "14:07:44", "allocated_mb": 240, "rss_mb": 272.01},
+    {"time": "14:07:45", "allocated_mb": 256, "rss_mb": 288.01},
+    {"time": "14:07:45", "allocated_mb": 272, "rss_mb": 304.02},
+    {"time": "14:07:46", "allocated_mb": 288, "rss_mb": 320.02},
+    {"time": "14:07:46", "allocated_mb": 304, "rss_mb": 336.02},
+    {"time": "14:07:47", "allocated_mb": 320, "rss_mb": 352.03},
+    {"time": "14:07:47", "allocated_mb": 336, "rss_mb": 368.03},
+    {"time": "14:07:48", "allocated_mb": 352, "rss_mb": 384.04},
+    {"time": "14:07:48", "allocated_mb": 368, "rss_mb": 400.05},
+    {"time": "14:07:49", "allocated_mb": 384, "rss_mb": 416.05},
+    {"time": "14:07:49", "allocated_mb": 400, "rss_mb": 432.06},
+    {"time": "14:07:50", "allocated_mb": 416, "rss_mb": 448.06},
+    {"time": "14:07:50", "allocated_mb": 432, "rss_mb": 464.07},
+    {"time": "14:07:51", "allocated_mb": 448, "rss_mb": 480.07},
+    {"time": "14:07:51", "allocated_mb": 464, "rss_mb": 496.08}
+  ],
+  "oom_event": {
+    "last_allocated_mb": 464,
+    "last_rss_mb": 496.08,
+    "gunicorn_log": "[2026-04-10 14:07:51 +0000] [1] [ERROR] Worker (pid:7) was sent SIGKILL! Perhaps out of memory?",
+    "killed_worker_pid": 7,
+    "replacement_worker_pid": 12,
+    "client_error": null,
+    "client_response_during_oom": "health endpoint still responsive (separate thread)"
+  },
+  "observability_evidence": {
+    "system_logs_oom_event": false,
+    "system_logs_exit_code_137": false,
+    "system_logs_container_terminated": false,
+    "console_logs_sigkill": true,
+    "console_logs_message": "Worker (pid:7) was sent SIGKILL! Perhaps out of memory?",
+    "azure_monitor_working_set_peak": "202.9MB (1-min avg, not peak ~496MB)",
+    "azure_monitor_restart_count": "1.0 (appeared at 14:10, ~2-3min delay)",
+    "replica_api_restart_count": 0,
+    "replica_api_start_time": "2026-04-10T14:06:53Z (unchanged — gunicorn restart, not container restart)"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "experiment": "oom-visibility-gap",
+  "run": 3,
+  "variant": "gradual",
+  "parameters": {
+    "chunk_mb": 16,
+    "pause_seconds": 0.5,
+    "target_mb": 600,
+    "container_memory_limit": "0.5Gi",
+    "container_cpu": "0.25 vCPU"
+  },
+  "timeline": {
+    "allocation_started": "2026-04-10T14:14:42Z",
+    "last_poll_before_oom": "2026-04-10T14:14:54Z",
+    "first_poll_after_oom": "2026-04-10T14:14:57Z",
+    "oom_kill_estimated": "2026-04-10T14:14:56Z"
+  },
+  "allocation_progression_polls": [
+    {"time": "14:14:44", "allocated_mb": 80.0, "rss_mb": 112.25},
+    {"time": "14:14:46", "allocated_mb": 144.0, "rss_mb": 176.27},
+    {"time": "14:14:48", "allocated_mb": 208.0, "rss_mb": 240.29},
+    {"time": "14:14:50", "allocated_mb": 272.0, "rss_mb": 304.30},
+    {"time": "14:14:52", "allocated_mb": 352.0, "rss_mb": 384.32},
+    {"time": "14:14:54", "allocated_mb": 416.0, "rss_mb": 448.34},
+    {"time": "14:14:57", "allocated_mb": 0.0, "rss_mb": 32.04, "note": "new worker pid 37"}
+  ],
+  "console_log_last_entries": [
+    "[OOM-TEST] Allocated 448MB | RSS=480.36MB",
+    "[OOM-TEST] Allocated 464MB | RSS=496.36MB",
+    "[2026-04-10 14:14:56 +0000] [1] [ERROR] Worker (pid:32) was sent SIGKILL! Perhaps out of memory?",
+    "[2026-04-10 14:14:56 +0000] [37] [INFO] Booting worker with pid: 37"
+  ],
+  "oom_event": {
+    "last_allocated_mb": 464,
+    "last_rss_mb": 496.36,
+    "killed_worker_pid": 32,
+    "replacement_worker_pid": 37,
+    "client_error": null,
+    "health_endpoint_responsive": true
+  }
+}
