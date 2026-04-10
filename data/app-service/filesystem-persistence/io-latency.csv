@@ -1,0 +1,7 @@
+instance_id,location,write_median_ms,write_min_ms,write_max_ms,read_median_ms,read_min_ms,read_max_ms,payload_bytes,iterations
+ede6ac899250,/home/data,62.309,45.084,110.961,0.018,0.017,1.950,4096,10
+ede6ac899250,/tmp/data,0.353,0.315,1.324,0.018,0.017,0.045,4096,10
+ede6ac899250,/var/local/data,0.332,0.302,0.787,0.018,0.017,0.041,4096,10
+2ebaea0b253f,/home/data,154.775,87.886,199.168,0.052,0.040,35.138,4096,10
+2ebaea0b253f,/tmp/data,11.777,1.209,29.420,0.041,0.038,0.162,4096,10
+2ebaea0b253f,/var/local/data,19.866,2.858,40.267,0.030,0.029,0.090,4096,10

@@ -1,0 +1,34 @@
+experiment: filesystem-persistence
+date: "2026-04-10"
+environment:
+  service: "App Service"
+  sku: "B1"
+  region: "koreacentral"
+  runtime: "Python 3.11.14"
+  os: "Linux"
+  plan_name: "plan-fs-persistence"
+  app_name: "app-fs-persistence-lab"
+  resource_group: "rg-fs-persistence-lab"
+experiment_type: config
+test_locations:
+  - "/home/data"
+  - "/tmp/data"
+  - "/var/local/data"
+mount_info:
+  home:
+    type: "cifs"
+    source: "//10.1.160.32/volume-18-default"
+    size: "10G"
+    options: "rw,relatime,vers=3.1.1,cache=strict"
+  overlay:
+    type: "overlay"
+    size: "35G"
+    used: "20G"
+    available: "15G"
+instances:
+  instance_1:
+    id: "ede6ac899250351f121af301f8cfdda599577ea7a3275b53dfff74ad3ff0f869"
+    zone: "koreacentral-az3"
+  instance_2:
+    id: "2ebaea0b253f5165daf3ffe9d2db6809fcf8714ea592cf11b0c7e00709509b10"
+    zone: "koreacentral-az2"
