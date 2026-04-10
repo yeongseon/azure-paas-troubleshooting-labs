@@ -33,7 +33,7 @@ This dashboard tracks when each experiment was last validated against a real Azu
 | [Flex Consumption Storage](../functions/flex-consumption-storage/overview.md) | Functions | Planned | ➖ | ➖ | ➖ | — | Not tested |
 | [Cold Start](../functions/cold-start/overview.md) | Functions | Draft | ➖ | ➖ | ➖ | — | Not tested |
 | [Dependency Visibility](../functions/dependency-visibility/overview.md) | Functions | Planned | ➖ | ➖ | ➖ | — | Not tested |
-| [Scale-to-Zero 503](../container-apps/scale-to-zero-502/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
+| [Scale-to-Zero 503](../container-apps/scale-to-zero-502/overview.md) | Container Apps | Published | ➖ | ➖ | ➖ | — | Not tested |
 | [Target Port Detection](../container-apps/target-port-detection/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
 | [OOM Visibility Gap](../container-apps/oom-visibility-gap/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
 | [Custom DNS Forwarding](../container-apps/custom-dns-forwarding/overview.md) | Container Apps | Planned | ➖ | ➖ | ➖ | — | Not tested |
@@ -48,9 +48,9 @@ This dashboard tracks when each experiment was last validated against a real Azu
 | Metric | Count |
 |---|---|
 | Total experiments | 24 |
-| Published | 4 |
+| Published | 5 |
 | Draft | 1 |
-| Planned | 18 |
+| Planned | 17 |
 | Tested (any method) | 0 |
 | Stale (>90d) | 0 |
 

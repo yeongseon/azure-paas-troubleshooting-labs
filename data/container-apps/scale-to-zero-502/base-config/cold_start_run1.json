@@ -1,0 +1,73 @@
+{
+  "run": 1,
+  "zero_confirmed_utc": "2026-04-10T12:48:33.749764+00:00",
+  "replicas_before": 0,
+  "replicas_after": 1,
+  "cold_request": {
+    "status_code": 200,
+    "latency_seconds": 20.939,
+    "request_utc": "2026-04-10T12:48:33.750816+00:00",
+    "response_body": {
+      "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+      "container_app_name": "ca-scale-zero",
+      "container_app_revision": "ca-scale-zero--2jez9z2",
+      "hostname": "unknown",
+      "request_number": 1,
+      "response_utc": "2026-04-10T12:48:54.679470+00:00",
+      "status": "ok",
+      "uptime_seconds": 1.777
+    },
+    "error": null
+  },
+  "warm_requests": [
+    {
+      "status_code": 200,
+      "latency_seconds": 0.019,
+      "request_utc": "2026-04-10T12:48:55.691649+00:00",
+      "response_body": {
+        "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+        "container_app_name": "ca-scale-zero",
+        "container_app_revision": "ca-scale-zero--2jez9z2",
+        "hostname": "unknown",
+        "request_number": 2,
+        "response_utc": "2026-04-10T12:48:55.700842+00:00",
+        "status": "ok",
+        "uptime_seconds": 2.799
+      },
+      "error": null
+    },
+    {
+      "status_code": 200,
+      "latency_seconds": 0.027,
+      "request_utc": "2026-04-10T12:48:56.713474+00:00",
+      "response_body": {
+        "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+        "container_app_name": "ca-scale-zero",
+        "container_app_revision": "ca-scale-zero--2jez9z2",
+        "hostname": "unknown",
+        "request_number": 3,
+        "response_utc": "2026-04-10T12:48:56.730535+00:00",
+        "status": "ok",
+        "uptime_seconds": 3.828
+      },
+      "error": null
+    },
+    {
+      "status_code": 200,
+      "latency_seconds": 0.022,
+      "request_utc": "2026-04-10T12:48:57.742045+00:00",
+      "response_body": {
+        "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+        "container_app_name": "ca-scale-zero",
+        "container_app_revision": "ca-scale-zero--2jez9z2",
+        "hostname": "unknown",
+        "request_number": 4,
+        "response_utc": "2026-04-10T12:48:57.752876+00:00",
+        "status": "ok",
+        "uptime_seconds": 4.851
+      },
+      "error": null
+    }
+  ],
+  "error": null
+}

@@ -1,0 +1,254 @@
+[
+  {
+    "Log_s": "Replica 'ca-scale-zero--2jez9z2-76dcb74c58-vvz5t' has been scheduled to run on a node.",
+    "Reason_s": "AssigningReplica",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:41:41.8116152Z"
+  },
+  {
+    "Log_s": "Successfully pulled image \"acrscalezerolab.azurecr.io/scale-zero-app:v1\" in 2.34s. Image size: 52428800 bytes.",
+    "Reason_s": "PulledImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:41:55.8503781Z"
+  },
+  {
+    "Log_s": "Pulling image 'acrscalezerolab.azurecr.io/scale-zero-app:v1'",
+    "Reason_s": "PullingImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:41:55.8503781Z"
+  },
+  {
+    "Log_s": "Created container 'ca-scale-zero'",
+    "Reason_s": "ContainerCreated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:41:59.7807289Z"
+  },
+  {
+    "Log_s": "Started container 'ca-scale-zero'",
+    "Reason_s": "ContainerStarted",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:41:59.7807289Z"
+  },
+  {
+    "Log_s": "Deactivated apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 1 to 0",
+    "Reason_s": "KEDAScaleTargetDeactivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:47:11.8963069Z"
+  },
+  {
+    "Log_s": "Container 'ca-scale-zero' was terminated with exit code '' and reason 'ManuallyStopped'",
+    "Reason_s": "ContainerTerminated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:47:12.8190693Z"
+  },
+  {
+    "Log_s": "Scaled apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 0 to 1, triggered by ",
+    "Reason_s": "KEDAScaleTargetActivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:48:34.812717Z"
+  },
+  {
+    "Log_s": "Replica 'ca-scale-zero--2jez9z2-76dcb74c58-8gd5l' has been scheduled to run on a node.",
+    "Reason_s": "AssigningReplica",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:48:34.812717Z"
+  },
+  {
+    "Log_s": "Pulling image 'acrscalezerolab.azurecr.io/scale-zero-app:v1'",
+    "Reason_s": "PullingImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:48:49.1656133Z"
+  },
+  {
+    "Log_s": "Successfully pulled image \"acrscalezerolab.azurecr.io/scale-zero-app:v1\" in 2.41s. Image size: 52428800 bytes.",
+    "Reason_s": "PulledImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:48:49.1656133Z"
+  },
+  {
+    "Log_s": "Created container 'ca-scale-zero'",
+    "Reason_s": "ContainerCreated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:48:53.8935736Z"
+  },
+  {
+    "Log_s": "Started container 'ca-scale-zero'",
+    "Reason_s": "ContainerStarted",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:48:53.8935736Z"
+  },
+  {
+    "Log_s": "Deactivated apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 1 to 0",
+    "Reason_s": "KEDAScaleTargetDeactivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:54:11.875071Z"
+  },
+  {
+    "Log_s": "Container 'ca-scale-zero' was terminated with exit code '' and reason 'ManuallyStopped'",
+    "Reason_s": "ContainerTerminated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:54:12.7592955Z"
+  },
+  {
+    "Log_s": "Replica 'ca-scale-zero--2jez9z2-76dcb74c58-rw6x2' has been scheduled to run on a node.",
+    "Reason_s": "AssigningReplica",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:54:50.7733713Z"
+  },
+  {
+    "Log_s": "Scaled apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 0 to 1, triggered by ",
+    "Reason_s": "KEDAScaleTargetActivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:54:50.7733713Z"
+  },
+  {
+    "Log_s": "Pulling image 'acrscalezerolab.azurecr.io/scale-zero-app:v1'",
+    "Reason_s": "PullingImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:55:04.7767051Z"
+  },
+  {
+    "Log_s": "Successfully pulled image \"acrscalezerolab.azurecr.io/scale-zero-app:v1\" in 2.34s. Image size: 52428800 bytes.",
+    "Reason_s": "PulledImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:55:04.7767051Z"
+  },
+  {
+    "Log_s": "Started container 'ca-scale-zero'",
+    "Reason_s": "ContainerStarted",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:55:16.8468347Z"
+  },
+  {
+    "Log_s": "Created container 'ca-scale-zero'",
+    "Reason_s": "ContainerCreated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T12:55:16.8468347Z"
+  },
+  {
+    "Log_s": "Deactivated apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 1 to 0",
+    "Reason_s": "KEDAScaleTargetDeactivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:00:41.888962Z"
+  },
+  {
+    "Log_s": "Container 'ca-scale-zero' was terminated with exit code '' and reason 'ManuallyStopped'",
+    "Reason_s": "ContainerTerminated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:00:42.8279703Z"
+  },
+  {
+    "Log_s": "Replica 'ca-scale-zero--2jez9z2-76dcb74c58-555nm' has been scheduled to run on a node.",
+    "Reason_s": "AssigningReplica",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:01:28.0473499Z"
+  },
+  {
+    "Log_s": "Successfully pulled image \"acrscalezerolab.azurecr.io/scale-zero-app:v1\" in 2.44s. Image size: 52428800 bytes.",
+    "Reason_s": "PulledImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:01:41.8255961Z"
+  },
+  {
+    "Log_s": "Pulling image 'acrscalezerolab.azurecr.io/scale-zero-app:v1'",
+    "Reason_s": "PullingImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:01:41.8255961Z"
+  },
+  {
+    "Log_s": "Created container 'ca-scale-zero'",
+    "Reason_s": "ContainerCreated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:01:53.9533268Z"
+  },
+  {
+    "Log_s": "Started container 'ca-scale-zero'",
+    "Reason_s": "ContainerStarted",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:01:53.9533268Z"
+  },
+  {
+    "Log_s": "Deactivated apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 1 to 0",
+    "Reason_s": "KEDAScaleTargetDeactivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:07:41.8734339Z"
+  },
+  {
+    "Log_s": "Container 'ca-scale-zero' was terminated with exit code '' and reason 'ManuallyStopped'",
+    "Reason_s": "ContainerTerminated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:07:42.7131017Z"
+  },
+  {
+    "Log_s": "Scaled apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 0 to 1, triggered by ",
+    "Reason_s": "KEDAScaleTargetActivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:08:35.8823484Z"
+  },
+  {
+    "Log_s": "Replica 'ca-scale-zero--2jez9z2-76dcb74c58-cssbz' has been scheduled to run on a node.",
+    "Reason_s": "AssigningReplica",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:08:36.7434668Z"
+  },
+  {
+    "Log_s": "Successfully pulled image \"acrscalezerolab.azurecr.io/scale-zero-app:v1\" in 2.19s. Image size: 52428800 bytes.",
+    "Reason_s": "PulledImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:08:48.7001031Z"
+  },
+  {
+    "Log_s": "Created container 'ca-scale-zero'",
+    "Reason_s": "ContainerCreated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:09:00.8059825Z"
+  },
+  {
+    "Log_s": "Started container 'ca-scale-zero'",
+    "Reason_s": "ContainerStarted",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:09:00.8059825Z"
+  },
+  {
+    "Log_s": "Deactivated apps/v1.Deployment k8se-apps/ca-scale-zero--2jez9z2 from 1 to 0",
+    "Reason_s": "KEDAScaleTargetDeactivated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:14:41.740383Z"
+  },
+  {
+    "Log_s": "Container 'ca-scale-zero' was terminated with exit code '' and reason 'ManuallyStopped'",
+    "Reason_s": "ContainerTerminated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:14:42.8045239Z"
+  },
+  {
+    "Log_s": "Replica 'ca-scale-zero--2jez9z2-76dcb74c58-vf8q7' has been scheduled to run on a node.",
+    "Reason_s": "AssigningReplica",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:15:44.7484426Z"
+  },
+  {
+    "Log_s": "Pulling image 'acrscalezerolab.azurecr.io/scale-zero-app:v1'",
+    "Reason_s": "PullingImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:15:58.7527156Z"
+  },
+  {
+    "Log_s": "Successfully pulled image \"acrscalezerolab.azurecr.io/scale-zero-app:v1\" in 3.85s. Image size: 52428800 bytes.",
+    "Reason_s": "PulledImage",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:15:58.7527156Z"
+  },
+  {
+    "Log_s": "Created container 'ca-scale-zero'",
+    "Reason_s": "ContainerCreated",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:16:10.7403429Z"
+  },
+  {
+    "Log_s": "Started container 'ca-scale-zero'",
+    "Reason_s": "ContainerStarted",
+    "TableName": "PrimaryResult",
+    "TimeGenerated": "2026-04-10T13:16:10.7403429Z"
+  }
+]

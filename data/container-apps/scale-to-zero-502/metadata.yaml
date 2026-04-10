@@ -1,0 +1,31 @@
+experiment: scale-to-zero-502
+service: container-apps
+date: "2026-04-10"
+researcher: automated
+environment:
+  subscription: Visual Studio Enterprise
+  region: koreacentral
+  resource_group: rg-scale-zero-lab
+  container_apps_environment: cae-scale-zero
+  container_app: ca-scale-zero
+  sku: Consumption
+  cpu: "0.25"
+  memory: "0.5Gi"
+  min_replicas: 0
+  max_replicas: 3
+  scale_rule: http (concurrency=10)
+  image: acrscalezerolab.azurecr.io/scale-zero-app:v1
+  image_base: python:3.11-slim
+  registry: ACR (Basic, same region)
+  startup_probe: none
+  readiness_probe: none
+  liveness_probe: none
+configurations:
+  base-config:
+    description: "Small Python Flask app, ACR same-region, no probes"
+    runs: 5
+    idle_minutes: 8
+    warm_requests_per_run: 3
+tools:
+  runner: /tmp/scale-zero-runner.py
+  az_cli: "2.73.0"

@@ -1,0 +1,419 @@
+{
+  "metadata": {
+    "app_url": "https://ca-scale-zero.delightfulmushroom-83cd3dd2.koreacentral.azurecontainerapps.io/",
+    "resource_group": "rg-scale-zero-lab",
+    "app_name": "ca-scale-zero",
+    "planned_runs": 5,
+    "idle_minutes": 8,
+    "test_start_utc": "2026-04-10T12:48:32.492659+00:00",
+    "test_end_utc": "2026-04-10T13:16:32.374841+00:00"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "zero_confirmed_utc": "2026-04-10T12:48:33.749764+00:00",
+      "replicas_before": 0,
+      "replicas_after": 1,
+      "cold_request": {
+        "status_code": 200,
+        "latency_seconds": 20.939,
+        "request_utc": "2026-04-10T12:48:33.750816+00:00",
+        "response_body": {
+          "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+          "container_app_name": "ca-scale-zero",
+          "container_app_revision": "ca-scale-zero--2jez9z2",
+          "hostname": "unknown",
+          "request_number": 1,
+          "response_utc": "2026-04-10T12:48:54.679470+00:00",
+          "status": "ok",
+          "uptime_seconds": 1.777
+        },
+        "error": null
+      },
+      "warm_requests": [
+        {
+          "status_code": 200,
+          "latency_seconds": 0.019,
+          "request_utc": "2026-04-10T12:48:55.691649+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T12:48:55.700842+00:00",
+            "status": "ok",
+            "uptime_seconds": 2.799
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.027,
+          "request_utc": "2026-04-10T12:48:56.713474+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 3,
+            "response_utc": "2026-04-10T12:48:56.730535+00:00",
+            "status": "ok",
+            "uptime_seconds": 3.828
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.022,
+          "request_utc": "2026-04-10T12:48:57.742045+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T12:48:52.902276+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 4,
+            "response_utc": "2026-04-10T12:48:57.752876+00:00",
+            "status": "ok",
+            "uptime_seconds": 4.851
+          },
+          "error": null
+        }
+      ],
+      "error": null
+    },
+    {
+      "run": 2,
+      "zero_confirmed_utc": "2026-04-10T12:54:50.049284+00:00",
+      "replicas_before": 0,
+      "replicas_after": 1,
+      "cold_request": {
+        "status_code": 200,
+        "latency_seconds": 41.821,
+        "request_utc": "2026-04-10T12:54:50.049664+00:00",
+        "response_body": {
+          "app_start_utc": "2026-04-10T12:55:16.450260+00:00",
+          "container_app_name": "ca-scale-zero",
+          "container_app_revision": "ca-scale-zero--2jez9z2",
+          "hostname": "unknown",
+          "request_number": 1,
+          "response_utc": "2026-04-10T12:55:31.859677+00:00",
+          "status": "ok",
+          "uptime_seconds": 15.409
+        },
+        "error": null
+      },
+      "warm_requests": [
+        {
+          "status_code": 200,
+          "latency_seconds": 0.022,
+          "request_utc": "2026-04-10T12:55:32.872442+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T12:55:16.391954+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 1,
+            "response_utc": "2026-04-10T12:55:32.884288+00:00",
+            "status": "ok",
+            "uptime_seconds": 16.492
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.019,
+          "request_utc": "2026-04-10T12:55:33.894768+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T12:55:16.450260+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T12:55:33.904253+00:00",
+            "status": "ok",
+            "uptime_seconds": 17.454
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.018,
+          "request_utc": "2026-04-10T12:55:34.915590+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T12:55:16.391954+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T12:55:34.923681+00:00",
+            "status": "ok",
+            "uptime_seconds": 18.532
+          },
+          "error": null
+        }
+      ],
+      "error": null
+    },
+    {
+      "run": 3,
+      "zero_confirmed_utc": "2026-04-10T13:01:26.797101+00:00",
+      "replicas_before": 0,
+      "replicas_after": 1,
+      "cold_request": {
+        "status_code": 200,
+        "latency_seconds": 42.051,
+        "request_utc": "2026-04-10T13:01:26.797449+00:00",
+        "response_body": {
+          "app_start_utc": "2026-04-10T13:01:53.173370+00:00",
+          "container_app_name": "ca-scale-zero",
+          "container_app_revision": "ca-scale-zero--2jez9z2",
+          "hostname": "unknown",
+          "request_number": 1,
+          "response_utc": "2026-04-10T13:02:08.837651+00:00",
+          "status": "ok",
+          "uptime_seconds": 15.664
+        },
+        "error": null
+      },
+      "warm_requests": [
+        {
+          "status_code": 200,
+          "latency_seconds": 0.022,
+          "request_utc": "2026-04-10T13:02:09.849651+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:01:53.173370+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T13:02:09.861505+00:00",
+            "status": "ok",
+            "uptime_seconds": 16.688
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.028,
+          "request_utc": "2026-04-10T13:02:10.873979+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:01:53.139830+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 1,
+            "response_utc": "2026-04-10T13:02:10.891339+00:00",
+            "status": "ok",
+            "uptime_seconds": 17.752
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.022,
+          "request_utc": "2026-04-10T13:02:11.903127+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:01:53.139830+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T13:02:11.915618+00:00",
+            "status": "ok",
+            "uptime_seconds": 18.776
+          },
+          "error": null
+        }
+      ],
+      "error": null
+    },
+    {
+      "run": 4,
+      "zero_confirmed_utc": "2026-04-10T13:08:35.314489+00:00",
+      "replicas_before": 0,
+      "replicas_after": 1,
+      "cold_request": {
+        "status_code": 200,
+        "latency_seconds": 40.656,
+        "request_utc": "2026-04-10T13:08:35.314837+00:00",
+        "response_body": {
+          "app_start_utc": "2026-04-10T13:09:00.650232+00:00",
+          "container_app_name": "ca-scale-zero",
+          "container_app_revision": "ca-scale-zero--2jez9z2",
+          "hostname": "unknown",
+          "request_number": 1,
+          "response_utc": "2026-04-10T13:09:15.957791+00:00",
+          "status": "ok",
+          "uptime_seconds": 15.308
+        },
+        "error": null
+      },
+      "warm_requests": [
+        {
+          "status_code": 200,
+          "latency_seconds": 0.027,
+          "request_utc": "2026-04-10T13:09:16.973279+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:09:00.672584+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 1,
+            "response_utc": "2026-04-10T13:09:16.988178+00:00",
+            "status": "ok",
+            "uptime_seconds": 16.316
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.02,
+          "request_utc": "2026-04-10T13:09:18.001902+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:09:00.672584+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T13:09:18.009407+00:00",
+            "status": "ok",
+            "uptime_seconds": 17.337
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.019,
+          "request_utc": "2026-04-10T13:09:19.023104+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:09:00.672584+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 3,
+            "response_utc": "2026-04-10T13:09:19.029681+00:00",
+            "status": "ok",
+            "uptime_seconds": 18.357
+          },
+          "error": null
+        }
+      ],
+      "error": null
+    },
+    {
+      "run": 5,
+      "zero_confirmed_utc": "2026-04-10T13:15:43.501399+00:00",
+      "replicas_before": 0,
+      "replicas_after": 1,
+      "cold_request": {
+        "status_code": 200,
+        "latency_seconds": 39.44,
+        "request_utc": "2026-04-10T13:15:43.501768+00:00",
+        "response_body": {
+          "app_start_utc": "2026-04-10T13:16:10.623956+00:00",
+          "container_app_name": "ca-scale-zero",
+          "container_app_revision": "ca-scale-zero--2jez9z2",
+          "hostname": "unknown",
+          "request_number": 1,
+          "response_utc": "2026-04-10T13:16:22.934558+00:00",
+          "status": "ok",
+          "uptime_seconds": 12.311
+        },
+        "error": null
+      },
+      "warm_requests": [
+        {
+          "status_code": 200,
+          "latency_seconds": 0.026,
+          "request_utc": "2026-04-10T13:16:23.943428+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:16:10.566446+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 1,
+            "response_utc": "2026-04-10T13:16:23.962311+00:00",
+            "status": "ok",
+            "uptime_seconds": 13.396
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.027,
+          "request_utc": "2026-04-10T13:16:24.971973+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:16:10.623956+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T13:16:24.992261+00:00",
+            "status": "ok",
+            "uptime_seconds": 14.368
+          },
+          "error": null
+        },
+        {
+          "status_code": 200,
+          "latency_seconds": 0.02,
+          "request_utc": "2026-04-10T13:16:26.000158+00:00",
+          "response_body": {
+            "app_start_utc": "2026-04-10T13:16:10.566446+00:00",
+            "container_app_name": "ca-scale-zero",
+            "container_app_revision": "ca-scale-zero--2jez9z2",
+            "hostname": "unknown",
+            "request_number": 2,
+            "response_utc": "2026-04-10T13:16:26.011616+00:00",
+            "status": "ok",
+            "uptime_seconds": 15.445
+          },
+          "error": null
+        }
+      ],
+      "error": null
+    }
+  ],
+  "statistics": {
+    "cold_start": {
+      "count": 5,
+      "latencies": [
+        20.939,
+        41.821,
+        42.051,
+        40.656,
+        39.44
+      ],
+      "min": 20.939,
+      "max": 42.051,
+      "median": 40.656,
+      "mean": 36.981
+    },
+    "warm": {
+      "count": 15,
+      "latencies": [
+        0.019,
+        0.027,
+        0.022,
+        0.022,
+        0.019,
+        0.018,
+        0.022,
+        0.028,
+        0.022,
+        0.027,
+        0.02,
+        0.019,
+        0.026,
+        0.027,
+        0.02
+      ],
+      "min": 0.018,
+      "max": 0.028,
+      "median": 0.022,
+      "mean": 0.023
+    },
+    "failure_count": 0
+  }
+}
