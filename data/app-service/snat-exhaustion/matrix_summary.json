@@ -1,0 +1,126 @@
+{
+  "experiment": "snat-exhaustion",
+  "completed_utc": "2026-04-10T12:23:13.997133+00:00",
+  "total_runs": 15,
+  "configs": [
+    "50conn_nopool",
+    "128conn_nopool",
+    "200conn_nopool",
+    "300conn_nopool",
+    "200conn_pool"
+  ],
+  "parameters": {
+    "warmup_seconds": 10,
+    "duration_seconds": 60,
+    "timeout_per_request": 30,
+    "cooldown_seconds": 240,
+    "target_delay_seconds": 10
+  },
+  "run_summaries": [
+    {
+      "label": "200conn_pool_run1",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 1058,
+      "p50_ms": 10047.95
+    },
+    {
+      "label": "128conn_nopool_run1",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 709,
+      "p50_ms": 10148.9
+    },
+    {
+      "label": "300conn_nopool_run3",
+      "failures": 223,
+      "failure_rate_pct": 19.142,
+      "measurement_requests": 1165,
+      "p50_ms": 12853.8
+    },
+    {
+      "label": "300conn_nopool_run2",
+      "failures": 171,
+      "failure_rate_pct": 11.325,
+      "measurement_requests": 1510,
+      "p50_ms": 10185.4
+    },
+    {
+      "label": "50conn_nopool_run1",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 300,
+      "p50_ms": 10101.6
+    },
+    {
+      "label": "200conn_pool_run2",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 1200,
+      "p50_ms": 10033.65
+    },
+    {
+      "label": "300conn_nopool_run1",
+      "failures": 394,
+      "failure_rate_pct": 49.312,
+      "measurement_requests": 799,
+      "p50_ms": 24689.3
+    },
+    {
+      "label": "50conn_nopool_run2",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 300,
+      "p50_ms": 10076.0
+    },
+    {
+      "label": "200conn_pool_run3",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 1209,
+      "p50_ms": 10015.1
+    },
+    {
+      "label": "200conn_nopool_run1",
+      "failures": 144,
+      "failure_rate_pct": 22.222,
+      "measurement_requests": 648,
+      "p50_ms": 29539.65
+    },
+    {
+      "label": "128conn_nopool_run2",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 768,
+      "p50_ms": 10060.55
+    },
+    {
+      "label": "200conn_nopool_run3",
+      "failures": 72,
+      "failure_rate_pct": 6.923,
+      "measurement_requests": 1040,
+      "p50_ms": 10564.3
+    },
+    {
+      "label": "50conn_nopool_run3",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 300,
+      "p50_ms": 10195.45
+    },
+    {
+      "label": "200conn_nopool_run2",
+      "failures": 70,
+      "failure_rate_pct": 7.543,
+      "measurement_requests": 928,
+      "p50_ms": 10354.5
+    },
+    {
+      "label": "128conn_nopool_run3",
+      "failures": 0,
+      "failure_rate_pct": 0.0,
+      "measurement_requests": 745,
+      "p50_ms": 10074.8
+    }
+  ]
+}

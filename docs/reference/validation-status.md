@@ -19,7 +19,7 @@ This dashboard tracks when each experiment was last validated against a real Azu
 | Experiment | Service | Status | az_cli | bicep | terraform | Last Tested | Staleness |
 |---|---|---|---|---|---|---|---|
 | [Memory Pressure](../app-service/memory-pressure/overview.md) | App Service | Published | ➖ | ➖ | ➖ | — | Not tested |
-| [SNAT Exhaustion](../app-service/snat-exhaustion/overview.md) | App Service | Planned | ➖ | ➖ | ➖ | — | Not tested |
+| [SNAT Exhaustion](../app-service/snat-exhaustion/overview.md) | App Service | Published | ➖ | ➖ | ➖ | — | Not tested |
 | [Health Check Eviction](../app-service/health-check-eviction/overview.md) | App Service | Published | ➖ | ➖ | ➖ | — | Not tested |
 | [Filesystem Persistence](../app-service/filesystem-persistence/overview.md) | App Service | Published | ➖ | ➖ | ➖ | — | Not tested |
 | [Custom DNS Resolution](../app-service/custom-dns-resolution/overview.md) | App Service | Planned | ➖ | ➖ | ➖ | — | Not tested |
@@ -48,9 +48,9 @@ This dashboard tracks when each experiment was last validated against a real Azu
 | Metric | Count |
 |---|---|
 | Total experiments | 24 |
-| Published | 3 |
+| Published | 4 |
 | Draft | 1 |
-| Planned | 19 |
+| Planned | 18 |
 | Tested (any method) | 0 |
 | Stale (>90d) | 0 |
 

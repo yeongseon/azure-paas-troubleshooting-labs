@@ -1,0 +1,48 @@
+experiment: snat-exhaustion
+platform: App Service
+sku: B1 (Linux)
+region: koreacentral
+runtime: Python 3.11
+date: 2026-04-10
+test_duration_minutes: 78
+total_runs: 15
+configs:
+  - label: 50conn_nopool
+    connections: 50
+    use_pool: false
+    runs: 3
+  - label: 128conn_nopool
+    connections: 128
+    use_pool: false
+    runs: 3
+  - label: 200conn_nopool
+    connections: 200
+    use_pool: false
+    runs: 3
+  - label: 300conn_nopool
+    connections: 300
+    use_pool: false
+    runs: 3
+  - label: 200conn_pool
+    connections: 200
+    use_pool: true
+    runs: 3
+parameters:
+  warmup_seconds: 10
+  duration_seconds: 60
+  timeout_per_request: 30
+  cooldown_seconds: 240
+  target_delay_seconds: 10
+infrastructure:
+  source_app: app-snat-source
+  target_app: app-snat-target
+  plan: plan-snat (B1, 1 instance)
+  resource_group: rg-snat-lab (DELETED after experiment)
+  source_startup: "gunicorn --bind=0.0.0.0 --timeout 600 --workers 1 app:app"
+  target_startup: "gunicorn --bind=0.0.0.0 --timeout 300 --workers 2 --worker-class gthread --threads 250 app:app"
+  deployment: ZIP deploy with Oryx build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
+tools:
+  source_client: "stdlib http.client + ThreadPoolExecutor (no aiohttp)"
+  barrier: "threading.Barrier for synchronized thread start"
+  connection_mode_nopool: "Connection: close header, new HTTPSConnection per request"
+  connection_mode_pool: "Connection: keep-alive header, shared HTTPSConnection per worker"
