@@ -1,0 +1,17 @@
+timestamp_utc,event,instance_a_state,instance_b_state,notes
+2026-04-10T09:12:19,test1_both_failed,UNKNOWN,UNKNOWN,Both /healthz returning 503
+2026-04-10T09:25:42,test1_recovered,READY,READY,Both /healthz returning 200
+2026-04-10T09:30:57,test2_a_failed,UNHEALTHY,READY,Instance A /healthz returning 503
+2026-04-10T09:41:42,test2_a_evicted,UNKNOWN,READY,Instance A removed from LB rotation
+2026-04-10T09:42:32,test2_arr_affinity_test,UNKNOWN,READY,ARRAffinity cookie cannot route to evicted instance
+2026-04-10T09:43:04,test2_pre_recovery,UNKNOWN,READY,Instance A unreachable via any user traffic
+2026-04-10T09:43:06,test2_restart,STOPPED,STOPPED,az webapp restart issued
+2026-04-10T09:43:20,test2_post_restart_15s,STOPPED,READY,Instance A serving traffic but state STOPPED
+2026-04-10T09:44:35,test2_post_restart_90s,READY,READY,Both instances fully recovered
+2026-04-10T09:46:19,test3_a_failed_again,UNHEALTHY,READY,Instance A /healthz returning 503 again
+2026-04-10T09:57:16,test3_a_evicted_again,UNKNOWN,READY,Instance A evicted after ~10min
+2026-04-10T09:57:21,test3_b_failed,UNKNOWN,UNHEALTHY,Instance B /healthz now also returning 503
+2026-04-10T10:04:02,test3_cascade_state,UNKNOWN,STOPPED,B=STOPPED but still in rotation (last instance protection)
+2026-04-10T10:06:24,recovery_pre_restart,UNKNOWN,STOPPED,Both instances unhealthy
+2026-04-10T10:06:45,recovery_post_restart,STOPPED,STOPPED,Both serving traffic immediately
+2026-04-10T10:08:55,recovery_complete,READY,READY,Full recovery

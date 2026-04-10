@@ -1,0 +1,41 @@
+experiment: health-check-eviction
+title: "Health Check Eviction on Partial Dependency Failure"
+date: "2026-04-10"
+environment:
+  service: Azure App Service
+  sku: P1v3
+  region: koreacentral
+  runtime: Python 3.11
+  os: Linux
+  instance_count: 2
+  deployment_method: zip_deploy
+  resource_group: rg-healthcheck-lab
+  app_name: app-healthcheck-lab
+  plan_name: plan-healthcheck
+instances:
+  instance_a:
+    id: "4b6100b2a00e7971136bbb97f58d9415670357c8f44980ba565760031b0b24d1"
+    short_id: "4b6100b2a00e"
+    hostname: "c7cfde03186d"
+    zone: "koreacentral-az3"
+  instance_b:
+    id: "ed56515e4ed956e307e62667e55295bf5d3ef0e404f76bc8021bb6dbf99ea4ed"
+    short_id: "ed56515e4ed9"
+    hostname: "defc2b4c67d1"
+    zone: "koreacentral-az2"
+health_check:
+  path: "/healthz"
+  interval_seconds: 60
+  arr_affinity: disabled
+test_application:
+  framework: Flask
+  endpoints:
+    - "/healthz (health check - depends on simulated dependency)"
+    - "/fail-dependency (POST - simulate dependency failure)"
+    - "/recover-dependency (POST - simulate dependency recovery)"
+    - "/status (instance info + dependency state)"
+    - "/logs/healthcheck (health check probe log)"
+    - "/logs/requests (request log)"
+cli_versions:
+  az_cli: "2.73.0"
+experiment_type: config

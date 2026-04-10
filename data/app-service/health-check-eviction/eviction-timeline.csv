@@ -1,0 +1,28 @@
+test,phase,timestamp_utc,elapsed_min,instance_a_pct,instance_b_pct,instance_a_state,instance_b_state,notes
+test1_all_unhealthy,baseline,2026-04-10T09:12:19,0.0,50,50,READY,READY,Both instances healthy
+test1_all_unhealthy,both_failed,2026-04-10T09:12:19,0.0,50,50,UNKNOWN,UNKNOWN,Both /healthz returning 503
+test1_all_unhealthy,monitoring_2min,2026-04-10T09:14:19,2.0,50,50,UNKNOWN,UNKNOWN,Traffic still split 50/50
+test1_all_unhealthy,monitoring_4min,2026-04-10T09:16:19,4.0,50,50,UNKNOWN,UNKNOWN,Traffic still split 50/50
+test1_all_unhealthy,monitoring_6min,2026-04-10T09:18:19,6.0,50,50,UNKNOWN,UNKNOWN,No eviction with all unhealthy
+test1_all_unhealthy,monitoring_8min,2026-04-10T09:20:19,8.0,50,50,UNKNOWN,UNKNOWN,No eviction with all unhealthy
+test1_all_unhealthy,monitoring_10min,2026-04-10T09:22:19,10.0,50,50,UNKNOWN,UNKNOWN,No eviction with all unhealthy
+test1_all_unhealthy,monitoring_12min,2026-04-10T09:24:19,12.0,50,50,UNKNOWN,UNKNOWN,CONFIRMED: No eviction when all unhealthy
+test1_all_unhealthy,recovered,2026-04-10T09:25:42,13.4,50,50,READY,READY,Both instances recovered
+test2_partial_failure,baseline,2026-04-10T09:30:57,0.0,50,50,READY,READY,Both instances healthy
+test2_partial_failure,a_failed,2026-04-10T09:30:57,0.0,67,33,UNHEALTHY,READY,Instance A /healthz returning 503
+test2_partial_failure,monitoring_2min,2026-04-10T09:33:42,2.0,40,60,UNHEALTHY,READY,Traffic still going to both
+test2_partial_failure,monitoring_4min,2026-04-10T09:35:42,4.0,43,57,UNHEALTHY,READY,Traffic still going to both
+test2_partial_failure,monitoring_6min,2026-04-10T09:37:42,6.0,60,40,UNHEALTHY,READY,Traffic still going to both
+test2_partial_failure,monitoring_8min,2026-04-10T09:39:42,8.0,47,53,UNHEALTHY,READY,Traffic still going to both
+test2_partial_failure,eviction,2026-04-10T09:41:42,10.0,0,100,UNKNOWN,READY,Instance A evicted from rotation
+test2_partial_failure,verify_eviction,2026-04-10T09:42:00,10.5,0,100,UNKNOWN,READY,50/50 requests all go to Instance B
+test3_cascading,a_evicted_b_healthy,2026-04-10T09:57:16,0.0,0,100,UNKNOWN,READY,Instance A already evicted
+test3_cascading,b_failed,2026-04-10T09:57:21,0.1,0,100,UNKNOWN,UNHEALTHY,Instance B dependency failed
+test3_cascading,monitoring_2min,2026-04-10T09:59:21,2.0,0,100,UNKNOWN,UNHEALTHY,B still serving despite unhealthy
+test3_cascading,monitoring_4min,2026-04-10T10:01:27,4.0,0,100,UNKNOWN,UNHEALTHY,B still serving — last instance protection
+test3_cascading,monitoring_6min,2026-04-10T10:03:32,6.0,0,100,UNKNOWN,STOPPED,B still serving — STOPPED state but routing
+test3_cascading,instance_states,2026-04-10T10:04:02,6.8,0,100,UNKNOWN,STOPPED,A=UNKNOWN B=STOPPED but B still in rotation
+recovery,pre_restart,2026-04-10T10:06:24,0.0,0,100,UNKNOWN,STOPPED,Both instances unhealthy
+recovery,post_restart_20s,2026-04-10T10:06:45,0.3,60,40,STOPPED,STOPPED,Both serving immediately after restart
+recovery,post_restart_90s,2026-04-10T10:07:55,1.5,53,47,STOPPED,READY,Traffic normalizing
+recovery,post_restart_150s,2026-04-10T10:08:55,2.5,50,50,READY,READY,Both READY full recovery
