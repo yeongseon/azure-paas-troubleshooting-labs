@@ -70,7 +70,7 @@ graph TB
 | [Health Check Eviction](health-check-eviction/overview.md) | **Published** | Cascading outage from partial dependency failure |
 | [SNAT Exhaustion](snat-exhaustion/overview.md) | **Published** | Connection failures without CPU/memory pressure |
 | [Memory Pressure](memory-pressure/overview.md) | **Published** | Plan-level degradation, swap thrashing, kernel page reclaim |
-| [Custom DNS Resolution](custom-dns-resolution/overview.md) | Planned | Private name resolution drift after VNet changes |
+| [Custom DNS Resolution](custom-dns-resolution/overview.md) | **Published** | Private name resolution drift after VNet changes |
 | [procfs Interpretation](procfs-interpretation/overview.md) | **Published** | /proc reliability and limits in Linux containers |
 | [Slow Requests](slow-requests/overview.md) | **Published** | Frontend timeout vs. worker-side delay vs. dependency latency |
 | [Zip Deploy vs Container](zip-vs-container/overview.md) | **Published** | Deployment method behavioral differences |
@@ -107,9 +107,12 @@ Plan-level degradation under memory pressure. Investigates swap thrashing, kerne
 
 ## Planned Experiments
 
-### [Custom DNS Resolution](custom-dns-resolution/overview.md)
+### [Custom DNS Resolution](custom-dns-resolution/overview.md) — **Published**
 
-Private name resolution drift after VNet integration changes. Investigates what happens when DNS settings change after VNet integration is established, and how stale DNS cache entries cause intermittent resolution failures.
+Private name resolution behavior after Private DNS Zone link changes on VNet-integrated App Service. Tests whether DNS cache drift causes intermittent failures. **Finding: DNS changes propagate immediately — the cache drift hypothesis is refuted.**
+
+??? success "Experiment Complete"
+    Completed 2026-04 on P1v3 Linux (koreacentral). Four phases tested: baseline, unlink, re-link, and rapid toggle. All DNS transitions were immediate across 80 total probes.
 
 ### [procfs Interpretation](procfs-interpretation/overview.md) — **Published**
 

@@ -1,0 +1,66 @@
+# Custom DNS Resolution Drift Experiment — Metadata
+experiment: custom-dns-resolution
+date: "2026-04-11"
+region: koreacentral
+resource_group: rg-custom-dns-resolution-lab
+
+app_service:
+  name: app-custom-dns-res-16017
+  plan: plan-custom-dns-resolution
+  sku: P1v3
+  runtime: "PYTHON:3.11"
+  workers: 2
+  vnet_integration: true
+  instance_id_observed: "64f6db8b"
+
+vnet:
+  name: vnet-custom-dns-resolution
+  address_space: "10.70.0.0/16"
+  integration_subnet: "snet-appsvc-integration (10.70.1.0/24)"
+  pe_subnet: "snet-private-endpoint (10.70.2.0/24)"
+
+storage:
+  name: stcustomdnsres16129
+  private_endpoint_ip: "10.70.2.4"
+  public_ip: "20.150.4.36"
+  fqdn: stcustomdnsres16129.blob.core.windows.net
+
+private_dns_zone: privatelink.blob.core.windows.net
+
+phases:
+  phase1_baseline:
+    description: "Private DNS Zone linked → resolves to private IP"
+    probes: 10
+    interval_seconds: 3
+    result: "All 10 probes resolved to 10.70.2.4 (private IP)"
+    
+  phase2_unlink:
+    description: "Unlinked Private DNS Zone → immediate switch to public IP"
+    unlink_time: "2026-04-11T14:12:00Z"
+    probes: 30
+    interval_seconds: 10
+    result: "First probe after unlink already resolved to 20.150.4.36 (public IP). No cache drift observed."
+    transition_delay: "<1 probe interval (immediate)"
+    
+  phase3_relink:
+    description: "Re-linked Private DNS Zone → immediate switch back to private IP"
+    relink_time: "2026-04-11T14:18:12Z"
+    probes: 30
+    interval_seconds: 10
+    result: "First probe after re-link already resolved to 10.70.2.4 (private IP). No cache drift observed."
+    transition_delay: "<1 probe interval (immediate)"
+    
+  phase4_rapid_toggle:
+    description: "Rapid unlink+relink to find transition window"
+    unlink_duration: "33 seconds (CLI command time)"
+    relink_duration: "33 seconds (CLI command time)"
+    result: "Both transitions were immediate — no mixed resolution observed"
+
+key_findings:
+  - "Private DNS Zone link/unlink changes propagate immediately to VNet-integrated App Service apps"
+  - "No DNS cache drift was observed — Python socket.getaddrinfo() returned updated IPs on the first probe after each change"
+  - "The hypothesis of TTL-based DNS cache causing intermittent failures is REFUTED for this configuration"
+  - "DNS resolution on App Service Linux follows Azure DNS resolution path, not an OS-level resolver cache"
+  - "Only one instance (64f6db8b) handled all requests despite 2 workers configured — possible ARR affinity or load balancer behavior"
+
+hypothesis_result: "REFUTED — DNS changes propagate immediately, not subject to TTL-based cache drift"

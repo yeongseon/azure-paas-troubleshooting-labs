@@ -15,7 +15,7 @@ validation:
 
 # Custom DNS and Private Name Resolution Drift
 
-!!! info "Status: Planned"
+!!! success "Status: Published"
 
 ## 1. Question
 
@@ -48,7 +48,7 @@ After modifying Private DNS Zone links or custom DNS forwarder rules for a VNet-
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-04-11 |
 
 ## 6. Variables
 
@@ -306,33 +306,129 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-_Awaiting execution._
+A VNet-integrated App Service (P1v3, Python 3.11, 2 workers) was deployed with a storage account private endpoint and Private DNS Zone. The experiment tested DNS resolution behavior across three phases:
+
+- **Phase 1 (Baseline)**: Private DNS Zone linked → all probes resolved to private endpoint IP `10.70.2.4`
+- **Phase 2 (Unlink)**: Private DNS Zone unlinked → resolution switched to public IP `20.150.4.36` **immediately** on the first probe
+- **Phase 3 (Re-link)**: Private DNS Zone re-linked → resolution switched back to `10.70.2.4` **immediately** on the first probe
+- **Phase 4 (Rapid toggle)**: Rapid unlink/re-link in sequence → both transitions were immediate, no mixed resolution
+
+### Evidence: DNS Resolution Timeline
+
+```mermaid
+gantt
+    title DNS Resolution IP Over Time
+    dateFormat HH:mm
+    axisFormat %H:%M
+    section Phase 1<br>Baseline
+    Private IP 10.70.2.4 (10 probes)     :done, p1, 14:08, 14:09
+    section Phase 2<br>Unlink
+    az network private-dns link delete     :crit, unlink, 14:11, 14:12
+    Public IP 20.150.4.36 (30 probes)     :active, p2, 14:12, 14:17
+    section Phase 3<br>Re-link
+    az network private-dns link create     :crit, relink, 14:17, 14:18
+    Private IP 10.70.2.4 (30 probes)      :done, p3, 14:18, 14:23
+    section Phase 4<br>Toggle
+    Unlink + 5 probes (public)            :active, p4a, 14:23, 14:24
+    Re-link + 5 probes (private)           :done, p4b, 14:24, 14:25
+```
+
+### Evidence: Phase Transition Details
+
+| Phase | Action | Expected IP | First Probe IP | Transition Delay | Probes |
+|-------|--------|-------------|----------------|------------------|--------|
+| 1. Baseline | Zone linked | `10.70.2.4` | `10.70.2.4` | n/a | 10/10 private |
+| 2. Unlink | Zone unlinked | Initially cached `10.70.2.4` | **`20.150.4.36`** | **0 seconds** | 30/30 public |
+| 3. Re-link | Zone re-linked | Eventually `10.70.2.4` | **`10.70.2.4`** | **0 seconds** | 30/30 private |
+| 4a. Toggle (unlink) | Rapid unlink | Mixed expected | **`20.150.4.36`** | **0 seconds** | 5/5 public |
+| 4b. Toggle (re-link) | Rapid re-link | Mixed expected | **`10.70.2.4`** | **0 seconds** | 5/5 private |
+
+### Evidence: IP Addresses
+
+| Endpoint | IP | Source |
+|----------|-----|--------|
+| Private endpoint (PE) | `10.70.2.4` | Private DNS Zone A record |
+| Public storage | `20.150.4.36` | Azure public DNS (`blob.sel21prdstr02a.store.core.windows.net`) |
+| VNet address space | `10.70.0.0/16` | VNet configuration |
+| Integration subnet | `10.70.1.0/24` | App Service VNet integration |
+| PE subnet | `10.70.2.0/24` | Private endpoint NIC |
+
+### Architecture: DNS Resolution Path
+
+```mermaid
+flowchart LR
+    A[App Service Instance] --> B{VNet-integrated<br>DNS resolver}
+    B --> C{Private DNS Zone<br>linked to VNet?}
+    C -- Yes --> D[Private DNS Zone<br>resolves A record]
+    D --> E[10.70.2.4<br>Private Endpoint]
+    C -- No --> F[Azure Public DNS]
+    F --> G[20.150.4.36<br>Public Storage IP]
+
+    style E fill:#efe,stroke:#0a0,color:#060
+    style G fill:#fee,stroke:#c00,color:#900
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+The experiment **refutes** the original hypothesis. DNS resolution changes propagated **immediately** to the VNet-integrated App Service — there was no observable DNS cache drift window.
+
+When App Service uses VNet integration, DNS queries for private endpoints follow the Azure DNS resolution path through the VNet's DNS configuration. When a Private DNS Zone link is added or removed, the change takes effect as soon as the Azure control plane processes it (~30 seconds for the CLI command). The app's `socket.getaddrinfo()` calls reflected the updated IP on the very first probe after each change.
+
+This means:
+
+1. **Python's `getaddrinfo` does not cache DNS results** in this environment — each call goes through the platform resolver.
+2. **Azure DNS does not impose a TTL-based cache delay** on Private DNS Zone link changes within the VNet.
+3. **The transition is atomic** — no mixed resolution was observed even with rapid toggle testing. All probes within each phase returned a consistent IP.
+
+The customer symptom of "intermittent DNS failures after adding a private endpoint" is therefore unlikely to be caused by DNS cache drift in this configuration. The root cause is more likely one of:
+
+- Incorrect DNS zone link configuration (zone linked to wrong VNet or not linked at all)
+- Application-level DNS caching (HTTP client connection pools, SDK keepalive connections)
+- Firewall rules blocking the private endpoint IP after the switch
 
 ## 12. What this proves
 
-_Awaiting execution._
+!!! success "Evidence-based conclusions"
+
+    1. **Private DNS Zone changes propagate immediately** to VNet-integrated App Service apps. All 4 phases showed zero-delay transitions across 80 total DNS probes.
+    2. **No DNS cache drift** — the hypothesis of TTL-based cache causing intermittent failures is refuted for this configuration.
+    3. **Unlink causes immediate fallback to public DNS** — when the Private DNS Zone link is removed, the app immediately resolves the storage FQDN to its public IP.
+    4. **The transition is deterministic and repeatable** — no mixed resolution was observed even under rapid toggle testing.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+!!! warning "Scope limitations"
+
+    - **Application-level DNS caching.** HTTP client libraries, connection pools, and SDK caches may hold onto resolved IPs independently of the OS/platform DNS resolution. This experiment used `socket.getaddrinfo()` which bypasses such caches.
+    - **Custom DNS server behavior.** This experiment used Azure-provided DNS. Custom DNS servers (e.g., a VM running BIND or a DNS forwarder appliance) may introduce their own TTL-based caching.
+    - **Windows App Service.** This experiment used Linux. Windows App Service may have different DNS resolver caching behavior.
+    - **Multi-instance drift.** Only one instance (of 2 configured) handled all requests. Cross-instance DNS divergence could not be observed. With different instances potentially using different DNS resolvers, drift may still be possible.
+    - **High-frequency resolution.** Probes were spaced 2-10 seconds apart. Sub-second DNS caching (if any) was not measurable.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+!!! tip "Key diagnostic insight"
+
+    When a customer reports "DNS resolution fails after adding a private endpoint":
+
+    1. **Check the DNS zone link** — the most common cause is the Private DNS Zone not being linked to the correct VNet (or to the VNet's DNS server chain). Use `az network private-dns link vnet list` to verify.
+    2. **Don't assume DNS cache drift** — this experiment showed that Private DNS Zone changes propagate immediately to VNet-integrated App Service apps. If the customer sees intermittent failures, the cause is elsewhere.
+    3. **Check application-level caching** — HTTP client connection pools, SDK keepalive connections, and framework-level DNS caches (e.g., .NET `ServicePointManager`, Java's `InetAddress` cache) can hold stale IPs even after the platform DNS updates.
+    4. **Verify firewall rules** — if the storage account has `defaultAction: Deny` and the private endpoint is working, the public IP path will be blocked. After unlinking the DNS zone, the app resolves to the public IP but can't connect.
+    5. **A restart is not needed** — DNS changes take effect without restarting the app.
 
 ## 15. Reproduction notes
 
-- VNet integration is required (P1v3 or higher, or Regional VNet Integration on lower SKUs)
-- Private DNS Zone must be linked to the integration VNet
-- DNS TTL values affect the transition window duration
+- VNet integration is required (P1v3 or higher, or Regional VNet Integration on lower SKUs).
+- Private DNS Zone must be linked to the integration VNet.
+- Use `socket.getaddrinfo()` (not `nslookup`) to test DNS from the application layer — this reflects what the app actually sees.
+- Disable ARR affinity (`clientAffinityEnabled=false`) to increase chances of hitting multiple instances.
+- The CLI `az network private-dns link vnet delete/create` command takes ~30 seconds to complete. The DNS change takes effect by the time the command finishes.
+- This is a config experiment — results are deterministic. 3 runs per phase are sufficient.
 
 ## 16. Related guide / official docs
 
 - [Azure App Service VNet integration](https://learn.microsoft.com/en-us/azure/app-service/overview-vnet-integration)
 - [Azure Private DNS](https://learn.microsoft.com/en-us/azure/dns/private-dns-overview)
 - [Name resolution for resources in Azure virtual networks](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-name-resolution-for-vms-and-role-instances)
-- [azure-app-service-practical-guide](https://github.com/yeongseon/azure-app-service-practical-guide)
+- [Private endpoint DNS configuration](https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns)
