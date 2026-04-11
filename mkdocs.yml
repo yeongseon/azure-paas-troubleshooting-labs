@@ -84,6 +84,7 @@ nav:
       - False Positives: patterns/false-positives.md
       - Metric Misreads: patterns/metric-misreads.md
   - Reference:
+      - Glossary: reference/glossary.md
       - Validation Status: reference/validation-status.md
 
 markdown_extensions:
