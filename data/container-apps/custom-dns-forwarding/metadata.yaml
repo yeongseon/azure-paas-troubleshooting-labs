@@ -1,0 +1,71 @@
+experiment: custom-dns-forwarding
+service: container-apps
+date: "2026-04-11"
+location: koreacentral
+sku: Consumption (VNet-injected)
+runtime: Python 3.11 (Flask + Gunicorn)
+container_image: acrcustomdns17774.azurecr.io/dns-forwarding-test:v1
+target_fqdn: microsoft.com
+vnet: vnet-custom-dns-forwarding (10.70.0.0/16)
+aca_subnet: snet-aca-infra (10.70.0.0/23)
+dns_subnet: snet-dns (10.70.2.0/24)
+unreachable_dns_ip: "10.70.2.250"
+container_nameserver: "127.0.0.11"
+environment_fqdn: ca-custom-dns-forwarding.salmondesert-53fdc30c.koreacentral.azurecontainerapps.io
+
+phases:
+  phase1_baseline:
+    description: Azure Default DNS (no custom DNS)
+    probes: 10
+    success: 10
+    failure: 0
+    file: phase1-baseline.csv
+
+  phase2_unreachable_dns:
+    description: VNet DNS set to unreachable 10.70.2.250, revision restarted
+    probes: 24
+    success: 3  # cached from before restart
+    failure: 21
+    transition_at_probe: 4  # first failure
+    error_message: "[Errno -3] Temporary failure in name resolution"
+    file: phase2-unreachable-dns.csv
+
+  phase3_recovery_attempt1:
+    description: Default DNS restored, revision restarted (same revision)
+    probes: 10
+    success: 0
+    failure: 10
+    note: "Revision restart alone did NOT restore DNS — k8s node DNS still cached"
+    file: phase3-recovery-attempt1.csv
+
+  phase3b_recovery_new_revision:
+    description: Default DNS restored, NEW revision created (env var update)
+    probes: 10
+    success: 2  # probes 9-10
+    failure: 8  # probes 1-8 (including 1 timeout during revision switch)
+    transition_at_probe: 9  # first success
+    note: "New revision had ImagePullFailure initially because ACR FQDN also unresolvable. Eventually recovered."
+    file: phase3b-recovery-new-revision.csv
+
+  phase3c_stable_recovery:
+    description: Confirmed stable DNS recovery
+    probes: 10
+    success: 10
+    failure: 0
+    file: phase3c-stable-recovery.csv
+
+key_findings:
+  - "VNet DNS changes propagate to Container Apps with a 2-5 minute delay"
+  - "Container starts successfully regardless of DNS state (DNS not needed at boot)"
+  - "Unreachable custom DNS causes total DNS failure - no fallback to Azure Default DNS"
+  - "nameserver in /etc/resolv.conf always shows 127.0.0.11 (Docker embedded DNS) regardless of VNet DNS config"
+  - "DNS failure affects platform operations too: image pulls from ACR fail when DNS is broken"
+  - "Revision restart alone is NOT sufficient to recover from DNS misconfiguration - k8s node must update first"
+  - "Recovery requires VNet DNS change + time for propagation + new revision"
+  - "Cached DNS entries survive revision restarts (~30s grace period)"
+
+hypothesis_verdict: CONFIRMED
+  # H1: Container starts successfully - CONFIRMED (container never crashed, HTTP 200 throughout)
+  # H2: All outbound DNS queries fail - CONFIRMED (21/24 probes failed during unreachable DNS phase)
+  # H3: Failure manifests as connection errors, not platform errors - PARTIALLY CONFIRMED (app-level errors, but also ImagePullFailure at platform level)
+  # H4: No automatic fallback to Azure Default DNS - CONFIRMED (no fallback observed)

@@ -1,0 +1,11 @@
+timestamp_probe,timestamp_app,target,resolved_ips,error,nameserver
+2026-04-11T14:55:46Z,TIMEOUT,microsoft.com,,curl_timeout,
+2026-04-11T14:55:54Z,2026-04-11T14:55:58.741992+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:56:03Z,2026-04-11T14:56:07.869784+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:56:12Z,2026-04-11T14:56:17.014476+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:56:22Z,2026-04-11T14:56:26.162571+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:56:31Z,2026-04-11T14:56:35.302291+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:56:40Z,2026-04-11T14:56:44.441814+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:56:49Z,2026-04-11T14:56:53.584533+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:56:58Z,2026-04-11T14:56:58.726531+00:00,microsoft.com,150.171.110.135|2603:1061:14:186::1,,127.0.0.11
+2026-04-11T14:57:03Z,2026-04-11T14:57:03.836425+00:00,microsoft.com,150.171.110.135|2603:1061:14:186::1,,127.0.0.11

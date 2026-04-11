@@ -1,0 +1,25 @@
+timestamp_probe,timestamp_app,target,resolved_ips,error,nameserver
+2026-04-11T14:45:06Z,2026-04-11T14:45:06.554905+00:00,microsoft.com,150.171.110.131|2603:1061:14:182::1,,127.0.0.11
+2026-04-11T14:45:16Z,2026-04-11T14:45:16.665347+00:00,microsoft.com,150.171.110.131|2603:1061:14:182::1,,127.0.0.11
+2026-04-11T14:45:26Z,2026-04-11T14:45:26.788659+00:00,microsoft.com,150.171.110.131|2603:1061:14:182::1,,127.0.0.11
+2026-04-11T14:45:36Z,2026-04-11T14:45:42.907629+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:45:52Z,2026-04-11T14:45:57.045701+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:46:07Z,2026-04-11T14:46:11.209466+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:46:21Z,2026-04-11T14:46:25.342333+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:46:35Z,2026-04-11T14:46:39.473556+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:46:49Z,2026-04-11T14:46:53.611012+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:47:03Z,2026-04-11T14:47:07.856390+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:47:17Z,2026-04-11T14:47:21.988269+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:47:32Z,2026-04-11T14:47:36.118172+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:47:46Z,2026-04-11T14:47:50.264340+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:48:00Z,2026-04-11T14:48:04.405917+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:48:14Z,2026-04-11T14:48:18.554980+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:48:28Z,2026-04-11T14:48:32.704578+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:48:42Z,2026-04-11T14:48:46.854036+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:48:56Z,2026-04-11T14:49:01.001942+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:49:11Z,2026-04-11T14:49:15.159441+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:49:25Z,2026-04-11T14:49:29.302385+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:49:39Z,2026-04-11T14:49:43.438068+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:49:53Z,2026-04-11T14:49:57.587119+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:50:07Z,2026-04-11T14:50:11.737217+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11
+2026-04-11T14:50:21Z,2026-04-11T14:50:25.873586+00:00,microsoft.com,,[Errno -3] Temporary failure in name resolution,127.0.0.11

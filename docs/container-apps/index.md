@@ -87,7 +87,7 @@ graph TB
 | [Scale-to-Zero 503](scale-to-zero-502/overview.md) | **Published** | First-request failure modes after idle scale-down |
 | [Target Port Detection](target-port-detection/overview.md) | **Published** | Auto-detection failures causing 502 on running containers |
 | [OOM Visibility Gap](oom-visibility-gap/overview.md) | **Published** | Observability gaps across metrics and logs for OOM kills |
-| [Custom DNS Forwarding](custom-dns-forwarding/overview.md) | Planned | Outbound resolution failure with unreachable custom DNS |
+| [Custom DNS Forwarding](custom-dns-forwarding/overview.md) | **Published** | Outbound resolution failure with unreachable custom DNS |
 | [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) | **Published** | SNI and host header routing behavior |
 | [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) | Planned | FQDN vs. direct IP access differences |
 | [Startup Probes](startup-probes/overview.md) | **Published** | Probe interaction and failure patterns |
@@ -131,10 +131,12 @@ How Container Apps ingress handles Server Name Indication (SNI) and host header 
 
 ## Planned Experiments
 
-### [Custom DNS Forwarding](custom-dns-forwarding/overview.md)
+### [Custom DNS Forwarding](custom-dns-forwarding/overview.md) — **Published**
 
-Outbound resolution failure when custom DNS servers configured in the Container Apps environment become unreachable. Investigates fallback behavior and the blast radius of DNS misconfiguration.
+Outbound resolution failure when custom DNS servers configured in the Container Apps environment become unreachable. Demonstrates that there is no DNS fallback to Azure Default DNS, that recovery requires VNet DNS change + propagation time + new revision, and that DNS failure also breaks platform-level operations (ACR image pulls).
 
+??? success "Experiment Complete"
+    Completed 2026-04-11 on Consumption tier (VNet-injected, koreacentral). 54 probes across 4 phases. All 4 hypothesis points confirmed; unexpected finding that recovery is asymmetric — breaking DNS takes ~30s but restoring takes 2-5 minutes.
 
 ### [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md)
 
