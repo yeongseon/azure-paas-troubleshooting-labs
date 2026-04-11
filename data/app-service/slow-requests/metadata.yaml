@@ -1,0 +1,10 @@
+app: app-slow-requests-lab
+arr_timeout_boundary: 230-240s (confirmed 220s OK, 240s 504)
+date: '2026-04-11'
+experiment: slow-requests
+methodology: Concurrent HTTP requests via Python ThreadPoolExecutor, 3 runs per scenario
+plan: plan-slow-requests-b1
+region: koreacentral
+resource_group: rg-slow-requests-lab
+runtime: Node.js 20 (Linux)
+sku: B1

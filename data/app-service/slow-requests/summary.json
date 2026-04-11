@@ -1,0 +1,154 @@
+{
+  "baseline": {
+    "endpoint": "/health",
+    "p50_s": 0.111,
+    "mean_s": 0.116,
+    "n": 20
+  },
+  "scenarios": {
+    "worker_5000ms": {
+      "delay_type": "CPU-bound (busyWait)",
+      "delay_ms": 5000,
+      "concurrency": 5,
+      "runs": [
+        {
+          "run": 1,
+          "p50_s": 10.0,
+          "mean_s": 13.6,
+          "ok": 7,
+          "errors": 3
+        },
+        {
+          "run": 2,
+          "p50_s": 15.0,
+          "mean_s": 17.6,
+          "ok": 8,
+          "errors": 2
+        },
+        {
+          "run": 3,
+          "p50_s": 12.6,
+          "mean_s": 17.6,
+          "ok": 8,
+          "errors": 2
+        }
+      ],
+      "observation": "Requests serialized \u2014 event loop blocked. p50 is 2-3x requested delay due to queuing."
+    },
+    "dependency_5000ms": {
+      "delay_type": "Async (setTimeout)",
+      "delay_ms": 5000,
+      "concurrency": 10,
+      "runs": [
+        {
+          "run": 1,
+          "p50_s": 5.1,
+          "mean_s": 5.1,
+          "ok": 20,
+          "errors": 0
+        },
+        {
+          "run": 2,
+          "p50_s": 5.1,
+          "mean_s": 5.1,
+          "ok": 20,
+          "errors": 0
+        },
+        {
+          "run": 3,
+          "p50_s": 5.1,
+          "mean_s": 5.1,
+          "ok": 20,
+          "errors": 0
+        }
+      ],
+      "observation": "All requests complete in ~5s regardless of concurrency. Event loop not blocked."
+    },
+    "threadpool_5000ms": {
+      "delay_type": "CPU-bound (busyWait \u2014 same as worker)",
+      "delay_ms": 5000,
+      "concurrency": 5,
+      "runs": [
+        {
+          "run": 1,
+          "p50_s": 12.6,
+          "mean_s": 17.0,
+          "ok": 8,
+          "errors": 2
+        },
+        {
+          "run": 2,
+          "p50_s": 15.0,
+          "mean_s": 17.6,
+          "ok": 8,
+          "errors": 2
+        },
+        {
+          "run": 3,
+          "p50_s": 15.0,
+          "mean_s": 15.2,
+          "ok": 7,
+          "errors": 3
+        }
+      ],
+      "observation": "Same serialization pattern as worker \u2014 confirms event loop blocking is the cause."
+    },
+    "worker_15000ms": {
+      "delay_type": "CPU-bound (busyWait)",
+      "delay_ms": 15000,
+      "concurrency": 5,
+      "runs": [
+        {
+          "run": 1,
+          "p50_s": 45.2,
+          "mean_s": 45.2,
+          "ok": 5,
+          "errors": 0
+        },
+        {
+          "run": 2,
+          "p50_s": 45.1,
+          "mean_s": 45.1,
+          "ok": 5,
+          "errors": 0
+        }
+      ],
+      "observation": "p50=45s = 3x delay. Requests 1-5 complete at 15/30/45/60/75s respectively."
+    },
+    "dependency_15000ms": {
+      "delay_type": "Async (setTimeout)",
+      "delay_ms": 15000,
+      "concurrency": 10,
+      "runs": [
+        {
+          "run": 1,
+          "p50_s": 15.2,
+          "mean_s": 15.2,
+          "ok": 10,
+          "errors": 0
+        },
+        {
+          "run": 2,
+          "p50_s": 15.2,
+          "mean_s": 15.2,
+          "ok": 10,
+          "errors": 0
+        }
+      ],
+      "observation": "All 10 concurrent requests complete in ~15s. No queuing."
+    }
+  },
+  "arr_timeout": {
+    "test_220s": {
+      "delay_ms": 220000,
+      "result": "200 OK",
+      "elapsed_s": 220.2
+    },
+    "test_240s": {
+      "delay_ms": 240000,
+      "result": "504 Gateway Timeout",
+      "elapsed_s": 240.0
+    },
+    "observation": "ARR timeout fires between 230-240s. Requests exceeding this window get 504."
+  }
+}

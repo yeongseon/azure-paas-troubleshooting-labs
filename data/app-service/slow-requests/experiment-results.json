@@ -1,0 +1,1773 @@
+{
+  "baseline": [
+    {
+      "status": 200,
+      "elapsed_s": 0.108,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.932Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.109,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.924Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.139,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.984Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.139,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.944Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.139,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.942Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.14,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.953Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.14,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.983Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.139,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:37.982Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.049,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.042Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.159,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.013Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.16,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.041Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.078,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.043Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.095,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.099Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.097,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.111Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.097,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.100Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.095,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.091Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.104,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.130Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.095,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.139Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.112,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.149Z"
+      }
+    },
+    {
+      "status": 200,
+      "elapsed_s": 0.132,
+      "body": {
+        "status": "ok",
+        "ts": "2026-04-11T13:25:38.157Z"
+      }
+    }
+  ],
+  "worker_5000ms": [
+    {
+      "run": 1,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.03,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5003,
+            "requestId": "4da139cd-c8f7-4d05-9ae5-4cc5128fa396"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.045,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "85a8c497-76c3-44a4-9a69-a93241ad49db"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.048,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5005,
+            "requestId": "e4358519-6e94-4be3-987e-50c03e96ff61"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 20.054,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5003,
+            "requestId": "9e40d384-b6a1-4bea-96cb-e378225adb71"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 25.073,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5013,
+            "requestId": "e0fc6a94-f52e-4d8b-a6b3-5c9368c8d4cb"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 15.258,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": null,
+          "elapsed_s": 20.274,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.254,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.046,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "9588f28d-d4ab-4231-a169-a81e7965a718"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.046,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "afacd59e-b7b0-468c-a0a9-cc9ac027fed5"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 7,
+        "error_count": 3,
+        "p50_s": 10.046,
+        "mean_s": 13.62,
+        "min_s": 5.03,
+        "max_s": 25.073
+      }
+    },
+    {
+      "run": 2,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.059,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "5477ea3a-243f-4f7e-aacf-b8050fae63ed"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.072,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "61ba967f-b273-4d1c-8512-72782977cdbc"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.009,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5005,
+            "requestId": "693bfb5d-bdc9-4d2d-9df7-c7e43c675d1b"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 20.082,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "c11d9e16-053f-4c7f-aaac-cde2da287586"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.067,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.024,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "7678da29-bac2-4fdc-9e67-1173a01ea479"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 30.126,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5013,
+            "requestId": "c71ff82d-3406-4af3-b9b0-bb6af26d2c73"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.15,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 35.125,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5005,
+            "requestId": "ae88f06b-85fb-475b-8758-620681c2d5bc"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 19.997,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5003,
+            "requestId": "93c5c029-5d39-42bb-a236-9c245f0fa025"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 8,
+        "error_count": 2,
+        "p50_s": 15.034,
+        "mean_s": 17.562,
+        "min_s": 5.059,
+        "max_s": 35.125
+      }
+    },
+    {
+      "run": 3,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.05,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5001,
+            "requestId": "76105af1-2b38-48a8-8da5-312f62ddb177"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.074,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5012,
+            "requestId": "019cec32-802c-4a4b-a659-049ee1cdcf30"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.127,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "20abe61a-f1f6-4d95-8e04-03c2463fa896"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.2,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.155,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5013,
+            "requestId": "8944dd62-c67f-4abc-a44c-464e5f7b2337"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.111,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "df5f3b7e-d087-4b69-a0c9-4facf5c5a457"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 30.257,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "3594366a-4dc1-4f13-aa49-205558d96dc9"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 35.26,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "1ba11973-b25b-43de-bc01-aeff66afdfcd"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 15.061,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 25.039,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5006,
+            "requestId": "b9765f27-c686-4704-a0ae-2101d54a30f6"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 8,
+        "error_count": 2,
+        "p50_s": 12.641,
+        "mean_s": 17.634,
+        "min_s": 5.05,
+        "max_s": 35.26
+      }
+    }
+  ],
+  "dependency_5000ms": [
+    {
+      "run": 1,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.083,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5020,
+            "requestId": "4145e61e-6cba-424b-acb3-02b9162b38cf"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.086,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5001,
+            "requestId": "32174fd6-56cf-4795-b533-3f693d571c6e"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.103,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5008,
+            "requestId": "167a1ed2-7ecc-4f1f-937a-9c7d88317640"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.104,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5008,
+            "requestId": "f8a884af-c75c-46ea-a8c1-7930713cd13d"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.151,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5048,
+            "requestId": "0d95699e-25e7-48c9-b0f6-4bb74fe25f08"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.149,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5048,
+            "requestId": "661cf1e4-efa1-4ce1-a798-2fc6f84fbc84"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.15,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5055,
+            "requestId": "fbbe633d-5e4a-4229-a53f-730f75c87b29"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.168,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5048,
+            "requestId": "64d7c8fc-9b61-4e41-9a16-8ff1e94e2ace"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.187,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5074,
+            "requestId": "15f31728-ea9e-46e6-bd9a-2bf9715d989a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.187,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5048,
+            "requestId": "e673a1e4-c878-44d5-bf4f-217fec30639e"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.125,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5022,
+            "requestId": "b6306686-c671-4b89-a139-f40ceafe2f63"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.125,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5015,
+            "requestId": "703790e3-9b69-46c1-8fb5-629b909d0b9c"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.118,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5015,
+            "requestId": "e2f72c67-8c4c-470d-9496-35bcf9787bd1"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.137,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5021,
+            "requestId": "8b045936-3f19-48b8-8d20-603dcde3d5cb"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.089,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5030,
+            "requestId": "c2790be5-b0d2-48cf-b6d4-1715d7cce8bd"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.089,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5033,
+            "requestId": "7e6a57e8-b8bb-4453-89bf-f6ca6662328a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.09,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5029,
+            "requestId": "120e8420-f7e9-4353-8f0d-50d57bc8ddac"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.081,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5035,
+            "requestId": "11186573-81f8-4a3c-b030-5e49e98d658f"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.071,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5045,
+            "requestId": "57e3733b-d53d-4fbe-8261-c956bb024f8a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.081,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5047,
+            "requestId": "16c1a1f6-3858-4677-8aaf-b11e9ef68dda"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 20,
+        "error_count": 0,
+        "p50_s": 5.111,
+        "mean_s": 5.119,
+        "min_s": 5.071,
+        "max_s": 5.187
+      }
+    },
+    {
+      "run": 2,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.065,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5020,
+            "requestId": "c6dd1631-76f9-462f-ac70-ed879c5934dc"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.075,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5028,
+            "requestId": "52123fbd-4de7-4ec5-abb6-54a529da1bc7"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.075,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5019,
+            "requestId": "8afe319b-0073-45ab-9ace-3b06d3cbad8a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.092,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5019,
+            "requestId": "1d3d5ea7-a1f2-40f7-8761-9635539352df"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.092,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5012,
+            "requestId": "0530ce8b-7da8-4ddb-923e-1aee4a68f7d0"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.102,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5012,
+            "requestId": "20cac539-29cd-4198-9d76-63886672c95d"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.102,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5012,
+            "requestId": "5a4ccf0f-9b53-4895-be2f-d57766d6350a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.101,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5012,
+            "requestId": "f38423bf-53b7-4aa5-8fb4-5d43a65fab5c"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.111,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5012,
+            "requestId": "b0bddadf-1938-4845-8694-98485ee8c50c"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.114,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5029,
+            "requestId": "c9ddae40-990a-455b-8a97-311b9260ecb1"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.066,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5019,
+            "requestId": "764bcfed-93ca-4638-8c66-fd99f0a0d8d2"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.078,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5018,
+            "requestId": "fe231452-d3d9-4c91-9bfc-47bd84e95c1c"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.073,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5019,
+            "requestId": "8fcb8139-4794-40bb-ac05-3b3f4743e676"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.056,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5027,
+            "requestId": "2ac6cc6e-31d9-4ad8-a682-b424575fe821"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.057,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5023,
+            "requestId": "09633087-ac40-4afd-95ff-92edd1df79bf"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.057,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5023,
+            "requestId": "8bb7b87e-8d7c-457b-9920-9ca640e61e7f"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.065,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5025,
+            "requestId": "e489e376-1200-45cc-8528-e9bb98d82354"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.074,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5025,
+            "requestId": "4cc9ca0f-5b9b-420d-9929-c4532517e48d"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.083,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5019,
+            "requestId": "74c79654-0705-451e-a25e-61271306491c"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.064,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5025,
+            "requestId": "00ded920-b237-4371-b35c-fd3f0995931a"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 20,
+        "error_count": 0,
+        "p50_s": 5.075,
+        "mean_s": 5.08,
+        "min_s": 5.056,
+        "max_s": 5.114
+      }
+    },
+    {
+      "run": 3,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.078,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5021,
+            "requestId": "38072a0c-c634-4582-a252-3587cc99ccc0"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.093,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5032,
+            "requestId": "a7b51d14-de7d-4699-aab2-9a740383e215"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.105,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5035,
+            "requestId": "a5889c13-bedd-42da-949c-3a418b14668a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.102,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5041,
+            "requestId": "f000e62b-c1ec-48c6-9c60-f72ee8448765"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.117,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5042,
+            "requestId": "ff69631b-88cf-48c7-90de-44813bd65b45"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.122,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5033,
+            "requestId": "6edd8083-8978-4f9d-8731-99679410c389"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.124,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5043,
+            "requestId": "34ef7165-d385-42ad-ad8e-fce19ba1adec"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.133,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5044,
+            "requestId": "bee67679-35c1-40e1-8f34-7143cf8cae6b"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.15,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5046,
+            "requestId": "deacb254-cb7d-4749-8236-6990f87a9cae"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.159,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5073,
+            "requestId": "aaa4160b-52c2-4ae7-84d0-e57f87c52c9e"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.107,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5018,
+            "requestId": "18c0a3fc-7143-41c0-9dee-e9059c417d5e"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.096,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5019,
+            "requestId": "4ef480a9-212b-4a03-a230-4df48f9e55c5"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.099,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5020,
+            "requestId": "53633252-643f-44ca-8d14-b8bbbf1cab76"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.086,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5027,
+            "requestId": "8ea3ea07-e609-4264-adba-87e69bb29f39"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.101,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5027,
+            "requestId": "02cfce50-6bcc-4516-ad87-603a53978030"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.055,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5020,
+            "requestId": "9ea455b3-e1e3-4736-8fe8-317e1528ebe7"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.076,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5027,
+            "requestId": "7f7cea60-e8b2-42d3-8f6f-825779e6b7f3"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.077,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5027,
+            "requestId": "d04f1a7c-588c-46d1-b466-de12c6f5a1bb"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.089,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5028,
+            "requestId": "15f50de3-28c8-4937-bec7-3cff78779bc4"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 5.056,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5007,
+            "requestId": "7febf83a-5fbe-4c53-97fc-a7a4a36cffb8"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 20,
+        "error_count": 0,
+        "p50_s": 5.1,
+        "mean_s": 5.101,
+        "min_s": 5.055,
+        "max_s": 5.159
+      }
+    }
+  ],
+  "threadpool_5000ms": [
+    {
+      "run": 1,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.06,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5005,
+            "requestId": "c47a0c8a-cc4f-4be1-b95f-d719acb3f57c"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.081,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5002,
+            "requestId": "e15cd85d-3805-4239-9768-77fd6a8b43be"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.086,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "edc85d24-7ba4-4c11-99e4-c7005c4f49bb"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.067,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.016,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "69227126-6d2e-4977-a4ae-76e52d89e67c"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 25.105,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "1250d34b-6272-48e6-ba95-6866c22a57f6"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.077,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.052,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5034,
+            "requestId": "172c2074-4a0c-43f6-929b-9e94d1ff1008"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 35.175,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5006,
+            "requestId": "977101a5-73d2-4670-a89a-ae218eee0a37"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 25.058,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "1307246b-5a3e-4f5b-9e8d-774cba12557d"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 8,
+        "error_count": 2,
+        "p50_s": 12.584,
+        "mean_s": 16.954,
+        "min_s": 5.06,
+        "max_s": 35.175
+      }
+    },
+    {
+      "run": 2,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.041,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5003,
+            "requestId": "e7f10dee-810c-4f83-aea8-c0854f96e9dd"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.055,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5003,
+            "requestId": "426deae1-6fb6-4cf1-887b-161c276e3cfa"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.029,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "d49af3b7-4c4f-469c-bc0c-43cab1545816"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 20.074,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "f7328167-4394-41bc-bbd4-b01b137be892"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.048,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.032,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5019,
+            "requestId": "a3871657-44f4-42a7-a0ad-f3a8f8e6bac7"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 30.107,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "a4835235-3d04-4aa8-95f9-994d5b4e0c76"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.062,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 35.125,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5005,
+            "requestId": "a359df01-996e-4b65-bcd8-5d3a352b2ecf"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 20.034,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "34bbd894-2f2e-421e-b62a-063a69ca3e81"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 8,
+        "error_count": 2,
+        "p50_s": 15.044,
+        "mean_s": 17.562,
+        "min_s": 5.041,
+        "max_s": 35.125
+      }
+    },
+    {
+      "run": 3,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 5.203,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "64a0bbe3-1907-4598-b705-782344830172"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.255,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "ea3ec46c-4566-4c12-903c-66d1f459de4e"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.234,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5006,
+            "requestId": "c914b337-62b9-45e8-a1b2-cd79345942f2"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 20.283,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5002,
+            "requestId": "7812cf36-f31d-48f6-8dfe-1ce958278226"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 15.082,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": null,
+          "elapsed_s": 10.031,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 10.029,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5004,
+            "requestId": "398711c3-f6f1-4817-8c46-7495b150093e"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 30.266,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5000,
+            "requestId": "e1951662-9dba-477e-ab8f-0e88ebef4e87"
+          }
+        },
+        {
+          "status": null,
+          "elapsed_s": 9.99,
+          "error": "HTTP Error 502: Bad Gateway"
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.002,
+          "body": {
+            "scenario": "threadpool",
+            "requestedDelayMs": 5000,
+            "actualDelayMs": 5002,
+            "requestId": "6f1dbf44-3ed6-4df8-9441-82e553e730f6"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 7,
+        "error_count": 3,
+        "p50_s": 15.002,
+        "mean_s": 15.182,
+        "min_s": 5.203,
+        "max_s": 30.266
+      }
+    }
+  ],
+  "worker_15000ms": [
+    {
+      "run": 1,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 15.078,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15000,
+            "requestId": "9af13c8f-a021-4d35-9949-578bb6cbd16d"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 30.119,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15049,
+            "requestId": "4f24085b-2e8a-485e-9228-2e92b64d7eb0"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 45.194,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15000,
+            "requestId": "357ebdbd-6f64-4d0d-b248-ae17e57a8252"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 60.216,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15001,
+            "requestId": "6cf9bef1-5da1-430b-9981-aebac40e3a65"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 75.234,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15000,
+            "requestId": "10752bb8-63b4-4b09-9aab-57eb555d6e8d"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 5,
+        "error_count": 0,
+        "p50_s": 45.194,
+        "mean_s": 45.168,
+        "min_s": 15.078,
+        "max_s": 75.234
+      }
+    },
+    {
+      "run": 2,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 15.072,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15002,
+            "requestId": "fec12bc3-0447-4e6c-8c66-994f333a3073"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 30.078,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15004,
+            "requestId": "60e966a8-cc34-4325-9118-a5c241e69a2b"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 45.089,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15000,
+            "requestId": "7c609a1f-aed9-4502-9a70-94ec5b094e42"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 60.101,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15002,
+            "requestId": "62f83178-440f-42c7-9cbf-ff3831996401"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 75.11,
+          "body": {
+            "scenario": "worker",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15002,
+            "requestId": "e27b590f-d172-471d-bf60-5c5d6a153880"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 5,
+        "error_count": 0,
+        "p50_s": 45.089,
+        "mean_s": 45.09,
+        "min_s": 15.072,
+        "max_s": 75.11
+      }
+    }
+  ],
+  "dependency_15000ms": [
+    {
+      "run": 1,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 15.136,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15071,
+            "requestId": "60009847-dd11-47ec-84b8-bb32edf5b230"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.157,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15081,
+            "requestId": "a9b54a5a-f43a-4c75-870c-891cd4342d1a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.176,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15110,
+            "requestId": "a3fb804e-1d7e-4583-a5c3-932daeb26029"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.188,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15119,
+            "requestId": "05065ac9-1441-410d-aa6a-0d2fcaf91cbf"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.191,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15127,
+            "requestId": "23a38526-0678-4ae4-9f4c-f051dbd8670e"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.196,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15131,
+            "requestId": "74e498ea-215a-4c4e-bbd0-3b6e499c13d7"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.204,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15128,
+            "requestId": "3d21b689-d6c8-4a3a-b152-2e012d3201a8"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.206,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15127,
+            "requestId": "9ba79c05-2724-4d74-8075-701c8dcee449"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.219,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15149,
+            "requestId": "d19ba275-ff74-428b-8d4d-fd06f9448beb"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.223,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15158,
+            "requestId": "4e6830d2-66a1-4e63-a6fa-7a1b2663a914"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 10,
+        "error_count": 0,
+        "p50_s": 15.194,
+        "mean_s": 15.19,
+        "min_s": 15.136,
+        "max_s": 15.223
+      }
+    },
+    {
+      "run": 2,
+      "results": [
+        {
+          "status": 200,
+          "elapsed_s": 15.151,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15049,
+            "requestId": "48dde96c-ee03-4204-879a-d22edcc16eca"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.155,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15058,
+            "requestId": "08c56a3f-0de6-41b6-894d-94d667345d8d"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.154,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15067,
+            "requestId": "b9fc7ae3-0bc4-491a-91de-f9cb56805490"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.169,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15069,
+            "requestId": "e66deda2-fe82-43e2-929a-4019a4e08c6f"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.176,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15077,
+            "requestId": "66753c34-3e47-489f-afe0-6c599e052d49"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.176,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15080,
+            "requestId": "eee00151-c926-4efe-80e9-610d622097da"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.181,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15077,
+            "requestId": "ad82a5d3-f778-4b67-b1c6-c2de9424e0e8"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.177,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15080,
+            "requestId": "9193f735-c7f1-4834-af3f-711ee1084a27"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.182,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15081,
+            "requestId": "f062854a-c18d-4b1c-be2c-cd58545b353a"
+          }
+        },
+        {
+          "status": 200,
+          "elapsed_s": 15.183,
+          "body": {
+            "scenario": "dependency",
+            "requestedDelayMs": 15000,
+            "actualDelayMs": 15080,
+            "requestId": "b008cf45-d37d-4a73-a411-12f03212545e"
+          }
+        }
+      ],
+      "summary": {
+        "ok_count": 10,
+        "error_count": 0,
+        "p50_s": 15.176,
+        "mean_s": 15.17,
+        "min_s": 15.151,
+        "max_s": 15.183
+      }
+    }
+  ]
+}

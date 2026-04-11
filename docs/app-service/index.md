@@ -72,7 +72,7 @@ graph TB
 | [Memory Pressure](memory-pressure/overview.md) | **Published** | Plan-level degradation, swap thrashing, kernel page reclaim |
 | [Custom DNS Resolution](custom-dns-resolution/overview.md) | Planned | Private name resolution drift after VNet changes |
 | [procfs Interpretation](procfs-interpretation/overview.md) | **Published** | /proc reliability and limits in Linux containers |
-| [Slow Requests](slow-requests/overview.md) | Planned | Frontend timeout vs. worker-side delay vs. dependency latency |
+| [Slow Requests](slow-requests/overview.md) | **Published** | Frontend timeout vs. worker-side delay vs. dependency latency |
 | [Zip Deploy vs Container](zip-vs-container/overview.md) | **Published** | Deployment method behavioral differences |
 
 ## Published Experiments
@@ -117,10 +117,12 @@ Reliability and limits of reading `/proc` filesystem data inside App Service Lin
 
 ??? success "Experiment Complete"
     Completed 2026-04 on B1/P1v3/P2v3 Linux (koreacentral). Key finding: cgroup memory and CPU limits are not enforced via cgroup (both return unlimited); `/proc/meminfo` MemTotal tracks SKU spec within 3-5%.
-### [Slow Requests](slow-requests/overview.md)
+### [Slow Requests](slow-requests/overview.md) — **Published**
 
 Diagnosing slow HTTP responses under pressure conditions. Distinguishes between frontend (ARR) timeout, worker-side processing delay, and downstream dependency latency. Tests how different bottleneck locations produce different diagnostic signals.
 
+??? success "Experiment Complete"
+    Completed 2026-04 on B1 Linux (koreacentral). Key finding: CPU-bound delays serialize on Node.js event loop (p50 inflates 2-3×); async dependency delays process in parallel at constant latency. ARR timeout confirmed at 230-240s.
 ### [Zip Deploy vs Container](zip-vs-container/overview.md) — **Published**
 
 Behavioral differences between zip deployment and custom container deployment. Investigates startup time, file system behavior, environment variable handling, and troubleshooting signal availability across deployment methods.
