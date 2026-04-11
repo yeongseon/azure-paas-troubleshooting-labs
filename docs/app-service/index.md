@@ -73,7 +73,7 @@ graph TB
 | [Custom DNS Resolution](custom-dns-resolution/overview.md) | Planned | Private name resolution drift after VNet changes |
 | [procfs Interpretation](procfs-interpretation/overview.md) | **Published** | /proc reliability and limits in Linux containers |
 | [Slow Requests](slow-requests/overview.md) | Planned | Frontend timeout vs. worker-side delay vs. dependency latency |
-| [Zip Deploy vs Container](zip-vs-container/overview.md) | Planned | Deployment method behavioral differences |
+| [Zip Deploy vs Container](zip-vs-container/overview.md) | **Published** | Deployment method behavioral differences |
 
 ## Published Experiments
 
@@ -121,10 +121,12 @@ Reliability and limits of reading `/proc` filesystem data inside App Service Lin
 
 Diagnosing slow HTTP responses under pressure conditions. Distinguishes between frontend (ARR) timeout, worker-side processing delay, and downstream dependency latency. Tests how different bottleneck locations produce different diagnostic signals.
 
-### [Zip Deploy vs Container](zip-vs-container/overview.md)
+### [Zip Deploy vs Container](zip-vs-container/overview.md) — **Published**
 
 Behavioral differences between zip deployment and custom container deployment. Investigates startup time, file system behavior, environment variable handling, and troubleshooting signal availability across deployment methods.
 
+??? success "Experiment Complete"
+    Completed 2026-04 on B1/P1v3 Linux (koreacentral). Key finding: cold start timing is dominated by platform variance (>50% CV), not deployment method. Major differences are in filesystem layout (cwd, /home contents) and environment variables (PORT vs WEBSITES_PORT).
 ## Related Experiments in Other Services
 
 - **Functions** — [Cold Start](../functions/cold-start/overview.md) explores startup phase breakdown, which shares diagnostic overlap with App Service container startup behavior.

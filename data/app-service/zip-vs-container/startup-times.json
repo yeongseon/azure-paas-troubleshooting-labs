@@ -1,0 +1,72 @@
+{
+  "app-zvc-container-b1": {
+    "valid_runs": 8,
+    "startup_times_s": [
+      52.57,
+      11.4,
+      66.15,
+      56.47,
+      69.8,
+      68.02,
+      130.39,
+      128.13
+    ],
+    "median_s": 67.09,
+    "mean_s": 72.87,
+    "stdev_s": 39.46,
+    "min_s": 11.4,
+    "max_s": 130.39
+  },
+  "app-zvc-container-p1v3": {
+    "valid_runs": 8,
+    "startup_times_s": [
+      52.43,
+      49.89,
+      48.65,
+      4.23,
+      8.93,
+      50.54,
+      51.23,
+      48.79
+    ],
+    "median_s": 49.34,
+    "mean_s": 39.34,
+    "stdev_s": 20.29,
+    "min_s": 4.23,
+    "max_s": 52.43
+  },
+  "app-zvc-zip-b1": {
+    "valid_runs": 8,
+    "startup_times_s": [
+      44.34,
+      4.21,
+      9.5,
+      72.35,
+      88.43,
+      94.58,
+      90.44,
+      70.96
+    ],
+    "median_s": 71.66,
+    "mean_s": 59.35,
+    "stdev_s": 36.07,
+    "min_s": 4.21,
+    "max_s": 94.58
+  },
+  "app-zvc-zip-p1v3": {
+    "valid_runs": 6,
+    "startup_times_s": [
+      14.1,
+      53.53,
+      38.71,
+      13.34,
+      42.84,
+      6.29
+    ],
+    "median_s": 26.41,
+    "mean_s": 28.14,
+    "stdev_s": 19.32,
+    "min_s": 6.29,
+    "max_s": 53.53
+  }
+}

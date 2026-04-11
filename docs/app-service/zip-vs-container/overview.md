@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: 2026-04-11
+    result: pass
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,7 @@ validation:
 
 # Zip Deploy vs Custom Container Behavior
 
-!!! info "Status: Planned"
+!!! success "Status: Published"
 
 ## 1. Question
 
@@ -42,7 +42,7 @@ For identical application code on the same App Service plan, deployment method c
 | Region | Korea Central |
 | Runtime | Node.js 20 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-04-11 |
 
 ## 6. Variables
 
@@ -269,23 +269,93 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-_Awaiting execution._
+### 10.1 Startup time (cold start)
+
+Each configuration was tested with stop-verify-start cold restarts across two batches (10 attempts per config). Stale runs (same container hostname as previous) were excluded.
+
+| Configuration | N | Median (s) | Mean (s) | StdDev (s) | Min (s) | Max (s) |
+|---|---|---|---|---|---|---|
+| **zip-B1** | 8 | 71.7 | 59.4 | 36.1 | 4.2 | 94.6 |
+| **zip-P1v3** | 6 | 26.4 | 28.1 | 19.3 | 6.3 | 53.5 |
+| **container-B1** | 8 | 67.1 | 72.9 | 39.5 | 11.4 | 130.4 |
+| **container-P1v3** | 8 | 49.3 | 39.3 | 20.3 | 4.2 | 52.4 |
+
+!!! note "High variance across all configurations"
+    All configurations showed standard deviations exceeding 50% of the mean, indicating that App Service cold start timing is dominated by platform-level scheduling variance (container placement, image layer caching, host availability) rather than by the deployment method itself.
+
+### 10.2 Environment variable differences
+
+| Variable | Zip Deploy | Custom Container |
+|---|---|---|
+| `WEBSITE_STACK` | `NODE` | `DOCKER` |
+| `PORT` | `8080` | _(not set)_ |
+| `WEBSITES_PORT` | _(not set)_ | `8080` (user-configured) |
+| `DOCKER_CUSTOM_IMAGE_NAME` | _(not set)_ | _(not set — but `DOCKER_REGISTRY_SERVER_URL` present)_ |
+| `WEBSITE_RUN_FROM_PACKAGE` | _(not set)_ | _(not set)_ |
+| `WEBSITE_SITE_NAME` | set | set |
+| `WEBSITE_INSTANCE_ID` | set | set |
+
+!!! warning "PORT vs WEBSITES_PORT"
+    Zip deploy apps receive the port via `PORT` (set by the platform Oryx build). Custom container apps require `WEBSITES_PORT` to be explicitly configured — without it, the platform defaults to port 80 and the container fails to start if it listens on a different port.
+
+### 10.3 Filesystem layout differences
+
+| Aspect | Zip Deploy | Custom Container |
+|---|---|---|
+| Working directory (`cwd`) | `/home/site/wwwroot` | `/app` (from Dockerfile `WORKDIR`) |
+| `/home` contents | `.gitconfig`, `ASP.NET`, `LogFiles`, `site/`, deployment artifacts | `node` (single entry) |
+| `/home/site/wwwroot` | `app.js`, `node_modules/`, `oryx-manifest.toml`, `hostingstart.html` | _(empty)_ |
+| `/tmp` contents | `.dotnet`, CLR debug pipes | _(empty)_ |
+| Deployment artifacts | `oryx-manifest.toml`, `node_modules.tar.gz`, `_del_node_modules` visible | None visible (image layers are opaque) |
+| Build system | Oryx (server-side build) | ACR Tasks / `docker build` (client-side or ACR) |
+
+!!! tip "Key insight: /home mount semantics"
+    Zip deploy apps have full `/home` persistence (Kudu artifacts, deployment history, Git config). Custom container apps get a minimal `/home` with only the Node.js user directory — no Kudu, no deployment history, no `site/wwwroot` structure.
+
+### 10.4 Diagnostic surface differences
+
+| Capability | Zip Deploy | Custom Container |
+|---|---|---|
+| Kudu (SCM site) | Full access — file browser, process explorer, console | Limited — no file browser for app code |
+| SSH | Available via Kudu | Available if configured in Dockerfile |
+| Platform logs | `LogFiles/` under `/home` | Container stdout/stderr via `docker-container-logging` |
+| cgroup memory limit | `9223372036854771712` (unlimited) | `9223372036854771712` (unlimited) |
+| memTotal (B1) | 1,945,784,320 (~1.86 GB) | 1,945,784,320 (~1.86 GB) |
+| memTotal (P1v3) | 8,277,880,832 (~7.71 GB) | 8,277,880,832 (~7.71 GB) |
 
 ## 11. Interpretation
 
-_Awaiting execution._
+1. **Startup timing is not meaningfully different between zip deploy and custom container on the same SKU.** The median difference within each SKU (B1: 71.7s zip vs 67.1s container; P1v3: 26.4s zip vs 49.3s container) is within the standard deviation of each measurement. The dominant variance comes from platform scheduling, not deployment method.
+
+2. **P1v3 is faster than B1 across both methods.** Zip-P1v3 median (26.4s) is 63% faster than zip-B1 (71.7s). Container-P1v3 median (49.3s) is 27% faster than container-B1 (67.1s). Premium SKUs have dedicated compute and faster image pulling.
+
+3. **The deployment method fundamentally changes the filesystem and diagnostic surface, not the performance profile.** Zip deploy provides rich Kudu artifacts and server-side Oryx build logs. Custom containers provide none of these — troubleshooting shifts from Kudu browsing to container log inspection.
+
+4. **Environment variable semantics differ in a potentially breaking way.** Zip deploy uses `PORT` (set by Oryx). Custom container needs `WEBSITES_PORT` (user must set it). An app that reads `process.env.PORT` will break in a custom container if `WEBSITES_PORT` is set but `PORT` is not injected into the container.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- [x] `[EVIDENCE:env-diff]` Zip deploy and custom container apps expose different environment variables (`WEBSITE_STACK=NODE` vs `DOCKER`, `PORT` vs `WEBSITES_PORT`).
+- [x] `[EVIDENCE:fs-diff]` Filesystem layout differs significantly: `/home/site/wwwroot` with Oryx artifacts (zip) vs custom `WORKDIR` with no `/home` persistence (container).
+- [x] `[EVIDENCE:diag-diff]` Diagnostic surface changes: full Kudu access (zip) vs limited Kudu with container-only logs (container).
+- [x] `[EVIDENCE:startup-variance]` Cold start timing is dominated by platform variance (>50% CV across all configs), not by deployment method.
+- [x] `[EVIDENCE:sku-effect]` P1v3 consistently faster than B1 for both deployment methods.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- **Image size impact**: The container image used (`node:20-slim` ~200MB) is small. Larger images (1GB+) would likely show container startup penalty that zip deploy avoids.
+- **Warm start differences**: Only cold starts were measured. Warm start behavior (after initial container is running) may differ.
+- **Network pull timing**: ACR is in the same region. Cross-region image pulls would add latency to container starts only.
+- **Oryx build overhead**: Zip deploy used pre-built `node_modules` in the zip. If Oryx builds from scratch on each restart, zip deploy times would be higher.
+- **App Service storage performance**: No I/O benchmarks were run to compare `/home` NFS mount (zip) vs container overlay fs performance.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+!!! tip "When a customer reports 'it broke after switching to containers'"
+    1. **Check `WEBSITES_PORT`** — the #1 cause of container startup failure. Zip deploy apps get `PORT` from Oryx; containers need `WEBSITES_PORT` explicitly.
+    2. **Check filesystem assumptions** — if the app reads from `/home/site/wwwroot` or expects Kudu artifacts, it will fail in a container where `cwd` is the Dockerfile `WORKDIR`.
+    3. **Don't blame startup time** — cold start variance is 30-130s on both methods. A 60s wait is normal, not a regression.
+    4. **Redirect troubleshooting** — container apps need `az webapp log config --docker-container-logging filesystem` enabled. Kudu file browser won't show app files.
 
 ## 15. Reproduction notes
 

@@ -1,0 +1,2295 @@
+{
+  "experiment": "zip-vs-container",
+  "collected_at": "2026-04-11",
+  "apps": {
+    "app-zvc-container-b1": [
+      {
+        "run": 1,
+        "startup_s": 52.57,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:41:32.869Z",
+            "importDoneTs": "2026-04-11T12:41:32.887Z",
+            "listenTs": "2026-04-11T12:41:32.907Z",
+            "firstRequestTs": "2026-04-11T12:41:34.260Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_205f65a61266_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "d7aaa5245aad",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "63619072",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 11.4,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:42:04.694Z",
+            "importDoneTs": "2026-04-11T12:42:04.694Z",
+            "listenTs": "2026-04-11T12:42:04.757Z",
+            "firstRequestTs": "2026-04-11T12:42:06.418Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_dd5e446e32d0_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "4ea2ec6d4bdd",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "16130048",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 3,
+        "startup_s": 66.15,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:43:31.164Z",
+            "importDoneTs": "2026-04-11T12:43:31.176Z",
+            "listenTs": "2026-04-11T12:43:31.206Z",
+            "firstRequestTs": "2026-04-11T12:43:33.244Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_bc59b4e8372a_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "a067b4939250",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "64122880",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 4,
+        "startup_s": 56.47,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:44:48.767Z",
+            "importDoneTs": "2026-04-11T12:44:48.778Z",
+            "listenTs": "2026-04-11T12:44:48.798Z",
+            "firstRequestTs": "2026-04-11T12:44:50.245Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_9cd72446a8e4_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "9184f086f613",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "56610816",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 1,
+        "startup_s": 69.8,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:03:50.980Z",
+            "importDoneTs": "2026-04-11T13:03:50.980Z",
+            "listenTs": "2026-04-11T13:03:51.000Z",
+            "firstRequestTs": "2026-04-11T13:03:51.761Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_0157e3b63d41_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "49b6441a2037",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "24072192",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 68.02,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:05:18.754Z",
+            "importDoneTs": "2026-04-11T13:05:18.755Z",
+            "listenTs": "2026-04-11T13:05:18.765Z",
+            "firstRequestTs": "2026-04-11T13:05:19.661Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_958862471a7b_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "22cff2412928",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "17170432",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 3,
+        "startup_s": 130.39,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:07:49.125Z",
+            "importDoneTs": "2026-04-11T13:07:49.126Z",
+            "listenTs": "2026-04-11T13:07:49.137Z",
+            "firstRequestTs": "2026-04-11T13:07:51.951Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_b349324c211e_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "77f8911e5b71",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "19091456",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 4,
+        "startup_s": 128.13,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:10:18.971Z",
+            "importDoneTs": "2026-04-11T13:10:18.971Z",
+            "listenTs": "2026-04-11T13:10:18.983Z",
+            "firstRequestTs": "2026-04-11T13:10:19.897Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_88e93479fe3a_app-zvc-container-b1",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "7d733f7dbb9f",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "20021248",
+          "memTotal": 1945784320
+        }
+      }
+    ],
+    "app-zvc-container-p1v3": [
+      {
+        "run": 1,
+        "startup_s": 52.43,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:46:24.041Z",
+            "importDoneTs": "2026-04-11T12:46:24.041Z",
+            "listenTs": "2026-04-11T12:46:24.045Z",
+            "firstRequestTs": "2026-04-11T12:46:24.996Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_49bdd1f3d9e7_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "b9e7507e24f7",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "19636224",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 49.89,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:47:34.427Z",
+            "importDoneTs": "2026-04-11T12:47:34.428Z",
+            "listenTs": "2026-04-11T12:47:34.431Z",
+            "firstRequestTs": "2026-04-11T12:47:35.454Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_1ea4bd5fcf22_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "e967333ff244",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "16797696",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 3,
+        "startup_s": 48.65,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:48:45.527Z",
+            "importDoneTs": "2026-04-11T12:48:45.527Z",
+            "listenTs": "2026-04-11T12:48:45.532Z",
+            "firstRequestTs": "2026-04-11T12:48:46.507Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_02278ce715fa_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "9909d3a34c5f",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "16846848",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 5,
+        "startup_s": 4.23,
+        "health": null,
+        "env": null,
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_3b56d28efc9e_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "14992de36c41",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "16576512",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 1,
+        "startup_s": 8.93,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:11:10.632Z",
+            "importDoneTs": "2026-04-11T13:11:10.633Z",
+            "listenTs": "2026-04-11T13:11:10.637Z",
+            "firstRequestTs": "2026-04-11T13:11:11.630Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_6e2164aecf29_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "42015387b8fa",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "19705856",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 50.54,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:12:20.972Z",
+            "importDoneTs": "2026-04-11T13:12:20.973Z",
+            "listenTs": "2026-04-11T13:12:20.976Z",
+            "firstRequestTs": "2026-04-11T13:12:21.979Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_1b4640500868_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "25f6c1556806",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "17190912",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 4,
+        "startup_s": 51.23,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:13:56.433Z",
+            "importDoneTs": "2026-04-11T13:13:56.433Z",
+            "listenTs": "2026-04-11T13:13:56.437Z",
+            "firstRequestTs": "2026-04-11T13:13:58.064Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_226a253cde5c_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "31946047a2a1",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "17190912",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 5,
+        "startup_s": 48.79,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T13:15:05.683Z",
+            "importDoneTs": "2026-04-11T13:15:05.684Z",
+            "listenTs": "2026-04-11T13:15:05.687Z",
+            "firstRequestTs": "2026-04-11T13:15:06.696Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": "8080",
+          "PORT": null,
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "DOCKER",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+        },
+        "fs": {
+          "cwd": "/app",
+          "rootEntries": [
+            ".dockerenv",
+            "app",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_814693d54758_app-zvc-container-p1v3",
+            "opt",
+            "proc",
+            "root",
+            "run",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            "node"
+          ],
+          "homeSiteEntries": [],
+          "homeSiteWwwrootEntries": [],
+          "tmpEntries": [],
+          "hostname": "2cd9e0f0fc35",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "17133568",
+          "memTotal": 8277880832
+        }
+      }
+    ],
+    "app-zvc-zip-p1v3": [
+      {
+        "run": 1,
+        "startup_s": 14.1,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:37:07.854Z",
+            "importDoneTs": "2026-04-11T12:37:07.854Z",
+            "listenTs": "2026-04-11T12:37:07.857Z",
+            "firstRequestTs": "2026-04-11T12:37:10.625Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-p1v3"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_e1c61fb38b94_app-zvc-zip-p1v3",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "uaa518ebaf26f76368f0cbc"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1833-2972143-in",
+            "clr-debug-pipe-1833-2972143-out",
+            "dotnet-diagnostic-1833-2972143-socket"
+          ],
+          "hostname": "2fdf145e9bff",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "96112640",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 53.53,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:38:24.418Z",
+            "importDoneTs": "2026-04-11T12:38:24.418Z",
+            "listenTs": "2026-04-11T12:38:24.422Z",
+            "firstRequestTs": "2026-04-11T12:38:24.750Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-p1v3"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_0674dfc849bd_app-zvc-zip-p1v3",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "uaa518ebaf26f76368f0cbc"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-2979801-in",
+            "clr-debug-pipe-1832-2979801-out",
+            "dotnet-diagnostic-1832-2979801-socket"
+          ],
+          "hostname": "ec92fd303624",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "96792576",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 4,
+        "startup_s": 38.71,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:39:44.834Z",
+            "importDoneTs": "2026-04-11T12:39:44.834Z",
+            "listenTs": "2026-04-11T12:39:44.838Z",
+            "firstRequestTs": "2026-04-11T12:39:45.940Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-p1v3"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_1c0fa5dcc2a7_app-zvc-zip-p1v3",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "uaa518ebaf26f76368f0cbc"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-2987850-in",
+            "clr-debug-pipe-1832-2987850-out",
+            "dotnet-diagnostic-1832-2987850-socket"
+          ],
+          "hostname": "b5cc55dd2729",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "94576640",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 5,
+        "startup_s": 13.34,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:40:19.032Z",
+            "importDoneTs": "2026-04-11T12:40:19.032Z",
+            "listenTs": "2026-04-11T12:40:19.036Z",
+            "firstRequestTs": "2026-04-11T12:40:21.052Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-p1v3"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_af6611cd95aa_app-zvc-zip-p1v3",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "uaa518ebaf26f76368f0cbc"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1833-2991257-in",
+            "clr-debug-pipe-1833-2991257-out",
+            "dotnet-diagnostic-1833-2991257-socket"
+          ],
+          "hostname": "f8effb9eecbb",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "95809536",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 42.84,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:59:21.888Z",
+            "importDoneTs": "2026-04-11T12:59:21.888Z",
+            "listenTs": "2026-04-11T12:59:21.892Z",
+            "firstRequestTs": "2026-04-11T12:59:22.367Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-p1v3",
+          "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-p1v3.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-p1v3"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_b95f019a578f_app-zvc-zip-p1v3",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "uaa518ebaf26f76368f0cbc"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-3105528-in",
+            "clr-debug-pipe-1832-3105528-out",
+            "dotnet-diagnostic-1832-3105528-socket"
+          ],
+          "hostname": "c94bf06ced4e",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "96509952",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 4,
+        "startup_s": 6.29,
+        "health": null,
+        "env": null,
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_a77333a363b3_app-zvc-zip-p1v3",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "uaa518ebaf26f76368f0cbc"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-3115982-in",
+            "clr-debug-pipe-1832-3115982-out",
+            "dotnet-diagnostic-1832-3115982-socket"
+          ],
+          "hostname": "1e20894dec7f",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "97378304",
+          "memTotal": 8277880832
+        }
+      },
+      {
+        "run": 5,
+        "startup_s": 0.1,
+        "health": null,
+        "env": null,
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_ec48825e9541_app-zvc-zip-p1v3",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "uaa518ebaf26f76368f0cbc"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-3123492-in",
+            "clr-debug-pipe-1832-3123492-out",
+            "dotnet-diagnostic-1832-3123492-socket"
+          ],
+          "hostname": "2c63b6e61724",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "96120832",
+          "memTotal": 8277880832
+        }
+      }
+    ],
+    "app-zvc-zip-b1": [
+      {
+        "run": 1,
+        "startup_s": 44.34,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:31:16.928Z",
+            "importDoneTs": "2026-04-11T12:31:16.929Z",
+            "listenTs": "2026-04-11T12:31:16.957Z",
+            "firstRequestTs": "2026-04-11T12:31:18.501Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_8a1fa1ba82de_app-zvc-zip-b1",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "u2bbb8b56ec9028bc916030"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1831-485034-in",
+            "clr-debug-pipe-1831-485034-out",
+            "dotnet-diagnostic-1831-485034-socket"
+          ],
+          "hostname": "ef03374354fb",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "174473216",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 4.21,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:31:16.928Z",
+            "importDoneTs": "2026-04-11T12:31:16.929Z",
+            "listenTs": "2026-04-11T12:31:16.957Z",
+            "firstRequestTs": "2026-04-11T12:31:18.501Z"
+          }
+        },
+        "env": null,
+        "fs": null
+      },
+      {
+        "run": 3,
+        "startup_s": 9.5,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:33:11.875Z",
+            "importDoneTs": "2026-04-11T12:33:11.875Z",
+            "listenTs": "2026-04-11T12:33:11.897Z",
+            "firstRequestTs": "2026-04-11T12:33:13.303Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_cf3c67273dde_app-zvc-zip-b1",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "u2bbb8b56ec9028bc916030"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-496332-in",
+            "clr-debug-pipe-1832-496332-out",
+            "dotnet-diagnostic-1832-496332-socket"
+          ],
+          "hostname": "918e7e7af2b6",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "112476160",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 4,
+        "startup_s": 72.35,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:34:44.272Z",
+            "importDoneTs": "2026-04-11T12:34:44.273Z",
+            "listenTs": "2026-04-11T12:34:44.311Z",
+            "firstRequestTs": "2026-04-11T12:34:46.371Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_f7d5deea374c_app-zvc-zip-b1",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "u2bbb8b56ec9028bc916030"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-505890-in",
+            "clr-debug-pipe-1832-505890-out",
+            "dotnet-diagnostic-1832-505890-socket"
+          ],
+          "hostname": "38b4fc0c9406",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "94654464",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 5,
+        "startup_s": 88.43,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:36:32.366Z",
+            "importDoneTs": "2026-04-11T12:36:32.366Z",
+            "listenTs": "2026-04-11T12:36:32.415Z",
+            "firstRequestTs": "2026-04-11T12:36:35.382Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_7bad0900a1e2_app-zvc-zip-b1",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "u2bbb8b56ec9028bc916030"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-516745-in",
+            "clr-debug-pipe-1832-516745-out",
+            "dotnet-diagnostic-1832-516745-socket"
+          ],
+          "hostname": "fdd4cc02811d",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "91639808",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 2,
+        "startup_s": 94.58,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:54:06.821Z",
+            "importDoneTs": "2026-04-11T12:54:06.821Z",
+            "listenTs": "2026-04-11T12:54:06.851Z",
+            "firstRequestTs": "2026-04-11T12:54:10.747Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_a3fc9b4c4ba2_app-zvc-zip-b1",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "u2bbb8b56ec9028bc916030"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1833-620929-in",
+            "clr-debug-pipe-1833-620929-out",
+            "dotnet-diagnostic-1833-620929-socket"
+          ],
+          "hostname": "347b9bea0c86",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "175353856",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 3,
+        "startup_s": 90.44,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:55:59.893Z",
+            "importDoneTs": "2026-04-11T12:55:59.894Z",
+            "listenTs": "2026-04-11T12:55:59.964Z",
+            "firstRequestTs": "2026-04-11T12:56:02.013Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_9ad382f0827d_app-zvc-zip-b1",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "u2bbb8b56ec9028bc916030"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1833-633226-in",
+            "clr-debug-pipe-1833-633226-out",
+            "dotnet-diagnostic-1833-633226-socket"
+          ],
+          "hostname": "b9f750eec0c8",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "166920192",
+          "memTotal": 1945784320
+        }
+      },
+      {
+        "run": 5,
+        "startup_s": 70.96,
+        "health": {
+          "status": "ok",
+          "startup": {
+            "processStartTs": "2026-04-11T12:57:57.337Z",
+            "importDoneTs": "2026-04-11T12:57:57.338Z",
+            "listenTs": "2026-04-11T12:57:57.388Z",
+            "firstRequestTs": "2026-04-11T12:57:58.841Z"
+          }
+        },
+        "env": {
+          "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+          "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+          "WEBSITE_RUN_FROM_PACKAGE": null,
+          "WEBSITES_PORT": null,
+          "PORT": "8080",
+          "NODE_ENV": null,
+          "DOCKER_CUSTOM_IMAGE_NAME": null,
+          "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+          "CONTAINER_NAME": null,
+          "WEBSITE_STACK": "NODE",
+          "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+        },
+        "fs": {
+          "cwd": "/home/site/wwwroot",
+          "rootEntries": [
+            ".dockerenv",
+            "appsvctmp",
+            "bin",
+            "boot",
+            "dev",
+            "diagServer",
+            "etc",
+            "home",
+            "lib",
+            "lib64",
+            "media",
+            "mnt",
+            "mnt_e17b07e3d96a_app-zvc-zip-b1",
+            "node_modules",
+            "opt",
+            "pm2home",
+            "proc",
+            "root",
+            "run",
+            "run-diag.sh",
+            "sbin",
+            "srv",
+            "sys",
+            "tmp",
+            "usr",
+            "var"
+          ],
+          "homeEntries": [
+            ".gitconfig",
+            "ASP.NET",
+            "DeploymentLogStream",
+            "LogFiles",
+            "services",
+            "site",
+            "u2bbb8b56ec9028bc916030"
+          ],
+          "homeSiteEntries": [
+            "build",
+            "config",
+            "deployments",
+            "locks",
+            "repository",
+            "wwwroot"
+          ],
+          "homeSiteWwwrootEntries": [
+            "_del_node_modules",
+            "app.js",
+            "hostingstart.html",
+            "node_modules",
+            "node_modules.tar.gz",
+            "oryx-manifest.toml",
+            "package.json"
+          ],
+          "tmpEntries": [
+            ".dotnet",
+            "clr-debug-pipe-1832-645151-in",
+            "clr-debug-pipe-1832-645151-out",
+            "dotnet-diagnostic-1832-645151-socket"
+          ],
+          "hostname": "5f4992d287bf",
+          "cgroupMemLimit": "9223372036854771712",
+          "cgroupMemUsage": "124534784",
+          "memTotal": 1945784320
+        }
+      }
+    ]
+  }
+}

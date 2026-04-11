@@ -1,0 +1,34 @@
+acr: acrzvclab.azurecr.io
+apps:
+  app-zvc-container-b1:
+    method: custom-container
+    plan: plan-zvc-b1
+    runtime: node:20-slim
+    sku: B1
+  app-zvc-container-p1v3:
+    method: custom-container
+    plan: plan-zvc-p1v3
+    runtime: node:20-slim
+    sku: P1v3
+  app-zvc-zip-b1:
+    method: zip-deploy
+    plan: plan-zvc-b1
+    runtime: Node.js 20
+    sku: B1
+  app-zvc-zip-p1v3:
+    method: zip-deploy
+    plan: plan-zvc-p1v3
+    runtime: Node.js 20
+    sku: P1v3
+date: '2026-04-11'
+experiment: zip-vs-container
+image: zvc-node20:v1
+methodology: stop-verify-start cold restart, 5 runs per batch x 2 batches, stale hostname
+  deduplication
+region: koreacentral
+resource_group: rg-zip-vs-container-lab
+total_valid_runs_per_config:
+  app-zvc-container-b1: 8
+  app-zvc-container-p1v3: 8
+  app-zvc-zip-b1: 8
+  app-zvc-zip-p1v3: 6

@@ -1,0 +1,162 @@
+{
+  "app-zvc-container-b1": {
+    "env": {
+      "WEBSITE_SITE_NAME": "app-zvc-container-b1",
+      "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+      "WEBSITE_RUN_FROM_PACKAGE": null,
+      "WEBSITES_PORT": "8080",
+      "PORT": null,
+      "NODE_ENV": null,
+      "DOCKER_CUSTOM_IMAGE_NAME": null,
+      "WEBSITE_HOSTNAME": "app-zvc-container-b1.azurewebsites.net",
+      "CONTAINER_NAME": null,
+      "WEBSITE_STACK": "DOCKER",
+      "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-b1"
+    },
+    "fs": {
+      "cwd": "/app",
+      "homeEntries": [
+        "node"
+      ],
+      "homeSiteEntries": [],
+      "homeSiteWwwrootEntries": [],
+      "tmpEntries": [],
+      "cgroupMemLimit": "9223372036854771712",
+      "memTotal": 1945784320,
+      "hostname": "d7aaa5245aad"
+    }
+  },
+  "app-zvc-container-p1v3": {
+    "env": {
+      "WEBSITE_SITE_NAME": "app-zvc-container-p1v3",
+      "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+      "WEBSITE_RUN_FROM_PACKAGE": null,
+      "WEBSITES_PORT": "8080",
+      "PORT": null,
+      "NODE_ENV": null,
+      "DOCKER_CUSTOM_IMAGE_NAME": null,
+      "WEBSITE_HOSTNAME": "app-zvc-container-p1v3.azurewebsites.net",
+      "CONTAINER_NAME": null,
+      "WEBSITE_STACK": "DOCKER",
+      "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-container-p1v3"
+    },
+    "fs": {
+      "cwd": "/app",
+      "homeEntries": [
+        "node"
+      ],
+      "homeSiteEntries": [],
+      "homeSiteWwwrootEntries": [],
+      "tmpEntries": [],
+      "cgroupMemLimit": "9223372036854771712",
+      "memTotal": 8277880832,
+      "hostname": "b9e7507e24f7"
+    }
+  },
+  "app-zvc-zip-b1": {
+    "env": {
+      "WEBSITE_SITE_NAME": "app-zvc-zip-b1",
+      "WEBSITE_INSTANCE_ID": "1dbea7bfe708b9b6cf563d7816aa3d6524a539ef5b1d672aead49e43942c44a2",
+      "WEBSITE_RUN_FROM_PACKAGE": null,
+      "WEBSITES_PORT": null,
+      "PORT": "8080",
+      "NODE_ENV": null,
+      "DOCKER_CUSTOM_IMAGE_NAME": null,
+      "WEBSITE_HOSTNAME": "app-zvc-zip-b1.azurewebsites.net",
+      "CONTAINER_NAME": null,
+      "WEBSITE_STACK": "NODE",
+      "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-b1"
+    },
+    "fs": {
+      "cwd": "/home/site/wwwroot",
+      "homeEntries": [
+        ".gitconfig",
+        "ASP.NET",
+        "DeploymentLogStream",
+        "LogFiles",
+        "services",
+        "site",
+        "u2bbb8b56ec9028bc916030"
+      ],
+      "homeSiteEntries": [
+        "build",
+        "config",
+        "deployments",
+        "locks",
+        "repository",
+        "wwwroot"
+      ],
+      "homeSiteWwwrootEntries": [
+        "_del_node_modules",
+        "app.js",
+        "hostingstart.html",
+        "node_modules",
+        "node_modules.tar.gz",
+        "oryx-manifest.toml",
+        "package.json"
+      ],
+      "tmpEntries": [
+        ".dotnet",
+        "clr-debug-pipe-1831-485034-in",
+        "clr-debug-pipe-1831-485034-out",
+        "dotnet-diagnostic-1831-485034-socket"
+      ],
+      "cgroupMemLimit": "9223372036854771712",
+      "memTotal": 1945784320,
+      "hostname": "ef03374354fb"
+    }
+  },
+  "app-zvc-zip-p1v3": {
+    "env": {
+      "WEBSITE_SITE_NAME": "app-zvc-zip-p1v3",
+      "WEBSITE_INSTANCE_ID": "64f6db8bcab04dac915b585bb82bcc92eadc8353ce78b7f76ba6d2a2ca4540cf",
+      "WEBSITE_RUN_FROM_PACKAGE": null,
+      "WEBSITES_PORT": null,
+      "PORT": "8080",
+      "NODE_ENV": null,
+      "DOCKER_CUSTOM_IMAGE_NAME": null,
+      "WEBSITE_HOSTNAME": "app-zvc-zip-p1v3.azurewebsites.net",
+      "CONTAINER_NAME": null,
+      "WEBSITE_STACK": "NODE",
+      "APPSETTING_WEBSITE_SITE_NAME": "app-zvc-zip-p1v3"
+    },
+    "fs": {
+      "cwd": "/home/site/wwwroot",
+      "homeEntries": [
+        ".gitconfig",
+        "ASP.NET",
+        "DeploymentLogStream",
+        "LogFiles",
+        "services",
+        "site",
+        "uaa518ebaf26f76368f0cbc"
+      ],
+      "homeSiteEntries": [
+        "build",
+        "config",
+        "deployments",
+        "locks",
+        "repository",
+        "wwwroot"
+      ],
+      "homeSiteWwwrootEntries": [
+        "_del_node_modules",
+        "app.js",
+        "hostingstart.html",
+        "node_modules",
+        "node_modules.tar.gz",
+        "oryx-manifest.toml",
+        "package.json"
+      ],
+      "tmpEntries": [
+        ".dotnet",
+        "clr-debug-pipe-1833-2972143-in",
+        "clr-debug-pipe-1833-2972143-out",
+        "dotnet-diagnostic-1833-2972143-socket"
+      ],
+      "cgroupMemLimit": "9223372036854771712",
+      "memTotal": 8277880832,
+      "hostname": "2fdf145e9bff"
+    }
+  }
+}
