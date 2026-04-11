@@ -1,0 +1,121 @@
+{
+  "kernel_reclaim_activity": {
+    "baseline_config": "2x50MB",
+    "peak_config": "6x100MB_60min",
+    "counters": [
+      {
+        "counter": "pgscan_kswapd",
+        "baseline": 16500000,
+        "peak": 40400000,
+        "change_percent": 179
+      },
+      {
+        "counter": "pgscan_direct",
+        "baseline": 1164,
+        "peak": 33372,
+        "change_percent": 14200
+      },
+      {
+        "counter": "pswpin",
+        "baseline": 121000,
+        "peak": 1940000,
+        "change_percent": 1500
+      },
+      {
+        "counter": "pswpout",
+        "baseline": 321000,
+        "peak": 2410000,
+        "change_percent": 650
+      }
+    ],
+    "swap_free_mb": {
+      "baseline": 1063,
+      "peak_range": [
+        12,
+        17
+      ],
+      "exhausted_percent": 99.2
+    },
+    "psi": {
+      "some_avg300": 5.79,
+      "full_avg300": 1.03
+    },
+    "allocstall": {
+      "total": 121,
+      "normal": 50,
+      "movable": 71
+    }
+  },
+  "zip_vs_container_peak_pressure": {
+    "zip_deploy": {
+      "capacity": "6x100MB",
+      "steady_state_cpu_pct_avg": 35.2,
+      "memory_pct_avg": 84.3,
+      "swap_utilization_pct": 99.2,
+      "pgscan_kswapd_delta": 25900000,
+      "burst_latency_ms": {
+        "avg": 16.8,
+        "p95": 30,
+        "p99": 62
+      },
+      "psi": {
+        "some": 5.79,
+        "full": 1.03
+      }
+    },
+    "container_deploy": {
+      "capacity": "4x75MB",
+      "failed_capacity": "6x100MB",
+      "steady_state_cpu_pct_avg": 18.8,
+      "memory_pct_avg": 80.7,
+      "swap_utilization_pct": 49.0,
+      "pgscan_kswapd_delta": 1100000,
+      "burst_latency_ms": {
+        "avg": 173.9,
+        "p95": 185,
+        "p99": 715
+      },
+      "psi": {
+        "some": 1.57,
+        "full": 0.51
+      }
+    }
+  },
+  "flask_vs_node_phase_b_memory": [
+    {
+      "alloc_mb": 75,
+      "flask_memory_pct": 85.3,
+      "flask_cold_start_s": 90,
+      "nodejs_container_memory_pct": 73,
+      "nodejs_container_cold_start_s": 60
+    },
+    {
+      "alloc_mb": 100,
+      "flask_memory_pct": 87,
+      "flask_cold_start_s": 120,
+      "nodejs_container_memory_pct": 75,
+      "nodejs_container_cold_start_s": 60
+    },
+    {
+      "alloc_mb": 125,
+      "flask_memory_pct": 90.5,
+      "flask_cold_start_s": 150,
+      "nodejs_container_memory_pct": 75,
+      "nodejs_container_cold_start_s": 60
+    },
+    {
+      "alloc_mb": 150,
+      "flask_memory_pct": 88.5,
+      "flask_cold_start_s": 300,
+      "nodejs_container_memory_pct": 73,
+      "nodejs_container_cold_start_s": 60
+    },
+    {
+      "alloc_mb": 175,
+      "flask_memory_pct": 91.5,
+      "flask_cold_start_s": 360,
+      "nodejs_container_memory_pct": 73,
+      "nodejs_container_cold_start_s": 60
+    }
+  ]
+}

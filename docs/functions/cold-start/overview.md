@@ -217,6 +217,25 @@ requests
 12. Aggregate median and p95 durations by runtime, plan, dependency profile, and init profile.
 13. Separately repeat one Flex Consumption profile with always-ready enabled to validate whether startup phases collapse as expected.
 
+!!! warning "Managed identity workaround for storage policy"
+    The original setup path for this experiment assumed shared-key based storage access. In this environment, org policy enforces `Microsoft.Storage/storageAccounts/allowSharedKeyAccess = false`, so shared-key access is blocked.
+
+    Workaround: configure the Function App to use managed identity for storage access.
+
+    ```bash
+    # Assign Storage Blob Data Contributor to the Function App's managed identity
+    az role assignment create \
+      --assignee $FUNCTION_APP_PRINCIPAL_ID \
+      --role "Storage Blob Data Contributor" \
+      --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Storage/storageAccounts/$STORAGE_NAME
+
+    # Update function app to use identity-based connection
+    az functionapp config appsettings set \
+      --resource-group $RG \
+      --name $APP_NAME \
+      --settings "AzureWebJobsStorage__accountName=$STORAGE_NAME"
+    ```
+
 ## 9. Expected signal
 
 If the hypothesis is correct, the data should show:

@@ -1,0 +1,7 @@
+configuration,apps,alloc_mb_each,memory_pct,cpu_pct_stable,avg_latency_ms,avg_latency_ms_apps_1_6,avg_latency_ms_apps_7_8,errors_5xx,cold_start_s,cold_start_status
+2x100MB_baseline,2,100,76,14,934,,,,60,ok
+3x50MB,3,50,86,14,963,,,,60,ok
+4x50MB,4,50,83.6,14,970,,,,60,ok
+5x50MB,5,50,85.6,17.5,984,,,,135,ok
+6x50MB,6,50,85.7,32,948,,,,135,ok
+8x50MB,8,50,85.7,87.2,,1070,4000,6,,apps_7_8_failed

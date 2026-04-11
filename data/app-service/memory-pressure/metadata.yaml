@@ -1,0 +1,58 @@
+experiment: memory-pressure
+title: "Memory Pressure on Shared App Service Plans"
+date: "2026-04-02"
+environment:
+  service: Azure App Service
+  sku: B1 Linux
+  region: koreacentral
+  instance_count: 1
+  always_on: enabled
+phase_a_flask:
+  description: "App count scaling with ALLOC_MB=50 for 3-8 apps (plus 2x100 baseline)"
+  deployment: ZIP deploy
+  runtime: Python 3.11 (Flask + Gunicorn)
+  traffic: "~1 request per 10 seconds per app"
+  tested_configs:
+    - "2x100MB"
+    - "3x50MB"
+    - "4x50MB"
+    - "5x50MB"
+    - "6x50MB"
+    - "8x50MB"
+phase_b_flask:
+  description: "Memory density scaling with 4 fixed Flask apps"
+  deployment: ZIP deploy
+  runtime: Python 3.11 (Flask + Gunicorn)
+  traffic: "~1 request per 10 seconds per app"
+  tested_alloc_mb:
+    - 75
+    - 100
+    - 125
+    - 150
+    - 175
+  crash_case:
+    config: "6x75MB"
+    memory_pct: 93
+    memory_peak_pct: 100
+    cpu_pct: 100
+    outcome: crash_loop
+nodejs_comparison:
+  description: "Node.js comparison across ZIP deploy and Web App for Containers"
+  runtime: Node.js 20 LTS
+  instrumentation:
+    - /proc/meminfo
+    - /proc/vmstat
+    - /proc/pressure/memory
+    - process.memoryUsage()
+hypotheses:
+  h1: "Degradation zones emerge at startup degradation, capacity cliff, and restart cascade thresholds"
+  h2: "Kernel reclaim increases CPU >=1.5x under sustained memory pressure with flat traffic"
+tools:
+  metrics:
+    - Azure Monitor MemoryPercentage (PT1M)
+    - Azure Monitor CpuPercentage (PT1M)
+    - Azure Monitor app-level AverageResponseTime/MemoryWorkingSet/Http5xx
+  probing:
+    - traffic-gen.py
+  diagnostics:
+    - /diag/proc endpoint (Node.js)

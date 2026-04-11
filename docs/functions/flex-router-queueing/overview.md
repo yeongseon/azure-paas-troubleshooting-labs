@@ -87,7 +87,186 @@ The Flex Consumption router introduces measurable queueing latency between reque
 
 ## 8. Procedure
 
-_To be defined during execution._
+### 8.1 Infrastructure Setup
+
+```bash
+export RG="rg-flex-router-queueing-lab"
+export LOCATION="koreacentral"
+export APP_NAME="func-flex-router-queueing"
+export STORAGE_NAME="stflexrouterq$RANDOM"
+export APP_INSIGHTS_NAME="appi-flex-router-queueing"
+export LOG_WORKSPACE_NAME="law-flex-router-queueing"
+
+az group create --name "$RG" --location "$LOCATION"
+
+az storage account create \
+  --resource-group "$RG" \
+  --name "$STORAGE_NAME" \
+  --location "$LOCATION" \
+  --sku Standard_LRS \
+  --allow-blob-public-access false \
+  --allow-shared-key-access false
+
+az monitor log-analytics workspace create \
+  --resource-group "$RG" \
+  --workspace-name "$LOG_WORKSPACE_NAME" \
+  --location "$LOCATION"
+
+az monitor app-insights component create \
+  --resource-group "$RG" \
+  --app "$APP_INSIGHTS_NAME" \
+  --location "$LOCATION" \
+  --workspace "$LOG_WORKSPACE_NAME" \
+  --application-type web
+
+az functionapp create \
+  --resource-group "$RG" \
+  --name "$APP_NAME" \
+  --storage-account "$STORAGE_NAME" \
+  --flexconsumption-location "$LOCATION" \
+  --runtime python \
+  --runtime-version 3.11 \
+  --functions-version 4
+```
+
+### 8.2 Application Code
+
+```python
+import json
+import time
+from datetime import datetime, timezone
+import azure.functions as func
+
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+
+
+@app.route(route="probe", methods=["GET"])
+def probe(req: func.HttpRequest) -> func.HttpResponse:
+    entry = time.perf_counter()
+    work_ms = int(req.params.get("work_ms", "50"))
+    time.sleep(work_ms / 1000)
+    exec_ms = round((time.perf_counter() - entry) * 1000, 2)
+    payload = {
+        "entry_utc": datetime.now(timezone.utc).isoformat(),
+        "execution_ms": exec_ms,
+        "work_ms": work_ms,
+    }
+    return func.HttpResponse(
+        body=json.dumps(payload),
+        status_code=200,
+        mimetype="application/json",
+        headers={"x-execution-ms": str(exec_ms)},
+    )
+```
+
+```yaml
+experiment_matrix:
+  - always_ready: 0
+    profile: steady-10rps
+  - always_ready: 0
+    profile: burst-100rps
+  - always_ready: 1
+    profile: steady-10rps
+  - always_ready: 3
+    profile: burst-100rps
+```
+
+### 8.3 Deploy
+
+```bash
+az functionapp identity assign --resource-group "$RG" --name "$APP_NAME"
+
+PRINCIPAL_ID=$(az functionapp identity show --resource-group "$RG" --name "$APP_NAME" --query principalId --output tsv)
+STORAGE_ID=$(az storage account show --resource-group "$RG" --name "$STORAGE_NAME" --query id --output tsv)
+
+az role assignment create \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Contributor" \
+  --scope "$STORAGE_ID"
+
+az role assignment create \
+  --assignee-object-id "$PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Storage Queue Data Contributor" \
+  --scope "$STORAGE_ID"
+
+az functionapp config appsettings set \
+  --resource-group "$RG" \
+  --name "$APP_NAME" \
+  --settings AzureWebJobsStorage__accountName="$STORAGE_NAME" FUNCTIONS_WORKER_RUNTIME=python
+
+zip -r functionapp-flex-router-queueing.zip .
+az functionapp deployment source config-zip \
+  --resource-group "$RG" \
+  --name "$APP_NAME" \
+  --src functionapp-flex-router-queueing.zip
+```
+
+### 8.4 Test Execution
+
+```bash
+export FUNCTION_URL="https://$APP_NAME.azurewebsites.net/api/probe"
+
+# Scenario A: always_ready=0, steady 10 RPS for 10 minutes
+for i in $(seq 1 600); do
+  START_MS=$(python3 -c "import time; print(int(time.time()*1000))")
+  RESP=$(curl "$FUNCTION_URL?work_ms=50")
+  END_MS=$(python3 -c "import time; print(int(time.time()*1000))")
+  E2E_MS=$((END_MS-START_MS))
+  EXEC_MS=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('execution_ms',0))" "$RESP")
+  QUEUE_MS=$(python3 -c "import sys; print(max(0, float(sys.argv[1]) - float(sys.argv[2])))" "$E2E_MS" "$EXEC_MS")
+  printf "%s\t%s\t%s\n" "$E2E_MS" "$EXEC_MS" "$QUEUE_MS" >> steady-10rps.tsv
+  sleep 0.1
+done
+
+# Scenario B: burst 0 -> 100 RPS, 60 seconds (repeat for always_ready=0,1,3)
+for i in $(seq 1 6000); do
+  START_MS=$(python3 -c "import time; print(int(time.time()*1000))")
+  curl --output /dev/null "$FUNCTION_URL?work_ms=50" &
+  sleep 0.01
+done
+wait
+
+# Update always_ready setting between runs
+az functionapp config appsettings set \
+  --resource-group "$RG" \
+  --name "$APP_NAME" \
+  --settings WEBSITE_ALWAYS_READY_INSTANCE_COUNT=1
+
+az functionapp restart --resource-group "$RG" --name "$APP_NAME"
+```
+
+### 8.5 Data Collection
+
+```bash
+APP_INSIGHTS_ID=$(az monitor app-insights component show \
+  --resource-group "$RG" \
+  --app "$APP_INSIGHTS_NAME" \
+  --query appId --output tsv)
+
+az monitor app-insights query \
+  --app "$APP_INSIGHTS_ID" \
+  --analytics-query "requests | where timestamp > ago(4h) | project timestamp, duration, success, resultCode, operation_Id | order by timestamp asc" \
+  --output table
+
+az monitor app-insights query \
+  --app "$APP_INSIGHTS_ID" \
+  --analytics-query "customMetrics | where timestamp > ago(4h) and name in ('FunctionExecutionCount','ActiveInstances') | project timestamp, name, value | order by timestamp asc" \
+  --output table
+
+az monitor metrics list \
+  --resource "/subscriptions/<subscription-id>/resourceGroups/$RG/providers/Microsoft.Web/sites/$APP_NAME" \
+  --metric "Requests" "FunctionExecutionCount" \
+  --interval PT1M \
+  --output table
+```
+
+### 8.6 Cleanup
+
+```bash
+az group delete --name "$RG" --yes --no-wait
+```
 
 ## 9. Expected signal
 

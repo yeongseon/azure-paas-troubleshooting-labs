@@ -29,6 +29,28 @@ A reference for common customer-reported symptoms and the hypotheses worth inves
 | "Requests succeed locally but fail on Azure" | Missing dependencies in deployment, environment variable differences, network policy blocking outbound, platform proxy behavior | Compare local vs. deployed environment, check NSG/firewall rules, verify outbound connectivity |
 | "Latency spikes at specific times" | Scheduled scaling events, platform maintenance window, cron job contention, log rotation, certificate renewal | Correlate with platform event timeline, check scheduled tasks, review scaling history |
 
+## Experiment-backed mappings
+
+| Customer Symptom | Experiment-backed Hypothesis | First Investigation Steps | Reference |
+|-----------------|------------------------------|---------------------------|-----------|
+| "Memory is 85% but app still responds" | Memory plateau can hide reclaim pressure; risk shifts to startup delays and restart cascade, not immediate steady-state outage | Correlate `MemoryPercentage` with cold-start trend, swap indicators, and restart spikes | [Memory Pressure](../app-service/memory-pressure/overview.md) |
+| "Outbound API calls fail randomly while CPU looks fine" | SNAT exhaustion can cause `TimeoutError` with normal CPU/memory | Count concurrent outbound connections per destination and verify connection pooling usage | [SNAT Exhaustion](../app-service/snat-exhaustion/overview.md) |
+| "One dependency failed and traffic disappeared from one instance" | Health check eviction is binary after threshold failures; unhealthy instance can drop from ~50% to 0% traffic instantly | Compare health probe failures to traffic split timeline and instance state transitions | [Health Check Eviction](../app-service/health-check-eviction/overview.md) |
+| "Files disappear after deploy but not after restart" | Stop/start and deploy recreate container (local layer lost); `/home` persists across lifecycle events | Check write path and verify whether files are under `/home` or local writable layer | [Filesystem Persistence](../app-service/filesystem-persistence/overview.md) |
+| "First request after idle is very slow but eventually works" | Scale-to-zero cold start is often 20-40s; no 503 may still occur if timeout budget is high | Confirm zero replicas before test, then map cold-request latency against scale-up events | [Scale-to-Zero 503](../container-apps/scale-to-zero-502/overview.md) |
+| "Container is running but endpoint always times out" | Wrong `targetPort` on fresh revision can keep revision in Activating with startup probe failures | Compare ingress `targetPort` to app listen port in container logs and system probe failures | [Target Port Detection](../container-apps/target-port-detection/overview.md) |
+| "503 upstream connect error appears after ingress change" | Wrong port on running revision tends to fail fast with Envoy connection refused | Validate recent ingress changes and test direct response after port correction | [Target Port Detection](../container-apps/target-port-detection/overview.md) |
+| "Memory drops periodically but restart count stays flat" | Worker-level OOM kills can be invisible in system logs and restart metrics | Query console logs for SIGKILL and correlate with `WorkingSetBytes` sawtooth pattern | [OOM Visibility Gap](../container-apps/oom-visibility-gap/overview.md) |
+| "Revision flaps unhealthy during deploy" | Probe budget shorter than actual startup time causes deterministic probe-driven restart loops | Compute startup budget vs measured startup time and inspect `ProbeFailed` sequence | [Startup Probes](../container-apps/startup-probes/overview.md) |
+| "No restarts, but app never receives traffic" | Readiness can block routing while process remains alive; not always a crash problem | Separate readiness vs liveness outcomes in logs before escalating runtime failure | [Startup Probes](../container-apps/startup-probes/overview.md) |
+
+### Quick interpretation tips
+
+- Use experiment links to validate likely failure signatures before escalating to platform incidents.
+- Prioritize hypotheses with reproducible evidence in section 11/14 of each experiment.
+- If symptom and metric disagree, prefer logs and state-transition evidence over coarse averages.
+- Treat probe-driven failures and port-mismatch failures as configuration defects first.
+
 ## Guidance
 
 !!! warning

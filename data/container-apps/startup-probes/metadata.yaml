@@ -1,0 +1,50 @@
+experiment: startup-probes
+service: container-apps
+date: "2026-04-07"
+researcher: automated
+environment:
+  region: koreacentral
+  resource_group: rg-probe-lab-full
+  container_apps_environment: cae-probe-lab-full
+  runtime: custom_linux_container
+  app_runtime: Python 3.11 + Flask + Gunicorn
+  ingress_target_port: 8080
+  startup_delay_seconds: 60
+  revision_mode: single
+  logging: Log Analytics enabled
+scenarios:
+  - id: baseline-no-probes
+    app_name: ca-baseline
+    startup_budget_seconds: null
+    liveness_start_seconds: null
+    expected_outcome: healthy_control
+  - id: scenario-1-startup-too-short
+    app_name: ca-startup-short
+    startup_budget_seconds: 30
+    liveness_start_seconds: 65
+    expected_outcome: unhealthy_restart_loop
+  - id: scenario-2-no-startup-early-liveness
+    app_name: ca-no-startup
+    startup_budget_seconds: null
+    liveness_start_seconds: 10
+    liveness_failure_window_seconds: 25
+    expected_outcome: unhealthy_liveness_kill
+  - id: scenario-3-readiness-during-init
+    app_name: ca-readiness-init
+    startup_budget_seconds: 95
+    liveness_start_seconds: 60
+    expected_outcome: healthy_startup_protected
+  - id: scenario-4-all-probes-tight
+    app_name: ca-all-tight
+    startup_budget_seconds: 40
+    liveness_start_seconds: 15
+    expected_outcome: unhealthy_cascade
+  - id: healthy-baseline
+    app_name: ca-healthy
+    startup_budget_seconds: 95
+    liveness_start_seconds: 60
+    expected_outcome: healthy
+tools:
+  logs_table: ContainerAppSystemLogs_CL
+  console_table: ContainerAppConsoleLogs_CL
+  diagnostics: "Diagnose and solve problems > Health Probe Failures"

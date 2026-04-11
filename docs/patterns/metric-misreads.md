@@ -67,6 +67,78 @@ Specific cases where Azure platform metrics are misinterpreted, leading to incor
 
 **Action:** Use the finest available granularity (1-minute in Azure Monitor, or sub-minute via custom metrics / procfs polling). For incident investigation, collect high-resolution data during reproduction.
 
+## 7. Flat memory percentage interpreted as stable risk
+
+**Metric:** App Service `MemoryPercentage` stays near a flat plateau (for example, ~85%).
+
+**Common misread:** "Memory stopped rising, so pressure is not worsening."
+
+**Correct interpretation:** The memory-pressure experiment observed plateau behavior while reclaim/swap pressure increased and startup reliability degraded. Flat plan memory can coexist with worsening risk.
+
+**Action:** Pair plan memory with startup latency trend, restart events, and reclaim/swap evidence before concluding stability.
+
+**Experiment:** [Memory Pressure](../app-service/memory-pressure/overview.md)
+
+## 8. RestartCount interpreted as complete OOM detector
+
+**Metric:** `RestartCount` or replica restart state in Container Apps.
+
+**Common misread:** "RestartCount is 0, so no OOM event happened."
+
+**Correct interpretation:** In worker-level OOM scenarios, PID 1 can survive while workers are repeatedly SIGKILLed. Restart metrics stay flat even though requests fail and workers churn.
+
+**Action:** Use console logs as primary evidence for OOM (`SIGKILL`, worker boot churn) and treat restart metrics as container-lifecycle only.
+
+**Experiment:** [OOM Visibility Gap](../container-apps/oom-visibility-gap/overview.md)
+
+## 9. 1-minute WorkingSet averages interpreted as true peak memory
+
+**Metric:** `WorkingSetBytes` at PT1M resolution.
+
+**Common misread:** "Peak usage was only ~200MB, well below a 0.5Gi limit."
+
+**Correct interpretation:** One-minute averaging can hide short OOM-adjacent peaks. The OOM experiment captured near-limit RSS in app logs while platform metrics reported much lower averaged values.
+
+**Action:** Correlate metric points with high-frequency app memory logs around incident windows.
+
+**Experiment:** [OOM Visibility Gap](../container-apps/oom-visibility-gap/overview.md)
+
+## 10. Health state interpreted as immediate traffic routing truth
+
+**Metric:** Instance/revision health state shown in control-plane APIs.
+
+**Common misread:** "State says UNKNOWN/STOPPED, so it cannot be serving traffic."
+
+**Correct interpretation:** Health-check eviction tests showed state transitions can lag or encode control-plane interpretation differently from observed routing behavior.
+
+**Action:** Validate with live traffic distribution sampling and request logs, not state alone.
+
+**Experiment:** [Health Check Eviction](../app-service/health-check-eviction/overview.md)
+
+## 11. Cold-start latency attributed mainly to image pull size
+
+**Metric:** Image size and pull duration during scale-up.
+
+**Common misread:** "If we shrink image size, cold starts will mostly disappear."
+
+**Correct interpretation:** Scale-to-zero results showed scheduling and container initialization dominated total cold request latency, with image pull as a smaller component in same-region ACR tests.
+
+**Action:** Measure full timeline (schedule, pull, start, first response) before prioritizing image-only optimization.
+
+**Experiment:** [Scale-to-Zero 503](../container-apps/scale-to-zero-502/overview.md)
+
+## 12. Probe failure counts interpreted without startup budget math
+
+**Metric:** Number of startup/readiness/liveness probe failures.
+
+**Common misread:** "Probe failures are random platform noise."
+
+**Correct interpretation:** Startup-probe experiment showed failures were deterministic when effective budget was below true startup duration.
+
+**Action:** Compute startup probe budget and compare it to measured app initialization time before escalating platform instability.
+
+**Experiment:** [Startup Probes](../container-apps/startup-probes/overview.md)
+
 ## Recommendation
 
 !!! note

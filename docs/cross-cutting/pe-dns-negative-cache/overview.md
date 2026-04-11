@@ -90,7 +90,249 @@ Private endpoint migrations are high-risk operations. The expected flow is: crea
 
 ## 8. Procedure
 
-_To be defined during execution._
+### 8.1 Infrastructure Setup
+
+```bash
+export SUBSCRIPTION_ID="<subscription-id>"
+export RG="rg-pe-dns-negative-cache-lab"
+export LOCATION="koreacentral"
+export VNET_NAME="vnet-pe-dns-negative-cache"
+export APP_SUBNET_NAME="snet-appsvc"
+export FUNC_SUBNET_NAME="snet-functions"
+export ACA_SUBNET_NAME="snet-containerapps"
+export PE_SUBNET_NAME="snet-private-endpoint"
+export STORAGE_NAME="stpednscache$RANDOM"
+export APP_PLAN="plan-pe-dns-negative-cache"
+export WEBAPP_NAME="app-pe-dns-cache-$RANDOM"
+export FUNC_NAME="func-pe-dns-cache-$RANDOM"
+export ACA_ENV_NAME="cae-pe-dns-cache"
+export ACA_NAME="ca-pe-dns-cache"
+export PRIVATE_DNS_ZONE="privatelink.blob.core.windows.net"
+
+az account set --subscription "$SUBSCRIPTION_ID"
+az group create --name "$RG" --location "$LOCATION"
+
+az network vnet create \
+  --resource-group "$RG" \
+  --name "$VNET_NAME" \
+  --location "$LOCATION" \
+  --address-prefixes "10.90.0.0/16" \
+  --subnet-name "$APP_SUBNET_NAME" \
+  --subnet-prefixes "10.90.0.0/24"
+
+az network vnet subnet create --resource-group "$RG" --vnet-name "$VNET_NAME" --name "$FUNC_SUBNET_NAME" --address-prefixes "10.90.1.0/24"
+az network vnet subnet create --resource-group "$RG" --vnet-name "$VNET_NAME" --name "$ACA_SUBNET_NAME" --address-prefixes "10.90.2.0/23"
+az network vnet subnet create --resource-group "$RG" --vnet-name "$VNET_NAME" --name "$PE_SUBNET_NAME" --address-prefixes "10.90.4.0/24"
+
+az network vnet subnet update \
+  --resource-group "$RG" \
+  --vnet-name "$VNET_NAME" \
+  --name "$ACA_SUBNET_NAME" \
+  --delegations "Microsoft.App/environments"
+
+az storage account create \
+  --resource-group "$RG" \
+  --name "$STORAGE_NAME" \
+  --location "$LOCATION" \
+  --sku Standard_LRS \
+  --kind StorageV2 \
+  --allow-shared-key-access false \
+  --allow-blob-public-access false
+```
+
+### 8.2 Application Code
+
+```python
+import json
+import os
+import socket
+from datetime import datetime, timezone
+
+from flask import Flask
+
+app = Flask(__name__)
+TARGET = os.getenv("TARGET_FQDN")
+
+
+@app.get("/dns-probe")
+def dns_probe():
+    ips = []
+    error = None
+    try:
+        ips = sorted({item[4][0] for item in socket.getaddrinfo(TARGET, 443)})
+    except Exception as ex:
+        error = str(ex)
+    return {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "target": TARGET,
+        "resolved_ips": ips,
+        "error": error,
+    }
+```
+
+```yaml
+env:
+  TARGET_FQDN: <storage-name>.blob.core.windows.net
+probes:
+  intervalSeconds: 30
+```
+
+### 8.3 Deploy
+
+```bash
+az appservice plan create \
+  --resource-group "$RG" \
+  --name "$APP_PLAN" \
+  --location "$LOCATION" \
+  --sku P1v3 \
+  --is-linux
+
+az webapp create \
+  --resource-group "$RG" \
+  --name "$WEBAPP_NAME" \
+  --plan "$APP_PLAN" \
+  --runtime "PYTHON|3.11"
+
+az functionapp create \
+  --resource-group "$RG" \
+  --name "$FUNC_NAME" \
+  --storage-account "$STORAGE_NAME" \
+  --runtime python \
+  --runtime-version 3.11 \
+  --functions-version 4 \
+  --flexconsumption-location "$LOCATION"
+
+az containerapp env create \
+  --resource-group "$RG" \
+  --name "$ACA_ENV_NAME" \
+  --location "$LOCATION" \
+  --infrastructure-subnet-resource-id "/subscriptions/<subscription-id>/resourceGroups/$RG/providers/Microsoft.Network/virtualNetworks/$VNET_NAME/subnets/$ACA_SUBNET_NAME"
+
+az containerapp create \
+  --resource-group "$RG" \
+  --name "$ACA_NAME" \
+  --environment "$ACA_ENV_NAME" \
+  --image "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" \
+  --ingress external \
+  --target-port 80
+
+az webapp vnet-integration add \
+  --resource-group "$RG" \
+  --name "$WEBAPP_NAME" \
+  --vnet "$VNET_NAME" \
+  --subnet "$APP_SUBNET_NAME"
+
+az functionapp vnet-integration add \
+  --resource-group "$RG" \
+  --name "$FUNC_NAME" \
+  --vnet "$VNET_NAME" \
+  --subnet "$FUNC_SUBNET_NAME"
+```
+
+### 8.4 Test Execution
+
+```bash
+export TARGET_FQDN="$STORAGE_NAME.blob.core.windows.net"
+
+# 1) Baseline: public endpoint resolution before private endpoint creation
+for i in $(seq 1 10); do
+  nslookup "$TARGET_FQDN"
+  sleep 10
+done
+
+# 2) Create private endpoint first, but delay private DNS zone link (induce NXDOMAIN window)
+az network private-endpoint create \
+  --resource-group "$RG" \
+  --name "pe-storage" \
+  --location "$LOCATION" \
+  --subnet "$PE_SUBNET_NAME" \
+  --vnet-name "$VNET_NAME" \
+  --private-connection-resource-id "$(az storage account show --resource-group "$RG" --name "$STORAGE_NAME" --query id --output tsv)" \
+  --group-id blob \
+  --connection-name "pe-storage-conn"
+
+az network private-dns zone create \
+  --resource-group "$RG" \
+  --name "$PRIVATE_DNS_ZONE"
+
+# 3) Query during unlinked-zone window to trigger potential negative caching
+for i in $(seq 1 20); do
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+  nslookup "$TARGET_FQDN" || true
+  sleep 15
+done
+
+# 4) Link zone to VNet and create zone group
+az network private-dns link vnet create \
+  --resource-group "$RG" \
+  --zone-name "$PRIVATE_DNS_ZONE" \
+  --name "link-pe-dns-cache" \
+  --virtual-network "$VNET_NAME" \
+  --registration-enabled false
+
+az network private-endpoint dns-zone-group create \
+  --resource-group "$RG" \
+  --endpoint-name "pe-storage" \
+  --name "default" \
+  --private-dns-zone "$PRIVATE_DNS_ZONE" \
+  --zone-name "zonegroup-storage"
+
+# 5) Poll every 30 seconds from each client compute and track first private IP response
+for i in $(seq 1 60); do
+  nslookup "$TARGET_FQDN" || true
+  curl --silent "https://$WEBAPP_NAME.azurewebsites.net/dns-probe" || true
+  curl --silent "https://$FUNC_NAME.azurewebsites.net/api/dns-probe" || true
+  sleep 30
+done
+
+# 6) Restart clients and compare cache-cleared behavior
+az webapp restart --resource-group "$RG" --name "$WEBAPP_NAME"
+az functionapp restart --resource-group "$RG" --name "$FUNC_NAME"
+az containerapp revision restart \
+  --resource-group "$RG" \
+  --name "$ACA_NAME" \
+  --revision "$(az containerapp revision list --resource-group "$RG" --name "$ACA_NAME" --query "[?properties.active].name | [0]" --output tsv)"
+```
+
+### 8.5 Data Collection
+
+```bash
+az network private-endpoint show \
+  --resource-group "$RG" \
+  --name "pe-storage" \
+  --query "customDnsConfigs" \
+  --output table
+
+az network private-dns record-set a list \
+  --resource-group "$RG" \
+  --zone-name "$PRIVATE_DNS_ZONE" \
+  --output table
+
+az monitor metrics list \
+  --resource "/subscriptions/<subscription-id>/resourceGroups/$RG/providers/Microsoft.Web/sites/$WEBAPP_NAME" \
+  --metric "Http5xx" "Requests" \
+  --interval PT1M \
+  --aggregation Total \
+  --output table
+
+az monitor metrics list \
+  --resource "/subscriptions/<subscription-id>/resourceGroups/$RG/providers/Microsoft.Web/sites/$FUNC_NAME" \
+  --metric "FunctionExecutionCount" "FunctionExecutionUnits" \
+  --interval PT1M \
+  --aggregation Total \
+  --output table
+
+az monitor log-analytics query \
+  --workspace "$(az monitor log-analytics workspace list --resource-group "$RG" --query "[0].customerId" --output tsv)" \
+  --analytics-query "AppTraces | where TimeGenerated > ago(6h) | where Message has_any ('NXDOMAIN','Temporary failure','resolved_ips') | project TimeGenerated, AppRoleName, Message | order by TimeGenerated asc" \
+  --output table
+```
+
+### 8.6 Cleanup
+
+```bash
+az group delete --name "$RG" --yes --no-wait
+```
 
 ## 9. Expected signal
 

@@ -1,0 +1,287 @@
+{
+  "experiment": "startup-probes",
+  "source_document": "docs/container-apps/startup-probes/overview.md",
+  "execution": {
+    "date_utc": "2026-04-07 13:40",
+    "resource_group": "rg-probe-lab-full",
+    "container_apps_environment": "cae-probe-lab-full",
+    "region": "koreacentral"
+  },
+  "workload": {
+    "image_type": "custom_python_flask_gunicorn",
+    "startup_delay_seconds": 60,
+    "endpoints": ["/startup", "/ready", "/live"],
+    "port": 8080
+  },
+  "scenarios": [
+    {
+      "id": "baseline-no-probes",
+      "app_name": "ca-baseline",
+      "revision": null,
+      "probe_configuration": {
+        "startup": null,
+        "readiness": null,
+        "liveness": null
+      },
+      "derived_windows_seconds": {
+        "startup_budget": null,
+        "liveness_first_kill_window": null
+      },
+      "observed": {
+        "health_state": null,
+        "running_state": null,
+        "restart_behavior": "not_reported_in_results_table",
+        "traffic_routing": "not_reported_in_results_table",
+        "failure_mode": "control configuration listed, but no per-app result row"
+      }
+    },
+    {
+      "id": "scenario-1-startup-too-short",
+      "app_name": "ca-startup-short",
+      "revision": "--0000001",
+      "probe_configuration": {
+        "startup": {
+          "path": "/startup",
+          "initial_delay_seconds": 0,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 6
+        },
+        "readiness": {
+          "path": "/ready",
+          "initial_delay_seconds": 5,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 12
+        },
+        "liveness": {
+          "path": "/live",
+          "initial_delay_seconds": 65,
+          "period_seconds": 10,
+          "timeout_seconds": 2,
+          "failure_threshold": 3
+        }
+      },
+      "derived_windows_seconds": {
+        "startup_budget": 30,
+        "liveness_first_kill_window": 95
+      },
+      "observed": {
+        "health_state": "Unhealthy",
+        "running_state": "Failed",
+        "restart_behavior": "repeated restart loop before startup completion",
+        "traffic_routing": "no stable ready state; traffic not reliably served",
+        "failure_mode": "startup probe timeout before app ready"
+      },
+      "timeline": [
+        {"timestamp": "2026-04-07 13:44:07", "event": "startup_probe_failed_status_code"},
+        {"timestamp": "2026-04-07 13:44:14", "event": "startup_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:44:19", "event": "startup_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:44:24", "event": "startup_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:44:29", "event": "startup_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:44:34", "event": "container_restarted_due_to_startup_probe_failure"}
+      ]
+    },
+    {
+      "id": "scenario-2-no-startup-early-liveness",
+      "app_name": "ca-no-startup",
+      "revision": "--0000001",
+      "probe_configuration": {
+        "startup": null,
+        "readiness": {
+          "path": "/ready",
+          "initial_delay_seconds": 5,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 12
+        },
+        "liveness": {
+          "path": "/live",
+          "initial_delay_seconds": 10,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 3
+        }
+      },
+      "derived_windows_seconds": {
+        "startup_budget": null,
+        "liveness_first_kill_window": 25
+      },
+      "observed": {
+        "health_state": "Unhealthy",
+        "running_state": "Failed",
+        "restart_behavior": "liveness kills during initialization; restart churn",
+        "traffic_routing": "no stable serving window before liveness termination",
+        "failure_mode": "liveness killed container at about 25 seconds"
+      },
+      "timeline": [
+        {"timestamp": "2026-04-07 13:42:53", "event": "liveness_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:42:58", "event": "liveness_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:42:58", "event": "readiness_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:43:03", "event": "liveness_probe_failed_timeout_2s"},
+        {"timestamp": "2026-04-07 13:43:03", "event": "container_restarted_due_to_liveness_probe_failure"}
+      ]
+    },
+    {
+      "id": "scenario-3-readiness-during-init",
+      "app_name": "ca-readiness-init",
+      "revision": "--0000001",
+      "probe_configuration": {
+        "startup": {
+          "path": "/startup",
+          "initial_delay_seconds": 5,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 18
+        },
+        "readiness": {
+          "path": "/ready",
+          "initial_delay_seconds": 0,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 3
+        },
+        "liveness": {
+          "path": "/live",
+          "initial_delay_seconds": 60,
+          "period_seconds": 10,
+          "timeout_seconds": 2,
+          "failure_threshold": 3
+        }
+      },
+      "derived_windows_seconds": {
+        "startup_budget": 95,
+        "liveness_first_kill_window": 90
+      },
+      "observed": {
+        "health_state": "Healthy",
+        "running_state": "RunningAtMaxScale",
+        "restart_behavior": "no probe-driven restart pattern reported",
+        "traffic_routing": "readiness delays traffic until initialization completes",
+        "failure_mode": "none; startup protection sufficient"
+      }
+    },
+    {
+      "id": "scenario-4-all-probes-tight",
+      "app_name": "ca-all-tight",
+      "revision": "--0000001",
+      "probe_configuration": {
+        "startup": {
+          "path": "/startup",
+          "initial_delay_seconds": 0,
+          "period_seconds": 5,
+          "timeout_seconds": 1,
+          "failure_threshold": 8
+        },
+        "readiness": {
+          "path": "/ready",
+          "initial_delay_seconds": 5,
+          "period_seconds": 5,
+          "timeout_seconds": 1,
+          "failure_threshold": 2
+        },
+        "liveness": {
+          "path": "/live",
+          "initial_delay_seconds": 15,
+          "period_seconds": 5,
+          "timeout_seconds": 1,
+          "failure_threshold": 2
+        }
+      },
+      "derived_windows_seconds": {
+        "startup_budget": 40,
+        "liveness_first_kill_window": 25
+      },
+      "observed": {
+        "health_state": "Unhealthy",
+        "running_state": "Failed",
+        "restart_behavior": "cascade instability with probe timeouts and restarts",
+        "traffic_routing": "unstable; no sustained healthy serving state",
+        "failure_mode": "startup timeout with 1-second probe timeout"
+      },
+      "timeline": [
+        {"timestamp": "2026-04-07 13:43:41", "event": "startup_probe_failed_status_code"},
+        {"timestamp": "2026-04-07 13:43:47", "event": "startup_probe_failed_timeout_1s"},
+        {"timestamp": "2026-04-07 13:43:52", "event": "startup_probe_failed_timeout_1s"},
+        {"timestamp": "2026-04-07 13:44:16", "event": "container_restarted_due_to_startup_probe_failure"}
+      ]
+    },
+    {
+      "id": "healthy-baseline",
+      "app_name": "ca-healthy",
+      "revision": "--0000001",
+      "probe_configuration": {
+        "startup": {
+          "path": "/startup",
+          "initial_delay_seconds": 5,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 18
+        },
+        "readiness": {
+          "path": "/ready",
+          "initial_delay_seconds": 5,
+          "period_seconds": 5,
+          "timeout_seconds": 2,
+          "failure_threshold": 12
+        },
+        "liveness": {
+          "path": "/live",
+          "initial_delay_seconds": 60,
+          "period_seconds": 10,
+          "timeout_seconds": 2,
+          "failure_threshold": 3
+        }
+      },
+      "derived_windows_seconds": {
+        "startup_budget": 95,
+        "liveness_first_kill_window": 90
+      },
+      "observed": {
+        "health_state": "Healthy",
+        "running_state": "RunningAtMaxScale",
+        "restart_behavior": "startup probe failures during initialization but no terminal restart loop",
+        "traffic_routing": "serving after startup and readiness passed",
+        "failure_mode": "none"
+      },
+      "timeline": [
+        {"timestamp": "2026-04-07 13:43:17", "event": "startup_endpoint_ok"},
+        {"timestamp": "2026-04-07 13:43:22", "event": "readiness_endpoint_ok"},
+        {"timestamp": "2026-04-07 13:43:27", "event": "readiness_endpoint_ok"},
+        {"timestamp": "2026-04-07 13:44:17", "event": "liveness_endpoint_ok"}
+      ]
+    }
+  ],
+  "log_analytics_summary": [
+    {
+      "app_name": "ca-startup-short",
+      "reason": "ContainerTerminated",
+      "log": "Container 'slow-start' was terminated with reason 'ProbeFailure'",
+      "revision": "--0000001"
+    },
+    {
+      "app_name": "ca-no-startup",
+      "reason": "ProbeFailed",
+      "log": "Container slow-start failed liveness probe, will be restarted",
+      "revision": "--0000001"
+    },
+    {
+      "app_name": "ca-all-tight",
+      "reason": "ProbeFailed",
+      "log": "Probe of StartUp failed with timeout in 1 seconds.",
+      "revision": "--0000001"
+    },
+    {
+      "app_name": "ca-healthy",
+      "reason": "ProbeFailed",
+      "log": "Probe of StartUp failed with timeout in 2 seconds.",
+      "revision": "--0000001"
+    }
+  ],
+  "cross_scenario_findings": {
+    "startup_budget_rule": "scenarios with startup budget below 60 seconds failed; scenarios with startup budget above 60 seconds succeeded",
+    "no_startup_probe_effect": "without startup protection, liveness can terminate the container before initialization completes",
+    "readiness_effect": "readiness failure controls traffic eligibility and does not by itself imply container restart",
+    "tight_timeout_effect": "timeoutSeconds=1 created rapid probe failures in the all-tight scenario"
+  }
+}

@@ -90,7 +90,7 @@ graph TB
 | [Custom DNS Forwarding](custom-dns-forwarding/overview.md) | Planned | Outbound resolution failure with unreachable custom DNS |
 | [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) | Planned | SNI and host header routing behavior |
 | [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) | Planned | FQDN vs. direct IP access differences |
-| [Startup Probes](startup-probes/overview.md) | Draft | Probe interaction and failure patterns |
+| [Startup Probes](startup-probes/overview.md) | **Published** | Probe interaction and failure patterns |
 
 ## Published Experiments
 
@@ -115,6 +115,13 @@ Observability gaps across Azure Monitor metrics, system logs, and console logs w
 ??? success "Experiment Complete"
     Completed 2026-04 on Consumption tier (koreacentral). Five OOM kills across two variants (gradual and spike). WorkingSetBytes underreports peaks by 2.4×; RestartCount stays 0; SystemLogs contain zero events.
 
+### [Startup Probes](startup-probes/overview.md) — **Published**
+
+Interaction between startup, readiness, and liveness probes. Investigates failure patterns that emerge from misconfigured probe timing, threshold settings, and the order of probe evaluation during container initialization.
+
+??? success "Experiment Complete"
+    Completed 2026-04 on Consumption tier (koreacentral). Four probe scenarios tested: startup-only failure, no-startup with liveness, readiness-only failure, and combined aggressive probes. Documents restart cascades, traffic routing gaps, and probe handoff timing.
+
 ## Planned Experiments
 
 ### [Custom DNS Forwarding](custom-dns-forwarding/overview.md)
@@ -128,11 +135,6 @@ How Container Apps ingress handles Server Name Indication (SNI) and host header 
 ### [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md)
 
 Behavioral differences when accessing a Container App via private endpoint FQDN versus direct IP address. Investigates TLS validation, routing behavior, and failure modes specific to private network access patterns.
-
-### [Startup Probes](startup-probes/overview.md) — *Draft*
-
-Interaction between startup, readiness, and liveness probes. Investigates failure patterns that emerge from misconfigured probe timing, threshold settings, and the order of probe evaluation during container initialization.
-
 ## Related Experiments in Other Services
 
 - **App Service** — [Memory Pressure](../app-service/memory-pressure/overview.md) (**Published**) covers plan-level resource contention, relevant when comparing Container Apps scaling and resource isolation.

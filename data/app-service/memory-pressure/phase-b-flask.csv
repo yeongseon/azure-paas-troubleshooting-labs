@@ -1,0 +1,7 @@
+configuration,apps,alloc_mb_each,memory_pct_avg,memory_pct_peak,cpu_pct_stable_min,cpu_pct_stable_max,avg_latency_ms,errors_5xx,cold_start_s,outcome
+4x75MB,4,75,85.3,90,14,28,986,0,90,stable
+4x100MB,4,100,87,89,12,44,896,0,120,stable
+4x125MB,4,125,90.5,92,13,28,915,0,150,stable
+4x150MB,4,150,88.5,91,12,46,881,0,300,stable
+4x175MB,4,175,91.5,95,10,46,891,0,360,stable
+6x75MB_crash,6,75,93,100,100,100,,,,crash_loop

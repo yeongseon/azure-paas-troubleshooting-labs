@@ -55,6 +55,66 @@ A catalog of situations where metrics or diagnostic signals suggest a problem th
 
 **What to check instead:** Monitor GC collection frequency and reclaimed memory. Check if memory stabilizes after a GC cycle. Compare heap used vs. heap committed. A true leak shows heap used growing continuously even after GC collections.
 
+## 7. "High memory but no obvious outage"
+
+**Signal:** App Service plan memory stays around 85-90%, but customer traffic still mostly succeeds.
+
+**Why it's misleading:** The memory-pressure experiment showed a plateau effect near ~85.7% where plan memory appears stable while the kernel is actively reclaiming and swapping. The system can look steady until a transition event (startup/deploy/scale) triggers failures.
+
+**What to check instead:** Look for hidden pressure markers: longer cold starts, restart bursts during deployments, and reclaim/swap indicators. Do not treat a flat memory chart as "safe."
+
+**Experiment:** [Memory Pressure](../app-service/memory-pressure/overview.md)
+
+## 8. "Normal CPU and memory means networking is healthy"
+
+**Signal:** CPU and memory look normal, so intermittent outbound failures are assumed to be app bugs.
+
+**Why it's misleading:** SNAT exhaustion produced 6.9-49.3% failure rates while CPU stayed ~29-33% and memory ~76-84%. Resource dashboards looked healthy while connection establishment failed.
+
+**What to check instead:** Measure concurrent outbound connections per destination and verify connection pooling; inspect timeout errors in request phase.
+
+**Experiment:** [SNAT Exhaustion](../app-service/snat-exhaustion/overview.md)
+
+## 9. "Container restart happened because memory dropped"
+
+**Signal:** `WorkingSetBytes` drops sharply, interpreted as a container restart.
+
+**Why it's misleading:** In the OOM visibility experiment, worker processes were OOM-killed while PID 1 survived. Memory dropped, but container restart counters and system logs often showed nothing meaningful.
+
+**What to check instead:** Query console logs for SIGKILL patterns and worker PID churn; treat sawtooth memory + stable restart count as a worker-level OOM pattern.
+
+**Experiment:** [OOM Visibility Gap](../container-apps/oom-visibility-gap/overview.md)
+
+## 10. "Health check failures always mean app crash"
+
+**Signal:** Health endpoint fails, so investigators assume process instability.
+
+**Why it's misleading:** Health-check eviction can remove an instance from rotation due to dependency-aware `/healthz` logic even when the app process is still capable of serving non-dependent paths.
+
+**What to check instead:** Compare `/healthz` semantics with actual user endpoints and verify whether failure is dependency-specific rather than process death.
+
+**Experiment:** [Health Check Eviction](../app-service/health-check-eviction/overview.md)
+
+## 11. "Port mismatch always shows immediate 503"
+
+**Signal:** Expected failure signature for wrong `targetPort` is always a fast 503.
+
+**Why it's misleading:** Target-port experiment showed two distinct false expectations: fresh bad deploy can hang as timeout/Activating, while wrong port on an already running revision often fails fast with 503.
+
+**What to check instead:** Include revision state (`Activating` vs `Running`) in diagnosis before classifying timeout vs 503 as separate incidents.
+
+**Experiment:** [Target Port Detection](../container-apps/target-port-detection/overview.md)
+
+## 12. "Probe failures imply platform instability"
+
+**Signal:** Repeated probe failures are interpreted as transient platform issues.
+
+**Why it's misleading:** Startup-probe findings showed deterministic failures when probe budget was shorter than actual startup time. This is often self-inflicted timing math, not random platform churn.
+
+**What to check instead:** Calculate probe budget (`initialDelay + period * failureThreshold`) and compare with measured startup duration.
+
+**Experiment:** [Startup Probes](../container-apps/startup-probes/overview.md)
+
 ## Takeaway
 
 !!! note

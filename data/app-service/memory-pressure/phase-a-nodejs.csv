@@ -1,0 +1,7 @@
+configuration,apps,alloc_mb_each,memory_pct,cpu_pct_stable,avg_latency_ms,errors,health_status
+2x100MB_baseline,2,100,74,19,883,0,healthy
+3x50MB,3,50,75,33,940,0,healthy
+4x50MB,4,50,76,44,902,0,healthy
+5x50MB,5,50,73,54,890,0,healthy
+6x50MB,6,50,74,32,859,0,healthy
+8x50MB,8,50,77,35,850,0,healthy
