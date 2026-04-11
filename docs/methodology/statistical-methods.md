@@ -227,6 +227,16 @@ Shows distribution of per-run summaries across configurations.
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "Template: per-run metric comparison",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "width": 500,
+  "height": 300,
   "data": {"values": []},
   "mark": "boxplot",
   "encoding": {
@@ -245,18 +255,27 @@ Shows metric behavior over time with p50 line and p5–p95 shaded band.
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "Template: time series with percentile bands",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "width": 500,
+  "height": 300,
   "layer": [
     {
-      "mark": "area",
+      "mark": {"type": "area", "color": "#93C5FD", "opacity": 0.25},
       "encoding": {
         "x": {"field": "timestamp", "type": "temporal"},
         "y": {"field": "p5", "type": "quantitative"},
-        "y2": {"field": "p95"},
-        "opacity": {"value": 0.2}
+        "y2": {"field": "p95"}
       }
     },
     {
-      "mark": "line",
+      "mark": {"type": "line", "color": "#2563EB", "strokeWidth": 3},
       "encoding": {
         "x": {"field": "timestamp", "type": "temporal"},
         "y": {"field": "p50", "type": "quantitative", "title": "Metric (unit)"}

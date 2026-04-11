@@ -239,9 +239,20 @@ If H2 is correct:
 ```vegalite
 {
   "$schema": "https://vega-lite.github.io/schema/vega-lite/v5.json",
-  "title": "Phase A: Plan Metrics vs App Count (Flask, ZIP Deploy)",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "title": {
+    "text": "Phase A: Plan Metrics vs App Count (Flask, ZIP Deploy)",
+    "subtitle": "Memory usage and latency by deployment density"
+  },
   "width": 600,
-  "height": 300,
+  "spacing": 8,
   "data": {
     "values": [
       {"config": "2x100MB (base)", "apps": 2, "memory_pct": 76, "cpu_pct_stable": 14, "avg_latency_ms": 934, "errors_5xx": 0, "cold_start_s": 60},
@@ -252,23 +263,34 @@ If H2 is correct:
       {"config": "8x50MB", "apps": 8, "memory_pct": 85.7, "cpu_pct_stable": 87.2, "avg_latency_ms": 1070, "errors_5xx": 6, "cold_start_s": null}
     ]
   },
-  "layer": [
+  "vconcat": [
     {
-      "mark": {"type": "bar", "color": "#4C78A8", "opacity": 0.7},
-      "encoding": {
-        "x": {"field": "config", "type": "ordinal", "sort": null, "title": "Configuration"},
-        "y": {"field": "memory_pct", "type": "quantitative", "title": "Memory % (plan avg)", "scale": {"domain": [0, 100]}}
-      }
+      "height": 170,
+      "layer": [
+        {
+          "mark": {"type": "bar", "color": "#2563EB", "opacity": 0.85},
+          "encoding": {
+            "x": {"field": "config", "type": "ordinal", "sort": null, "title": "Configuration", "axis": {"labelAngle": -20}},
+            "y": {"field": "memory_pct", "type": "quantitative", "title": "Memory % (plan avg)", "scale": {"domain": [0, 100]}}
+          }
+        },
+        {
+          "mark": {"type": "rule", "color": "#DC2626", "strokeDash": [6, 4], "strokeWidth": 2},
+          "encoding": {
+            "y": {"datum": 80}
+          }
+        }
+      ]
     },
     {
-      "mark": {"type": "line", "color": "#E45756", "point": true, "strokeWidth": 2},
+      "height": 170,
+      "mark": {"type": "line", "color": "#D97706", "point": {"filled": true, "size": 60}, "strokeWidth": 3},
       "encoding": {
-        "x": {"field": "config", "type": "ordinal", "sort": null},
-        "y": {"field": "avg_latency_ms", "type": "quantitative", "title": "Avg Latency (ms)", "scale": {"domain": [800, 1200]}, "axis": {"titleColor": "#E45756"}}
+        "x": {"field": "config", "type": "ordinal", "sort": null, "title": "Configuration", "axis": {"labelAngle": -20}},
+        "y": {"field": "avg_latency_ms", "type": "quantitative", "title": "Avg Latency (ms)"}
       }
     }
-  ],
-  "resolve": {"scale": {"y": "independent"}}
+  ]
 }
 ```
 
@@ -292,9 +314,20 @@ If H2 is correct:
 ```vegalite
 {
   "$schema": "https://vega-lite.github.io/schema/vega-lite/v5.json",
-  "title": "Phase B: Cold Start Time vs Memory Allocation (Flask, 4 Apps)",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "title": {
+    "text": "Phase B: Cold Start Time vs Memory Allocation (Flask, 4 Apps)",
+    "subtitle": "Cold start degradation correlates with memory pressure"
+  },
   "width": 500,
-  "height": 300,
+  "spacing": 8,
   "data": {
     "values": [
       {"alloc_mb": 75, "memory_pct_avg": 85.3, "memory_pct_peak": 90, "cold_start_s": 90, "avg_latency_ms": 986, "errors_5xx": 0},
@@ -304,23 +337,34 @@ If H2 is correct:
       {"alloc_mb": 175, "memory_pct_avg": 91.5, "memory_pct_peak": 95, "cold_start_s": 360, "avg_latency_ms": 891, "errors_5xx": 0}
     ]
   },
-  "layer": [
+  "vconcat": [
     {
-      "mark": {"type": "bar", "color": "#F58518", "opacity": 0.6},
+      "height": 170,
+      "mark": {"type": "bar", "color": "#D97706", "opacity": 0.85},
       "encoding": {
-        "x": {"field": "alloc_mb", "type": "ordinal", "title": "ALLOC_MB per App"},
+        "x": {"field": "alloc_mb", "type": "ordinal", "title": "ALLOC_MB per App", "axis": {"labelAngle": 0}},
         "y": {"field": "cold_start_s", "type": "quantitative", "title": "Cold Start Time (seconds)"}
       }
     },
     {
-      "mark": {"type": "line", "color": "#4C78A8", "point": true, "strokeWidth": 2},
-      "encoding": {
-        "x": {"field": "alloc_mb", "type": "ordinal"},
-        "y": {"field": "memory_pct_peak", "type": "quantitative", "title": "Peak Memory %", "scale": {"domain": [80, 100]}, "axis": {"titleColor": "#4C78A8"}}
-      }
+      "height": 170,
+      "layer": [
+        {
+          "mark": {"type": "line", "color": "#2563EB", "point": {"filled": true, "size": 60}, "strokeWidth": 3},
+          "encoding": {
+            "x": {"field": "alloc_mb", "type": "ordinal", "title": "ALLOC_MB per App", "axis": {"labelAngle": 0}},
+            "y": {"field": "memory_pct_peak", "type": "quantitative", "title": "Peak Memory %", "scale": {"domain": [80, 100]}}
+          }
+        },
+        {
+          "mark": {"type": "rule", "color": "#DC2626", "strokeDash": [6, 4], "strokeWidth": 2},
+          "encoding": {
+            "y": {"datum": 90}
+          }
+        }
+      ]
     }
-  ],
-  "resolve": {"scale": {"y": "independent"}}
+  ]
 }
 ```
 
@@ -345,7 +389,18 @@ If H2 is correct:
 ```vegalite
 {
   "$schema": "https://vega-lite.github.io/schema/vega-lite/v5.json",
-  "title": "Flask vs Node.js: Memory Usage by App Count (Phase A)",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "title": {
+    "text": "Flask vs Node.js: Memory Usage by App Count (Phase A)",
+    "subtitle": "Same workload, different memory footprint"
+  },
   "width": 500,
   "height": 300,
   "data": {
@@ -362,13 +417,28 @@ If H2 is correct:
       {"config": "8x50MB", "runtime": "Node.js (Container)", "memory_pct": 77}
     ]
   },
-  "mark": {"type": "bar", "opacity": 0.8},
-  "encoding": {
-    "x": {"field": "config", "type": "ordinal", "sort": null, "title": "Configuration"},
-    "y": {"field": "memory_pct", "type": "quantitative", "title": "Plan Memory %", "scale": {"domain": [0, 100]}},
-    "color": {"field": "runtime", "type": "nominal", "title": "Runtime / Deploy Mode", "scale": {"range": ["#4C78A8", "#72B7B2"]}},
-    "xOffset": {"field": "runtime"}
-  }
+  "layer": [
+    {
+      "mark": {"type": "bar", "opacity": 0.8},
+      "encoding": {
+        "x": {"field": "config", "type": "ordinal", "sort": null, "title": "Configuration"},
+        "y": {"field": "memory_pct", "type": "quantitative", "title": "Plan Memory %", "scale": {"domain": [0, 100]}},
+        "color": {
+          "field": "runtime",
+          "type": "nominal",
+          "title": "Runtime",
+          "scale": {"domain": ["Flask (ZIP)", "Node.js (Container)"], "range": ["#2563EB", "#0F766E"]}
+        },
+        "xOffset": {"field": "runtime"}
+      }
+    },
+    {
+      "mark": {"type": "rule", "color": "#DC2626", "strokeDash": [6, 4], "strokeWidth": 2},
+      "encoding": {
+        "y": {"datum": 80}
+      }
+    }
+  ]
 }
 ```
 
@@ -388,7 +458,18 @@ All 8 Node.js apps remained healthy with zero errors — in contrast to Flask, w
 ```vegalite
 {
   "$schema": "https://vega-lite.github.io/schema/vega-lite/v5.json",
-  "title": "Flask vs Node.js: Memory % at Each Density Level (Phase B, 4 Apps)",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "title": {
+    "text": "Flask vs Node.js: Memory % at Each Density Level (Phase B, 4 Apps)",
+    "subtitle": "Node.js containers maintain flat memory profile"
+  },
   "width": 500,
   "height": 300,
   "data": {
@@ -405,13 +486,28 @@ All 8 Node.js apps remained healthy with zero errors — in contrast to Flask, w
       {"alloc_mb": "175", "runtime": "Node.js (Container)", "memory_pct": 73, "cold_start_s": 60}
     ]
   },
-  "mark": {"type": "bar", "opacity": 0.8},
-  "encoding": {
-    "x": {"field": "alloc_mb", "type": "ordinal", "sort": null, "title": "ALLOC_MB per App"},
-    "y": {"field": "memory_pct", "type": "quantitative", "title": "Plan Memory %", "scale": {"domain": [0, 100]}},
-    "color": {"field": "runtime", "type": "nominal", "title": "Runtime / Deploy", "scale": {"range": ["#4C78A8", "#72B7B2"]}},
-    "xOffset": {"field": "runtime"}
-  }
+  "layer": [
+    {
+      "mark": {"type": "bar", "opacity": 0.8},
+      "encoding": {
+        "x": {"field": "alloc_mb", "type": "ordinal", "sort": null, "title": "ALLOC_MB per App"},
+        "y": {"field": "memory_pct", "type": "quantitative", "title": "Plan Memory %", "scale": {"domain": [0, 100]}},
+        "color": {
+          "field": "runtime",
+          "type": "nominal",
+          "title": "Runtime",
+          "scale": {"domain": ["Flask (ZIP)", "Node.js (Container)"], "range": ["#2563EB", "#0F766E"]}
+        },
+        "xOffset": {"field": "runtime"}
+      }
+    },
+    {
+      "mark": {"type": "rule", "color": "#DC2626", "strokeDash": [6, 4], "strokeWidth": 2},
+      "encoding": {
+        "y": {"datum": 80}
+      }
+    }
+  ]
 }
 ```
 
@@ -424,27 +520,35 @@ This data comes from the deeper-instrumented Node.js experiment that captured `/
 ```vegalite
 {
   "$schema": "https://vega-lite.github.io/schema/vega-lite/v5.json",
-  "title": "Kernel Reclaim Counters: Baseline vs Peak Pressure (ZIP Deploy)",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "title": {
+    "text": "Kernel Reclaim Activity Under Peak Pressure",
+    "subtitle": "Higher fold-change means more aggressive reclaim behavior"
+  },
   "width": 500,
   "height": 300,
   "data": {
     "values": [
-      {"counter": "pgscan_kswapd", "phase": "Baseline (2x50MB)", "value": 16500000},
-      {"counter": "pgscan_kswapd", "phase": "Peak (6x100MB, 60min)", "value": 40400000},
-      {"counter": "pgscan_direct", "phase": "Baseline (2x50MB)", "value": 1164},
-      {"counter": "pgscan_direct", "phase": "Peak (6x100MB, 60min)", "value": 33372},
-      {"counter": "pswpin", "phase": "Baseline (2x50MB)", "value": 121000},
-      {"counter": "pswpin", "phase": "Peak (6x100MB, 60min)", "value": 1940000},
-      {"counter": "pswpout", "phase": "Baseline (2x50MB)", "value": 321000},
-      {"counter": "pswpout", "phase": "Peak (6x100MB, 60min)", "value": 2410000}
+      {"counter": "pgscan_kswapd", "baseline": 16500000, "peak": 40400000},
+      {"counter": "pgscan_direct", "baseline": 1164, "peak": 33372},
+      {"counter": "pswpin", "baseline": 121000, "peak": 1940000},
+      {"counter": "pswpout", "baseline": 321000, "peak": 2410000}
     ]
   },
-  "mark": {"type": "bar", "opacity": 0.8},
+  "transform": [
+    {"calculate": "datum.peak / datum.baseline", "as": "fold_change"}
+  ],
+  "mark": {"type": "bar", "opacity": 0.85, "color": "#DC2626"},
   "encoding": {
-    "x": {"field": "counter", "type": "nominal", "title": "Kernel Counter"},
-    "y": {"field": "value", "type": "quantitative", "title": "Cumulative Count", "scale": {"type": "log"}},
-    "color": {"field": "phase", "type": "nominal", "scale": {"range": ["#72B7B2", "#E45756"]}},
-    "xOffset": {"field": "phase"}
+    "x": {"field": "counter", "type": "ordinal", "title": "Kernel Counter", "sort": "-y"},
+    "y": {"field": "fold_change", "type": "quantitative", "title": "Peak / Baseline (×)"}
   }
 }
 ```
@@ -465,7 +569,18 @@ This data comes from the deeper-instrumented Node.js experiment that captured `/
 ```vegalite
 {
   "$schema": "https://vega-lite.github.io/schema/vega-lite/v5.json",
-  "title": "ZIP vs Container: Burst Latency Comparison",
+  "background": "#FFFFFF",
+  "padding": 12,
+  "config": {
+    "view": {"fill": "#FFFFFF", "stroke": "#D1D5DB"},
+    "axis": {"labelColor": "#111827", "titleColor": "#111827", "gridColor": "#E5E7EB", "domainColor": "#94A3B8", "tickColor": "#94A3B8", "labelFontSize": 12, "titleFontSize": 13},
+    "legend": {"labelColor": "#111827", "titleColor": "#111827", "orient": "top"},
+    "title": {"color": "#111827", "anchor": "start", "fontSize": 16, "subtitleColor": "#475569", "subtitleFontSize": 12}
+  },
+  "title": {
+    "text": "ZIP vs Container: Burst Latency Comparison",
+    "subtitle": "Container latency up to 10× worse under memory pressure"
+  },
   "width": 400,
   "height": 300,
   "data": {
@@ -480,9 +595,9 @@ This data comes from the deeper-instrumented Node.js experiment that captured `/
   },
   "mark": {"type": "bar", "opacity": 0.8},
   "encoding": {
-    "x": {"field": "metric", "type": "nominal", "title": "Latency Metric"},
+    "x": {"field": "metric", "type": "nominal", "title": "Latency Metric", "sort": ["Avg Latency", "p95 Latency", "p99 Latency"]},
     "y": {"field": "value", "type": "quantitative", "title": "Milliseconds"},
-    "color": {"field": "deploy", "type": "nominal", "scale": {"range": ["#4C78A8", "#F58518"]}},
+    "color": {"field": "deploy", "type": "nominal", "scale": {"domain": ["ZIP Deploy", "Container"], "range": ["#2563EB", "#D97706"]}},
     "xOffset": {"field": "deploy"}
   }
 }
