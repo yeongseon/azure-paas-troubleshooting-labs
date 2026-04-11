@@ -80,3 +80,21 @@ The two are complementary. Lab experiments link to relevant guide sections for c
 By Yeongseon Choe
 
 - GitHub: [github.com/yeongseon](https://github.com/yeongseon)
+
+## Related projects
+
+| Resource | Role |
+|----------|------|
+| [azure-app-service-practical-guide](https://github.com/yeongseon/azure-app-service-practical-guide) | Comprehensive App Service reference |
+| [azure-functions-practical-guide](https://github.com/yeongseon/azure-functions-practical-guide) | Comprehensive Functions reference |
+| [azure-container-apps-practical-guide](https://github.com/yeongseon/azure-container-apps-practical-guide) | Comprehensive Container Apps reference |
+| [azure-monitoring-practical-guide](https://github.com/yeongseon/azure-monitoring-practical-guide) | Monitoring and observability reference |
+
+## Live site
+
+- **Documentation**: [yeongseon.github.io/azure-paas-troubleshooting-labs](https://yeongseon.github.io/azure-paas-troubleshooting-labs/)
+- **Repository**: [github.com/yeongseon/azure-paas-troubleshooting-labs](https://github.com/yeongseon/azure-paas-troubleshooting-labs)
+
+## License
+
+MIT
