@@ -143,7 +143,345 @@ Azure App Service uses **Source Network Address Translation (SNAT)** for outboun
 
 ## 8. Procedure
 
-### Step 1: Deploy test infrastructure
+### 8.1 Application Code
+
+#### 8.1.1 Source App (app-snat-source)
+
+```python
+"""SNAT Exhaustion Source App — generates outbound connections."""
+
+import http.client
+import json
+import os
+import ssl
+import socket
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+
+def _get_system_metrics():
+    """Read CPU and memory from /proc."""
+    metrics = {}
+    try:
+        with open("/proc/stat") as f:
+            line = f.readline()
+            parts = line.split()
+            total = sum(int(p) for p in parts[1:])
+            idle = int(parts[4])
+            metrics["cpu_percent"] = round((1 - idle / total) * 100, 1) if total > 0 else -1
+    except Exception:
+        metrics["cpu_percent"] = -1
+
+    try:
+        with open("/proc/meminfo") as f:
+            mem = {}
+            for line in f:
+                parts = line.split()
+                if parts[0] in ("MemTotal:", "MemAvailable:"):
+                    mem[parts[0].rstrip(":")] = int(parts[1])
+            if "MemTotal" in mem and "MemAvailable" in mem:
+                used = mem["MemTotal"] - mem["MemAvailable"]
+                metrics["memory_percent"] = round(used / mem["MemTotal"] * 100, 1)
+            else:
+                metrics["memory_percent"] = -1
+    except Exception:
+        metrics["memory_percent"] = -1
+
+    return metrics
+
+
+def _get_tcp_states():
+    """Count TCP connection states from /proc/net/tcp and tcp6."""
+    states_map = {
+        "01": "ESTABLISHED", "02": "SYN_SENT", "03": "SYN_RECV",
+        "04": "FIN_WAIT1", "05": "FIN_WAIT2", "06": "TIME_WAIT",
+        "07": "CLOSE", "08": "CLOSE_WAIT", "09": "LAST_ACK",
+        "0A": "LISTEN", "0B": "CLOSING",
+    }
+    counts = {}
+    for tcp_file in ["/proc/net/tcp", "/proc/net/tcp6"]:
+        try:
+            with open(tcp_file) as f:
+                next(f)  # skip header
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        state = states_map.get(parts[3], "UNKNOWN")
+                        counts[state] = counts.get(state, 0) + 1
+        except Exception:
+            pass
+    return counts
+
+
+def _make_request(worker_id, target_url, pool_mode, barrier):
+    """Single worker: make one HTTPS request to target."""
+    barrier.wait()  # Synchronize all workers to start simultaneously
+
+    parsed_host = target_url.split("//")[1].split("/")[0]
+    parsed_path = "/" + "/".join(target_url.split("//")[1].split("/")[1:])
+
+    result = {
+        "worker_id": worker_id,
+        "start_time": datetime.now(timezone.utc).isoformat(),
+        "success": False,
+        "latency_ms": 0,
+        "error": None,
+        "error_phase": None,
+        "http_status": None,
+    }
+
+    start = time.perf_counter()
+    conn = None
+    try:
+        ctx = ssl.create_default_context()
+        conn = http.client.HTTPSConnection(parsed_host, timeout=60, context=ctx)
+
+        if pool_mode:
+            conn.request("GET", parsed_path, headers={"Connection": "keep-alive"})
+        else:
+            conn.request("GET", parsed_path, headers={"Connection": "close"})
+
+        response = conn.getresponse()
+        response.read()
+        result["success"] = True
+        result["http_status"] = response.status
+
+    except Exception as e:
+        result["error"] = type(e).__name__
+        result["error_phase"] = "request"
+        result["success"] = False
+    finally:
+        elapsed = (time.perf_counter() - start) * 1000
+        result["latency_ms"] = round(elapsed, 1)
+        result["end_time"] = datetime.now(timezone.utc).isoformat()
+        if conn and not pool_mode:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    return result
+
+
+@app.route("/run", methods=["POST"])
+def run_test():
+    """Run a SNAT pressure test with N concurrent connections."""
+    data = request.get_json() or {}
+    target_url = data.get("target_url", "")
+    concurrent = data.get("concurrent", 50)
+    pool_mode = data.get("pool", False)
+    duration_seconds = data.get("duration", 60)
+
+    if not target_url:
+        return jsonify({"error": "target_url required"}), 400
+
+    pre_metrics = _get_system_metrics()
+    pre_tcp = _get_tcp_states()
+
+    barrier = threading.Barrier(concurrent)
+    all_results = []
+
+    end_time = time.time() + duration_seconds
+    round_num = 0
+
+    while time.time() < end_time:
+        round_num += 1
+        barrier = threading.Barrier(concurrent)
+
+        with ThreadPoolExecutor(max_workers=concurrent) as executor:
+            futures = [
+                executor.submit(_make_request, i, target_url, pool_mode, barrier)
+                for i in range(concurrent)
+            ]
+            for future in as_completed(futures):
+                all_results.append(future.result())
+
+    post_metrics = _get_system_metrics()
+    post_tcp = _get_tcp_states()
+
+    successes = [r for r in all_results if r["success"]]
+    failures = [r for r in all_results if not r["success"]]
+    latencies = [r["latency_ms"] for r in successes]
+    latencies.sort()
+
+    return jsonify({
+        "config": {
+            "concurrent": concurrent,
+            "pool_mode": pool_mode,
+            "duration_seconds": duration_seconds,
+            "target_url": target_url,
+            "rounds": round_num,
+        },
+        "totals": {
+            "total_requests": len(all_results),
+            "successes": len(successes),
+            "failures": len(failures),
+            "failure_rate": round(len(failures) / len(all_results) * 100, 3) if all_results else 0,
+        },
+        "latency_ms": {
+            "p50": latencies[len(latencies) // 2] if latencies else 0,
+            "p95": latencies[int(len(latencies) * 0.95)] if latencies else 0,
+            "p99": latencies[int(len(latencies) * 0.99)] if latencies else 0,
+        },
+        "errors": {e["error"]: sum(1 for x in failures if x["error"] == e["error"]) for e in failures},
+        "system": {
+            "pre": {**pre_metrics, "tcp": pre_tcp},
+            "post": {**post_metrics, "tcp": post_tcp},
+        },
+    })
+
+
+@app.route("/healthz")
+def health():
+    return jsonify({"status": "ok", "pid": os.getpid()})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
+```
+
+#### 8.1.2 Target App (app-snat-target)
+
+```python
+"""SNAT Exhaustion Target App — slow-response server."""
+
+import os
+import time
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+
+@app.route("/delay")
+def delay():
+    """Hold the connection open for N seconds."""
+    seconds = float(request.args.get("seconds", 1))
+    time.sleep(seconds)
+    return jsonify({
+        "delayed_seconds": seconds,
+        "hostname": os.environ.get("HOSTNAME", "unknown"),
+        "pid": os.getpid(),
+    })
+
+
+@app.route("/healthz")
+def health():
+    return jsonify({"status": "ok"})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
+```
+
+#### 8.1.3 Test Runner (snat-runner.py)
+
+```python
+"""Automated SNAT test runner — randomized order with cooldowns."""
+
+import json
+import random
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+
+CONFIGS = [
+    {"name": "50conn_nopool", "concurrent": 50, "pool": False},
+    {"name": "128conn_nopool", "concurrent": 128, "pool": False},
+    {"name": "200conn_nopool", "concurrent": 200, "pool": False},
+    {"name": "300conn_nopool", "concurrent": 300, "pool": False},
+    {"name": "200conn_pool", "concurrent": 200, "pool": True},
+]
+RUNS_PER_CONFIG = 3
+COOLDOWN_SECONDS = 240  # 4 minutes for SNAT port reclaim
+SOURCE_URL = "https://app-snat-source.azurewebsites.net/run"
+TARGET_URL = "https://app-snat-target.azurewebsites.net/delay?seconds=10"
+
+# Build run list: 3 runs per config, randomized
+runs = []
+for config in CONFIGS:
+    for run_num in range(1, RUNS_PER_CONFIG + 1):
+        runs.append({**config, "run_num": run_num})
+random.shuffle(runs)
+
+print(f"Total runs: {len(runs)}, order randomized")
+results = []
+
+for i, run in enumerate(runs):
+    print(f"\n[{i+1}/{len(runs)}] {run['name']} run {run['run_num']}")
+    print(f"  Concurrent: {run['concurrent']}, Pool: {run['pool']}")
+
+    payload = json.dumps({
+        "target_url": TARGET_URL,
+        "concurrent": run["concurrent"],
+        "pool": run["pool"],
+        "duration": 60,
+    })
+
+    try:
+        result = subprocess.run(
+            ["curl", "-s", "-X", "POST", SOURCE_URL,
+             "-H", "Content-Type: application/json",
+             "-d", payload, "--max-time", "300"],
+            capture_output=True, text=True, timeout=360,
+        )
+        data = json.loads(result.stdout)
+        data["config_name"] = run["name"]
+        data["run_num"] = run["run_num"]
+        results.append(data)
+
+        fr = data["totals"]["failure_rate"]
+        print(f"  Result: {fr}% failure rate, {data['totals']['total_requests']} requests")
+
+    except Exception as e:
+        print(f"  ERROR: {e}")
+        results.append({"config_name": run["name"], "run_num": run["run_num"], "error": str(e)})
+
+    if i < len(runs) - 1:
+        print(f"  Cooldown: {COOLDOWN_SECONDS}s...")
+        time.sleep(COOLDOWN_SECONDS)
+
+# Save results
+output_file = f"snat-results-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+with open(output_file, "w") as f:
+    json.dump(results, f, indent=2)
+print(f"\nResults saved to {output_file}")
+```
+
+#### 8.1.4 requirements.txt
+
+```text
+flask==3.1.1
+gunicorn==23.0.0
+```
+
+#### Design Notes
+
+- **`http.client` instead of `requests`**: The source app deliberately uses Python's stdlib `http.client.HTTPSConnection` instead of the popular `requests` library. `requests` uses `urllib3` internally, which implements connection pooling by default — even if you call `requests.get()` without a Session. This would mask SNAT exhaustion by silently reusing TCP connections. `http.client` gives us explicit control: each `HTTPSConnection` creates a genuine new TCP socket, ensuring 1 SNAT port per concurrent request in no-pool mode.
+- **`threading.Barrier` for synchronized start**: All N worker threads call `barrier.wait()` before making their HTTP request. This ensures all connections are opened simultaneously, maximizing concurrent SNAT port pressure. Without the barrier, thread scheduling delays would stagger connection establishment over hundreds of milliseconds, reducing peak concurrent port usage and potentially hiding the exhaustion threshold.
+- **`Connection: close` vs `Connection: keep-alive`**: In no-pool mode, the `Connection: close` header tells both the client and the target server to close the TCP connection after the response. This guarantees the SNAT port enters TIME_WAIT (~4 minutes) and cannot be reused. In pool mode, `Connection: keep-alive` maintains the TCP connection, allowing the same SNAT port to serve multiple sequential requests from the same worker.
+- **System metrics from `/proc`**: The source app reads CPU from `/proc/stat`, memory from `/proc/meminfo`, and TCP states from `/proc/net/tcp`. These kernel interfaces provide ground-truth metrics without external dependencies, proving that CPU/memory remain normal during SNAT exhaustion (H2).
+- **10-second target delay**: The target app's `/delay?seconds=10` holds each connection open for 10 seconds, simulating a slow downstream API. This is the mechanism that creates SNAT pressure — each SNAT port is occupied for the full 10 seconds, preventing reuse during the test window.
+- **gunicorn gthread on target**: The target app uses `--workers 2 --worker-class gthread --threads 250` (500 total concurrent handlers) to ensure it can accept all incoming connections without becoming the bottleneck. If the target couldn't handle the load, we'd see server-side errors instead of SNAT exhaustion.
+- **Randomized run order**: The test runner shuffles all 15 runs (5 configs × 3 runs) to avoid systematic bias from TIME_WAIT port accumulation. If all 300-connection runs executed first, leftover TIME_WAIT ports could artificially inflate failure rates for subsequent lower-connection tests.
+- **4-minute cooldown**: SNAT ports in TIME_WAIT take ~240 seconds (4 minutes) to be reclaimed by the OS. The cooldown between runs ensures each test starts with a clean port pool, making runs independent.
+
+#### Endpoint Map
+
+| App | Endpoint | Method | Purpose | Hypothesis Link |
+|-----|----------|--------|---------|-----------------|
+| Source | `/run` | POST | Launches N concurrent outbound connections to target | Tests H1 (threshold), H2 (CPU/memory independence), H3 (pooling mitigation) |
+| Source | `/healthz` | GET | Liveness check | Confirms source app is operational |
+| Target | `/delay?seconds=N` | GET | Holds connection open for N seconds | Creates sustained SNAT port occupation — the mechanism behind exhaustion |
+| Target | `/healthz` | GET | Liveness check | Confirms target is accepting connections |
+
+### 8.2 Deploy test infrastructure
 
 ```bash
 az group create --name rg-snat-lab --location koreacentral
@@ -185,14 +523,14 @@ az webapp deploy --name app-snat-source \
     --src-path snat-source.zip --type zip
 ```
 
-### Step 2: Verify both apps are healthy
+### 8.3 Verify both apps are healthy
 
 ```bash
 curl https://app-snat-source.azurewebsites.net/healthz
 curl "https://app-snat-target.azurewebsites.net/delay?seconds=1"
 ```
 
-### Step 3: Run automated test matrix
+### 8.4 Run automated test matrix
 
 ```bash
 python3 snat-runner.py
@@ -200,7 +538,7 @@ python3 snat-runner.py
 
 The runner executes 15 runs (5 configs × 3 runs) in randomized order with 4-minute cooldowns between runs. Each run consists of 10 seconds warmup + 60 seconds measurement.
 
-### Step 4: Clean up
+### 8.5 Clean up
 
 ```bash
 az group delete --name rg-snat-lab --yes --no-wait

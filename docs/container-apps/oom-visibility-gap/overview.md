@@ -126,7 +126,215 @@ Container Apps runs containers with cgroup memory limits. When a process exceeds
 
 ## 8. Procedure
 
-### Step 1: Deploy test infrastructure
+### 8.1 Application Code
+
+#### app.py
+
+```python
+"""OOM Visibility Gap Test App for Azure Container Apps."""
+
+import json
+import os
+import threading
+import time
+from datetime import datetime, timezone
+
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+# Shared state for memory allocation
+memory_state = {
+    "blocks": [],
+    "allocating": False,
+    "target_mb": 0,
+    "chunk_mb": 16,
+    "pause_seconds": 0.5,
+}
+state_lock = threading.Lock()
+
+
+def _get_rss_mb():
+    """Read RSS from /proc/self/status."""
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024  # kB to MB
+    except Exception:
+        pass
+    return -1
+
+
+def _get_cgroup_memory_mb():
+    """Read current memory usage from cgroup v2."""
+    try:
+        with open("/sys/fs/cgroup/memory.current") as f:
+            return int(f.read().strip()) / (1024 * 1024)
+    except Exception:
+        return -1
+
+
+def _allocate_memory(chunk_mb, pause_seconds, target_mb):
+    """Background thread: allocate memory in chunks with page touching."""
+    chunk_bytes = chunk_mb * 1024 * 1024
+    allocated_mb = 0
+
+    while allocated_mb < target_mb:
+        with state_lock:
+            if not memory_state["allocating"]:
+                break
+
+        # Allocate and touch every page (4096 bytes) to force physical allocation
+        block = bytearray(chunk_bytes)
+        for i in range(0, len(block), 4096):
+            block[i] = 1
+
+        with state_lock:
+            memory_state["blocks"].append(block)
+            allocated_mb = sum(len(b) for b in memory_state["blocks"]) / (1024 * 1024)
+
+        rss = _get_rss_mb()
+        print(
+            f"[OOM-TEST] Allocated {allocated_mb:.0f}MB, "
+            f"RSS={rss:.2f}MB, PID={os.getpid()}",
+            flush=True,
+        )
+        time.sleep(pause_seconds)
+
+    print(f"[OOM-TEST] Allocation complete: {allocated_mb:.0f}MB", flush=True)
+
+
+@app.route("/start", methods=["POST"])
+def start_allocation():
+    """Start gradual memory allocation in background thread."""
+    data = request.get_json() or {}
+    chunk_mb = data.get("chunk_mb", 16)
+    pause_seconds = data.get("pause_seconds", 0.5)
+    target_mb = data.get("target_mb", 600)
+
+    with state_lock:
+        memory_state["allocating"] = True
+        memory_state["target_mb"] = target_mb
+        memory_state["chunk_mb"] = chunk_mb
+        memory_state["pause_seconds"] = pause_seconds
+
+    thread = threading.Thread(
+        target=_allocate_memory,
+        args=(chunk_mb, pause_seconds, target_mb),
+        daemon=True,
+    )
+    thread.start()
+
+    return jsonify({
+        "action": "started",
+        "chunk_mb": chunk_mb,
+        "pause_seconds": pause_seconds,
+        "target_mb": target_mb,
+        "pid": os.getpid(),
+    })
+
+
+@app.route("/spike", methods=["POST"])
+def spike_allocation():
+    """Immediately allocate a large block of memory."""
+    data = request.get_json() or {}
+    mb = data.get("mb", 500)
+    size = mb * 1024 * 1024
+
+    print(f"[OOM-TEST] SPIKE: Allocating {mb}MB immediately, PID={os.getpid()}", flush=True)
+
+    block = bytearray(size)
+    for i in range(0, len(block), 4096):
+        block[i] = 1
+
+    with state_lock:
+        memory_state["blocks"].append(block)
+
+    return jsonify({
+        "action": "spike_complete",
+        "allocated_mb": mb,
+        "pid": os.getpid(),
+    })
+
+
+@app.route("/memory")
+def memory_status():
+    """Return current memory state."""
+    with state_lock:
+        allocated_mb = sum(len(b) for b in memory_state["blocks"]) / (1024 * 1024) if memory_state["blocks"] else 0
+        block_count = len(memory_state["blocks"])
+
+    return jsonify({
+        "allocated_blocks": block_count,
+        "allocated_mb": round(allocated_mb, 1),
+        "pid": os.getpid(),
+        "vmrss_mb": round(_get_rss_mb(), 2),
+        "cgroup_memory_mb": round(_get_cgroup_memory_mb(), 2),
+        "allocating": memory_state["allocating"],
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route("/health")
+def health():
+    """Simple health check — always returns 200."""
+    return jsonify({"status": "healthy", "pid": os.getpid()})
+
+
+@app.route("/reset", methods=["POST"])
+def reset():
+    """Stop allocation and free all memory."""
+    with state_lock:
+        memory_state["allocating"] = False
+        memory_state["blocks"].clear()
+    return jsonify({"action": "reset", "pid": os.getpid()})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
+```
+
+#### requirements.txt
+
+```text
+flask==3.1.1
+gunicorn==23.0.0
+```
+
+#### Dockerfile
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+EXPOSE 8080
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--worker-class", "gthread", "--threads", "4", "--timeout", "120", "app:app"]
+```
+
+#### Design Notes
+
+- **Page touching (`block[i] = 1` every 4096 bytes)**: Linux uses demand paging — `bytearray(N)` allocates virtual memory but the kernel doesn't commit physical pages until they're accessed. Without page touching, the process could allocate far more than the cgroup limit without triggering OOM because no physical memory is consumed. Writing to every 4096-byte page (one page = 4 KB) forces the kernel to back each page with physical RAM.
+- **Background allocator thread**: The `/start` endpoint launches a daemon thread that allocates memory gradually (16MB chunks with 0.5s pauses). This simulates a real-world memory leak where memory grows slowly over time. Using a background thread means the HTTP request returns immediately while allocation continues — and critically, the `/health` endpoint remains responsive on a separate gthread thread, demonstrating H4 (gradual leaks are invisible to clients).
+- **gthread worker class**: gunicorn's `gthread` worker uses threads within a single worker process. With `--workers 1 --threads 4`, the health endpoint and memory status endpoint can respond on separate threads while the allocator thread runs. This is essential for demonstrating H4 — if we used the default sync worker, the health endpoint would be blocked during allocation.
+- **Single worker process**: Using `--workers 1` creates the exact OOM absorption pattern described in the hypothesis — the gunicorn master (PID 1) survives the worker's OOM kill and spawns a replacement. With multiple workers, the OOM kill would affect only one worker and the other workers would continue serving, making the observation harder to isolate.
+- **cgroup v2 memory reading**: The `/memory` endpoint reads `/sys/fs/cgroup/memory.current` to show the container's actual memory usage as seen by the cgroup controller. This is the ground truth that Azure Monitor's `WorkingSetBytes` metric attempts to track (at 1-minute granularity).
+- **`[OOM-TEST]` prefix logging**: All memory allocation events are logged to stdout with this prefix. This becomes the signal in `ContainerAppConsoleLogs_CL` — the only telemetry source that records OOM kills (via gunicorn's SIGKILL detection).
+- **Spike endpoint**: `/spike` allocates the entire amount on the request thread (not a background thread), ensuring the request is in-flight when the OOM kill occurs. This produces `upstream connect error` at the client, demonstrating H4's second failure mode.
+
+#### Endpoint Map
+
+| Endpoint | Method | Purpose | Hypothesis Link | Response |
+|----------|--------|---------|-----------------|----------|
+| `/start` | POST | Starts gradual memory allocation in background thread | Tests H1-H3 via gradual leak; H4 via health endpoint staying responsive | `{"action": "started", "chunk_mb": 16, "target_mb": 600}` |
+| `/spike` | POST | Immediately allocates N MB on the request thread | Tests H4 — client-visible error when request thread is OOM-killed | `{"action": "spike_complete"}` or `upstream connect error` |
+| `/memory` | GET | Returns allocated MB, RSS, cgroup memory, PID | Tracks allocation progress; PID change after OOM confirms worker restart | `{"allocated_mb": 464.0, "vmrss_mb": 496.08, "pid": 7}` |
+| `/health` | GET | Simple liveness check | Demonstrates H4 — remains responsive during gradual leak because it runs on a separate gthread | `{"status": "healthy", "pid": 7}` |
+| `/reset` | POST | Frees all allocated memory | Cleanup between test runs | `{"action": "reset"}` |
+
+### 8.2 Deploy test infrastructure
 
 ```bash
 az group create --name rg-oom-lab --location koreacentral
@@ -155,7 +363,7 @@ az containerapp create --name ca-oom-test \
     --ingress external --target-port 8080
 ```
 
-### Step 2: Verify app is healthy
+### 8.3 Verify app is healthy
 
 ```bash
 FQDN=$(az containerapp show --name ca-oom-test \
@@ -169,7 +377,7 @@ curl "https://${FQDN}/memory"
 # {"allocated_blocks":0,"allocated_mb":0.0,"pid":7,"vmrss_mb":32.2,...}
 ```
 
-### Step 3: Run gradual OOM variant
+### 8.4 Run gradual OOM variant
 
 ```bash
 # Start background allocation: 16MB chunks, 0.5s pause, 600MB target
@@ -184,7 +392,7 @@ while true; do
 done
 ```
 
-### Step 4: Run spike OOM variant
+### 8.5 Run spike OOM variant
 
 ```bash
 curl -X POST "https://${FQDN}/spike" \
@@ -193,7 +401,7 @@ curl -X POST "https://${FQDN}/spike" \
 # Returns: "upstream connect error or disconnect/reset before headers"
 ```
 
-### Step 5: Collect evidence from Log Analytics
+### 8.6 Collect evidence from Log Analytics
 
 ```bash
 WORKSPACE_ID=$(az containerapp env show --name cae-oom \
@@ -222,7 +430,7 @@ az monitor log-analytics query --workspace "$WORKSPACE_ID" \
     | order by TimeGenerated desc"
 ```
 
-### Step 6: Collect Azure Monitor metrics
+### 8.7 Collect Azure Monitor metrics
 
 ```bash
 RESOURCE_ID=$(az containerapp show --name ca-oom-test \
@@ -239,7 +447,7 @@ az monitor metrics list --resource "$RESOURCE_ID" \
     --end-time "2026-04-10T14:30:00Z"
 ```
 
-### Step 7: Clean up
+### 8.8 Clean up
 
 ```bash
 az group delete --name rg-oom-lab --yes --no-wait

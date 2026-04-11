@@ -115,7 +115,242 @@ Instances:
 
 ## 8. Procedure
 
-### Step 1: Deploy test infrastructure
+### 8.1 Application Code
+
+#### app.py
+
+```python
+"""
+Health Check Eviction Test App for Azure App Service.
+
+This app simulates a health check endpoint that depends on an external dependency.
+The dependency can be toggled to simulate failure, triggering health check eviction.
+"""
+
+import os
+import socket
+import time
+import threading
+from datetime import datetime, timezone
+
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+# Simulated dependency state - shared across requests on this instance
+dependency_state = {
+    "healthy": True,
+    "failed_since": None,
+    "failure_count": 0,
+    "recovery_time": None,
+}
+
+# Health check call log - track each health check probe
+health_check_log = []
+MAX_LOG_SIZE = 500
+
+# Request log - track all requests
+request_log = []
+MAX_REQUEST_LOG = 500
+
+# Lock for thread safety
+state_lock = threading.Lock()
+
+
+def _get_instance_id():
+    return os.environ.get(
+        "WEBSITE_INSTANCE_ID",
+        os.environ.get("COMPUTERNAME", socket.gethostname()),
+    )
+
+
+def _log_health_check(status_code, reason):
+    with state_lock:
+        entry = {
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "instance_id": _get_instance_id()[:16],
+            "hostname": socket.gethostname(),
+            "status_code": status_code,
+            "reason": reason,
+            "dependency_healthy": dependency_state["healthy"],
+        }
+        health_check_log.append(entry)
+        if len(health_check_log) > MAX_LOG_SIZE:
+            health_check_log.pop(0)
+
+
+def _log_request(endpoint, status_code):
+    with state_lock:
+        entry = {
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "instance_id": _get_instance_id()[:16],
+            "hostname": socket.gethostname(),
+            "endpoint": endpoint,
+            "status_code": status_code,
+            "pid": os.getpid(),
+        }
+        request_log.append(entry)
+        if len(request_log) > MAX_REQUEST_LOG:
+            request_log.pop(0)
+
+
+@app.route("/")
+def index():
+    """Root endpoint - always responds (not tied to dependency)."""
+    _log_request("/", 200)
+    return jsonify({
+        "status": "ok",
+        "instance_id": _get_instance_id(),
+        "hostname": socket.gethostname(),
+        "pid": os.getpid(),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "dependency_healthy": dependency_state["healthy"],
+    })
+
+
+@app.route("/healthz")
+def health_check():
+    """Health check endpoint that depends on simulated external service.
+
+    Returns 200 if dependency is healthy, 503 if dependency is down.
+    This is the endpoint configured in App Service Health Check.
+    """
+    if dependency_state["healthy"]:
+        _log_health_check(200, "dependency_healthy")
+        return jsonify({
+            "status": "healthy",
+            "instance_id": _get_instance_id()[:16],
+            "hostname": socket.gethostname(),
+            "dependency": "connected",
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        }), 200
+    else:
+        _log_health_check(503, "dependency_unavailable")
+        return jsonify({
+            "status": "unhealthy",
+            "instance_id": _get_instance_id()[:16],
+            "hostname": socket.gethostname(),
+            "dependency": "unreachable",
+            "failed_since": dependency_state["failed_since"],
+            "failure_count": dependency_state["failure_count"],
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        }), 503
+
+
+@app.route("/api/data")
+def api_data():
+    """Normal API endpoint that doesn't need the dependency."""
+    _log_request("/api/data", 200)
+    return jsonify({
+        "data": "This endpoint works regardless of dependency status",
+        "instance_id": _get_instance_id()[:16],
+        "hostname": socket.gethostname(),
+        "dependency_healthy": dependency_state["healthy"],
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route("/fail-dependency", methods=["POST"])
+def fail_dependency():
+    """Simulate dependency failure."""
+    with state_lock:
+        dependency_state["healthy"] = False
+        dependency_state["failed_since"] = datetime.now(timezone.utc).isoformat()
+        dependency_state["failure_count"] = 0
+    return jsonify({
+        "action": "dependency_failed",
+        "instance_id": _get_instance_id()[:16],
+        "hostname": socket.gethostname(),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route("/recover-dependency", methods=["POST"])
+def recover_dependency():
+    """Simulate dependency recovery."""
+    with state_lock:
+        dependency_state["healthy"] = True
+        dependency_state["recovery_time"] = datetime.now(timezone.utc).isoformat()
+    return jsonify({
+        "action": "dependency_recovered",
+        "instance_id": _get_instance_id()[:16],
+        "hostname": socket.gethostname(),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route("/status")
+def status():
+    """Get current instance status and health check log."""
+    return jsonify({
+        "instance_id": _get_instance_id(),
+        "hostname": socket.gethostname(),
+        "pid": os.getpid(),
+        "dependency_state": dependency_state,
+        "health_check_log_count": len(health_check_log),
+        "health_check_log_last_10": health_check_log[-10:],
+        "request_log_count": len(request_log),
+        "request_log_last_10": request_log[-10:],
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route("/logs/healthcheck")
+def healthcheck_logs():
+    """Get full health check log."""
+    return jsonify({
+        "instance_id": _get_instance_id()[:16],
+        "hostname": socket.gethostname(),
+        "total_entries": len(health_check_log),
+        "entries": health_check_log,
+    })
+
+
+@app.route("/logs/requests")
+def request_logs():
+    """Get full request log."""
+    return jsonify({
+        "instance_id": _get_instance_id()[:16],
+        "hostname": socket.gethostname(),
+        "total_entries": len(request_log),
+        "entries": request_log,
+    })
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
+```
+
+#### requirements.txt
+
+```text
+flask==3.1.1
+gunicorn==23.0.0
+```
+
+#### Design Notes
+
+- **In-memory dependency simulation**: Uses a thread-safe dictionary (`dependency_state`) with `threading.Lock` to simulate an external dependency that can be toggled healthy/unhealthy per-instance. This avoids needing a real database while allowing per-instance control.
+- **Per-instance state isolation**: Each App Service instance runs its own container with its own process - `dependency_state` is process-local. This means POST `/fail-dependency` on Instance A does not affect Instance B, which is exactly what we need to test partial failure scenarios.
+- **Health check logging**: Every `/healthz` probe is logged with timestamp, instance ID, hostname, and result. This creates an audit trail to correlate with platform health check decisions (eviction timing).
+- **Truncated instance ID**: `_get_instance_id()[:16]` is used because Azure's `WEBSITE_INSTANCE_ID` is a 64-character hex string; the first 16 chars are sufficient for visual differentiation in logs.
+- **Request logging**: All endpoints log requests to an in-memory list (capped at 500 entries) for post-test forensic analysis without needing Application Insights.
+- **gunicorn single-worker**: The startup command uses `gunicorn --bind=0.0.0.0 --timeout 600 app:app` with the default 1 worker because thread safety of the shared `dependency_state` dict is simpler with a single process.
+
+#### Endpoint Map
+
+| Endpoint | Method | Purpose | Hypothesis Link | Response |
+|----------|--------|---------|-----------------|----------|
+| `/` | GET | Root - always returns 200 regardless of dependency state | Baseline - confirms app is running | `{"status": "ok", "instance_id": "...", "dependency_healthy": true/false}` |
+| `/healthz` | GET | Health check endpoint configured in App Service | Tests H1-H3 - platform probes this every 1 minute; returns 503 when dependency is failed | `200 + {"status": "healthy"}` or `503 + {"status": "unhealthy"}` |
+| `/api/data` | GET | Normal API endpoint that works without dependency | Shows that the app can serve requests even when health check fails - illustrates the cascading eviction problem | `{"data": "This endpoint works regardless..."}` |
+| `/fail-dependency` | POST | Toggles dependency to unhealthy state | Triggers health check failure on the targeted instance | `{"action": "dependency_failed", "instance_id": "..."}` |
+| `/recover-dependency` | POST | Restores dependency to healthy state | Ends the failure simulation for recovery testing (H4) | `{"action": "dependency_recovered", "instance_id": "..."}` |
+| `/status` | GET | Returns full instance state including health check log | Forensic analysis - shows dependency state, last 10 health checks and requests | Full JSON with `dependency_state`, logs |
+| `/logs/healthcheck` | GET | Returns complete health check probe log | Correlates platform probe timing with eviction decisions | `{"entries": [...]}` |
+| `/logs/requests` | GET | Returns complete request log | Tracks traffic distribution across instances | `{"entries": [...]}` |
+
+### 8.2 Deploy test infrastructure
 
 ```bash
 # Create resource group and P1v3 plan (2 instances for eviction testing)
@@ -146,19 +381,19 @@ az webapp deploy --name app-healthcheck-lab \
     --src-path healthcheck-app.zip --type zip
 ```
 
-### Step 2: Verify baseline — both instances healthy
+### 8.3 Verify baseline — both instances healthy
 
 1. Send 20 requests to `/status`, verify both instances appear with `healthy=True`
 2. Run `az webapp list-instances` — both should show `READY`
 
-### Step 3: Test 1 — All instances unhealthy simultaneously
+### 8.4 Test 1 — All instances unhealthy simultaneously
 
 1. POST `/fail-dependency` repeatedly until both instances report unhealthy
 2. Monitor traffic distribution every 2 minutes for 12+ minutes
 3. Verify no eviction occurs (both instances continue receiving traffic)
 4. POST `/recover-dependency` to restore both instances
 
-### Step 4: Test 2 — Partial failure (one instance unhealthy)
+### 8.5 Test 2 — Partial failure (one instance unhealthy)
 
 1. POST `/fail-dependency` selectively to Instance A only
 2. Verify Instance A returns 503 on `/healthz`, Instance B returns 200
@@ -166,20 +401,20 @@ az webapp deploy --name app-healthcheck-lab \
 4. Observe eviction event (Instance A stops receiving traffic)
 5. Verify via `az webapp list-instances` — Instance A state changes
 
-### Step 5: Test 3 — Cascading failure
+### 8.6 Test 3 — Cascading failure
 
 1. Start from partial failure state (Instance A evicted)
 2. POST `/fail-dependency` to Instance B (the only remaining instance)
 3. Monitor whether Instance B gets evicted or stays in rotation
 4. Check instance states via `az webapp list-instances`
 
-### Step 6: Recovery test
+### 8.7 Recovery test
 
 1. Execute `az webapp restart` from cascading failure state
 2. Measure time until both instances appear in traffic distribution
 3. Verify via `az webapp list-instances` — both return to READY
 
-### Step 7: Clean up
+### 8.8 Clean up
 
 ```bash
 az group delete --name rg-healthcheck-lab --yes --no-wait

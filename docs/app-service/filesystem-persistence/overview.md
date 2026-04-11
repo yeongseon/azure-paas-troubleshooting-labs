@@ -113,7 +113,228 @@ On App Service Linux:
 
 ## 8. Procedure
 
-### Step 1: Deploy test infrastructure
+### 8.1 Application Code
+
+#### app.py
+
+```python
+"""Filesystem Persistence Test App for Azure App Service Linux."""
+
+import hashlib
+import json
+import os
+import socket
+import statistics
+import subprocess
+import time
+from datetime import datetime, timezone
+
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+WRITE_PATHS = ["/home/data", "/tmp/data", "/var/local/data"]
+TEST_FILENAME = "persistence-test.json"
+CHECKSUM_FILENAME = "persistence-test.sha256"
+
+
+def _get_instance_id():
+    return os.environ.get(
+        "WEBSITE_INSTANCE_ID",
+        os.environ.get("COMPUTERNAME", socket.gethostname()),
+    )
+
+
+def _write_test_file(base_path):
+    """Write a test file with metadata and SHA-256 checksum."""
+    os.makedirs(base_path, exist_ok=True)
+    payload = {
+        "instance_id": _get_instance_id(),
+        "hostname": socket.gethostname(),
+        "pid": os.getpid(),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "marker": f"written-by-{socket.gethostname()}-at-{time.time():.0f}",
+    }
+    filepath = os.path.join(base_path, TEST_FILENAME)
+    content = json.dumps(payload, indent=2)
+
+    with open(filepath, "w") as f:
+        f.write(content)
+        f.flush()
+        os.fsync(f.fileno())
+
+    checksum = hashlib.sha256(content.encode()).hexdigest()
+    checksum_path = os.path.join(base_path, CHECKSUM_FILENAME)
+    with open(checksum_path, "w") as f:
+        f.write(checksum)
+        f.flush()
+        os.fsync(f.fileno())
+
+    return {"path": filepath, "checksum": checksum, "payload": payload}
+
+
+def _read_test_file(base_path):
+    """Read test file and verify SHA-256 checksum integrity."""
+    filepath = os.path.join(base_path, TEST_FILENAME)
+    checksum_path = os.path.join(base_path, CHECKSUM_FILENAME)
+
+    if not os.path.exists(filepath):
+        return {"path": filepath, "exists": False}
+
+    with open(filepath, "r") as f:
+        content = f.read()
+
+    actual_checksum = hashlib.sha256(content.encode()).hexdigest()
+    stored_checksum = None
+    if os.path.exists(checksum_path):
+        with open(checksum_path, "r") as f:
+            stored_checksum = f.read().strip()
+
+    return {
+        "path": filepath,
+        "exists": True,
+        "payload": json.loads(content),
+        "checksum_valid": actual_checksum == stored_checksum,
+        "actual_checksum": actual_checksum,
+        "stored_checksum": stored_checksum,
+    }
+
+
+@app.route("/write")
+def write_files():
+    """Write test files to all 3 locations."""
+    results = {}
+    for path in WRITE_PATHS:
+        try:
+            results[path] = _write_test_file(path)
+        except Exception as e:
+            results[path] = {"error": str(e), "path": path}
+    return jsonify({
+        "action": "write",
+        "instance_id": _get_instance_id(),
+        "hostname": socket.gethostname(),
+        "results": results,
+    })
+
+
+@app.route("/read")
+def read_files():
+    """Read test files from all 3 locations and verify checksums."""
+    results = {}
+    for path in WRITE_PATHS:
+        try:
+            results[path] = _read_test_file(path)
+        except Exception as e:
+            results[path] = {"error": str(e), "path": path}
+    return jsonify({
+        "action": "read",
+        "instance_id": _get_instance_id(),
+        "hostname": socket.gethostname(),
+        "results": results,
+    })
+
+
+@app.route("/mount-info")
+def mount_info():
+    """Return filesystem mount details."""
+    df_output = subprocess.run(
+        ["df", "-h"], capture_output=True, text=True
+    ).stdout
+    mount_output = subprocess.run(
+        ["mount"], capture_output=True, text=True
+    ).stdout
+    return jsonify({
+        "instance_id": _get_instance_id(),
+        "hostname": socket.gethostname(),
+        "df": df_output,
+        "mount": mount_output,
+    })
+
+
+@app.route("/io-latency")
+def io_latency():
+    """Measure I/O write and read latency for each path."""
+    payload = "x" * 4096  # 4 KB test payload
+    iterations = 10
+    results = {}
+
+    for base_path in WRITE_PATHS:
+        os.makedirs(base_path, exist_ok=True)
+        test_file = os.path.join(base_path, "latency-test.bin")
+        write_times = []
+        read_times = []
+
+        for _ in range(iterations):
+            # Write
+            start = time.perf_counter()
+            with open(test_file, "w") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            write_times.append((time.perf_counter() - start) * 1000)
+
+            # Read
+            start = time.perf_counter()
+            with open(test_file, "r") as f:
+                _ = f.read()
+            read_times.append((time.perf_counter() - start) * 1000)
+
+        results[base_path] = {
+            "write_ms": {
+                "min": round(min(write_times), 3),
+                "max": round(max(write_times), 3),
+                "median": round(statistics.median(write_times), 3),
+            },
+            "read_ms": {
+                "min": round(min(read_times), 3),
+                "max": round(max(read_times), 3),
+                "median": round(statistics.median(read_times), 3),
+            },
+            "iterations": iterations,
+        }
+
+        # Cleanup
+        if os.path.exists(test_file):
+            os.remove(test_file)
+
+    return jsonify({
+        "instance_id": _get_instance_id(),
+        "hostname": socket.gethostname(),
+        "payload_bytes": len(payload),
+        "results": results,
+    })
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
+```
+
+#### requirements.txt
+
+```text
+flask==3.1.1
+gunicorn==23.0.0
+```
+
+#### Design Notes
+
+- **Multi-path writes**: Writes identical files to `/home/data/`, `/tmp/data/`, and `/var/local/data/` to test which filesystem layer survives each lifecycle event (restart, deploy, scale-out). `/home` is the Azure Storage CIFS mount; the others are on the container's overlay writable layer.
+- **SHA-256 integrity verification**: Each write produces both a data file and a `.sha256` checksum file. The `/read` endpoint recomputes the checksum and compares - this detects not just file loss but also silent data corruption (e.g., partial writes after unclean shutdown).
+- **`os.fsync()` on every write**: Forces the OS to flush data to the backing store before returning. Without `fsync()`, writes to `/home` (CIFS) might appear fast but data could be lost if the container is terminated before the kernel flushes its buffer cache. This ensures measured latencies reflect actual storage round-trips.
+- **Instance identification**: Uses `WEBSITE_INSTANCE_ID` (a 64-char hex string unique per App Service instance) to track which physical instance wrote each file. During scale-out, this reveals whether `/home` files from Instance 1 are visible on Instance 2.
+- **I/O latency measurement**: 10 iterations with `perf_counter()` provides sub-millisecond precision. The 4 KB payload is small enough to complete in a single write syscall but large enough to be representative. Results reveal the ~180x performance gap between `/home` (CIFS over network) and local paths (overlay on local disk).
+- **Mount inspection via subprocess**: The `/mount-info` endpoint calls `df -h` and `mount` system commands to expose the actual filesystem backing - confirming that `/home` is a CIFS mount and local paths use Docker overlay2.
+
+#### Endpoint Map
+
+| Endpoint | Method | Purpose | Hypothesis Link | Response |
+|----------|--------|---------|-----------------|----------|
+| `/write` | GET | Creates test files in all 3 paths with checksums | Sets up state for H1-H3 testing | JSON with write results per path |
+| `/read` | GET | Reads files and verifies SHA-256 checksums | Validates H1 (persistence) and H2 (loss) after each trigger event | JSON with existence, checksum validity per path |
+| `/mount-info` | GET | Shows `df -h` and `mount` output | Confirms `/home` is CIFS and local paths are overlay - explains WHY persistence differs | JSON with filesystem details |
+| `/io-latency` | GET | Measures write/read latency for each path (4KB x 10) | Quantifies the performance trade-off of using `/home` vs local paths | JSON with min/max/median ms per path |
+
+### 8.2 Deploy test infrastructure
 
 ```bash
 # Create resource group and B1 plan
@@ -135,7 +356,7 @@ az webapp deploy --name app-fs-persistence-lab \
     --src-path fs-persistence-app.zip --type zip
 ```
 
-### Step 2: Establish baseline
+### 8.3 Establish baseline
 
 1. Call `/write` to create test files in all 3 locations
 2. Call `/read` to verify all files exist with valid checksums
@@ -143,19 +364,19 @@ az webapp deploy --name app-fs-persistence-lab \
 4. Call `/io-latency` to measure baseline I/O performance
 5. Record container hostname and instance ID
 
-### Step 3: Test restart persistence
+### 8.4 Test restart persistence
 
 1. Execute `az webapp restart` → check files (soft restart)
 2. Execute `az webapp stop` + `az webapp start` → check files (container recreation)
 
-### Step 4: Test deployment persistence
+### 8.5 Test deployment persistence
 
 1. Write fresh files to all 3 locations
 2. Execute `az webapp deploy` with the same ZIP
 3. Wait for new container to start
 4. Call `/read` to check which files survived
 
-### Step 5: Test scale-out visibility
+### 8.6 Test scale-out visibility
 
 1. Write fresh files on current instance
 2. Scale plan to 2 instances: `az appservice plan update --number-of-workers 2`
