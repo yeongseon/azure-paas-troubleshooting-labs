@@ -1,0 +1,169 @@
+{
+  "experiment": "procfs-interpretation",
+  "collected_at": "2026-04-11T11:39:22Z",
+  "collection_end": "2026-04-11T11:44:24Z",
+  "runs": 5,
+  "interval_seconds": 60,
+  "sku_specs": {
+    "B1": {"vcpu": 1, "memory_gb": 1.75, "memory_kb": 1835008},
+    "P1v3": {"vcpu": 2, "memory_gb": 8, "memory_kb": 8388608},
+    "P2v3": {"vcpu": 4, "memory_gb": 16, "memory_kb": 16777216}
+  },
+  "samples": [
+    {
+      "run": 1,
+      "timestamp": "2026-04-11T11:39:22Z",
+      "b1": {
+        "meminfo": {"MemTotal": "1900180 kB", "MemFree": "92020 kB", "MemAvailable": "515804 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "67981312",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "29.55 14.07 6.83 5/1198 1910",
+        "proc_stat_first_line": "cpu  166838 9310 129609 977572 37665 0 58703 0 0 0"
+      },
+      "p1v3": {
+        "meminfo": {"MemTotal": "8088104 kB", "MemFree": "208588 kB", "MemAvailable": "5889408 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "65986560",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.48 0.81 0.58 1/1175 1917",
+        "proc_stat_first_line": "cpu  178073 7562 142948 7585625 94808 0 5472 0 0 0"
+      },
+      "p2v3": {
+        "meminfo": {"MemTotal": "16328612 kB", "MemFree": "211952 kB", "MemAvailable": "13811220 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "67039232",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.23 0.43 0.40 1/1222 1920",
+        "proc_stat_first_line": "cpu  714881 18283 553926 78544119 411818 0 36140 0 0 0"
+      }
+    },
+    {
+      "run": 2,
+      "timestamp": "2026-04-11T11:40:22Z",
+      "b1": {
+        "meminfo": {"MemTotal": "1900180 kB", "MemFree": "108508 kB", "MemAvailable": "530944 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "75362304",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "25.35 15.90 7.92 6/1175 1914",
+        "proc_stat_first_line": "cpu  168190 9944 131061 978018 37688 0 59621 0 0 0"
+      },
+      "p1v3": {
+        "meminfo": {"MemTotal": "8088104 kB", "MemFree": "212640 kB", "MemAvailable": "5895796 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "65765376",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.31 0.69 0.55 4/1177 1921",
+        "proc_stat_first_line": "cpu  178363 7588 143130 7596884 94959 0 5477 0 0 0"
+      },
+      "p2v3": {
+        "meminfo": {"MemTotal": "16328612 kB", "MemFree": "262836 kB", "MemAvailable": "13861596 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "67317760",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.14 0.36 0.38 4/1219 1924",
+        "proc_stat_first_line": "cpu  715279 18302 554129 78567232 412003 0 36163 0 0 0"
+      }
+    },
+    {
+      "run": 3,
+      "timestamp": "2026-04-11T11:41:23Z",
+      "b1": {
+        "meminfo": {"MemTotal": "1900180 kB", "MemFree": "70848 kB", "MemAvailable": "509372 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "75440128",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "11.56 13.58 7.62 30/1179 1914",
+        "proc_stat_first_line": "cpu  168800 9993 131452 982338 37809 0 59821 0 0 0"
+      },
+      "p1v3": {
+        "meminfo": {"MemTotal": "8088104 kB", "MemFree": "186516 kB", "MemAvailable": "5891004 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "65789952",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.21 0.59 0.52 1/1179 1921",
+        "proc_stat_first_line": "cpu  178857 7899 143730 7607333 95077 0 5484 0 0 0"
+      },
+      "p2v3": {
+        "meminfo": {"MemTotal": "16328612 kB", "MemFree": "232636 kB", "MemAvailable": "13836992 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "67334144",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.45 0.39 0.39 2/1211 1924",
+        "proc_stat_first_line": "cpu  715774 18652 554708 78589533 412298 0 36191 0 0 0"
+      }
+    },
+    {
+      "run": 4,
+      "timestamp": "2026-04-11T11:42:23Z",
+      "b1": {
+        "meminfo": {"MemTotal": "1900180 kB", "MemFree": "62580 kB", "MemAvailable": "493436 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "69623808",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "14.31 14.07 8.17 17/1219 1914",
+        "proc_stat_first_line": "cpu  170112 10575 133158 982339 37819 0 60913 0 0 0"
+      },
+      "p1v3": {
+        "meminfo": {"MemTotal": "8088104 kB", "MemFree": "185728 kB", "MemAvailable": "5883212 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "65826816",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.48 0.58 0.52 2/1173 1921",
+        "proc_stat_first_line": "cpu  179167 7920 144131 7618405 95234 0 5492 0 0 0"
+      },
+      "p2v3": {
+        "meminfo": {"MemTotal": "16328612 kB", "MemFree": "244396 kB", "MemAvailable": "13848724 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "67645440",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.21 0.33 0.36 2/1203 1924",
+        "proc_stat_first_line": "cpu  716122 18674 555098 78612426 412632 0 36216 0 0 0"
+      }
+    },
+    {
+      "run": 5,
+      "timestamp": "2026-04-11T11:43:24Z",
+      "b1": {
+        "meminfo": {"MemTotal": "1900180 kB", "MemFree": "60460 kB", "MemAvailable": "520076 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "68243456",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "7.89 12.46 7.99 10/1172 1914",
+        "proc_stat_first_line": "cpu  171069 10950 133995 984958 37866 0 61374 0 0 0"
+      },
+      "p1v3": {
+        "meminfo": {"MemTotal": "8088104 kB", "MemFree": "182224 kB", "MemAvailable": "5882252 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "65851392",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.17 0.47 0.49 9/1171 1921",
+        "proc_stat_first_line": "cpu  179380 7942 144317 7629818 95298 0 5500 0 0 0"
+      },
+      "p2v3": {
+        "meminfo": {"MemTotal": "16328612 kB", "MemFree": "245320 kB", "MemAvailable": "13850532 kB"},
+        "cgroup_memory_limit": "9223372036854771712",
+        "cgroup_memory_usage": "67674112",
+        "cgroup_cpu_quota": "-1",
+        "cgroup_cpu_period": "100000",
+        "proc_loadavg": "0.12 0.28 0.34 1/1202 1924",
+        "proc_stat_first_line": "cpu  716341 18695 555243 78635948 412667 0 36230 0 0 0"
+      }
+    }
+  ]
+}

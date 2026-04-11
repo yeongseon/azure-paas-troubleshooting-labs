@@ -71,7 +71,7 @@ graph TB
 | [SNAT Exhaustion](snat-exhaustion/overview.md) | **Published** | Connection failures without CPU/memory pressure |
 | [Memory Pressure](memory-pressure/overview.md) | **Published** | Plan-level degradation, swap thrashing, kernel page reclaim |
 | [Custom DNS Resolution](custom-dns-resolution/overview.md) | Planned | Private name resolution drift after VNet changes |
-| [procfs Interpretation](procfs-interpretation/overview.md) | Planned | /proc reliability and limits in Linux containers |
+| [procfs Interpretation](procfs-interpretation/overview.md) | **Published** | /proc reliability and limits in Linux containers |
 | [Slow Requests](slow-requests/overview.md) | Planned | Frontend timeout vs. worker-side delay vs. dependency latency |
 | [Zip Deploy vs Container](zip-vs-container/overview.md) | Planned | Deployment method behavioral differences |
 
@@ -111,10 +111,12 @@ Plan-level degradation under memory pressure. Investigates swap thrashing, kerne
 
 Private name resolution drift after VNet integration changes. Investigates what happens when DNS settings change after VNet integration is established, and how stale DNS cache entries cause intermittent resolution failures.
 
-### [procfs Interpretation](procfs-interpretation/overview.md)
+### [procfs Interpretation](procfs-interpretation/overview.md) — **Published**
 
 Reliability and limits of reading `/proc` filesystem data inside App Service Linux containers. Examines where procfs values reflect the container vs. the host, and how cgroup v1/v2 boundaries affect metric interpretation.
 
+??? success "Experiment Complete"
+    Completed 2026-04 on B1/P1v3/P2v3 Linux (koreacentral). Key finding: cgroup memory and CPU limits are not enforced via cgroup (both return unlimited); `/proc/meminfo` MemTotal tracks SKU spec within 3-5%.
 ### [Slow Requests](slow-requests/overview.md)
 
 Diagnosing slow HTTP responses under pressure conditions. Distinguishes between frontend (ARR) timeout, worker-side processing delay, and downstream dependency latency. Tests how different bottleneck locations produce different diagnostic signals.

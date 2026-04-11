@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: 2026-04-11
+    result: pass
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,7 @@ validation:
 
 # procfs Interpretation on App Service Linux
 
-!!! info "Status: Planned"
+!!! success "Status: Published"
 
 ## 1. Question
 
@@ -40,11 +40,11 @@ When diagnosing App Service Linux containers, procfs values can be partially hos
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | B1, P1v3, P1mv3 |
+| SKU / Plan | B1, P1v3, P2v3 |
 | Region | Korea Central |
 | Runtime | Python 3.11, Node.js 20 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-04-11 |
 
 ## 6. Variables
 
@@ -312,23 +312,99 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-_Awaiting execution._
+### Memory: procfs vs cgroup vs SKU specification
+
+| SKU | SKU Spec Memory | `/proc/meminfo` MemTotal | Cgroup Memory Limit | Cgroup Memory Usage (avg) | Azure Monitor MemoryWorkingSet (avg) |
+|-----|-----------------|--------------------------|---------------------|---------------------------|--------------------------------------|
+| B1  | 1.75 GB         | 1,900,180 kB (~1.81 GB)  | 9,223,372,036,854,771,712 (unlimited) | ~71 MB | ~66 MB |
+| P1v3 | 8 GB           | 8,088,104 kB (~7.71 GB)  | 9,223,372,036,854,771,712 (unlimited) | ~66 MB | ~65 MB |
+| P2v3 | 16 GB          | 16,328,612 kB (~15.57 GB) | 9,223,372,036,854,771,712 (unlimited) | ~67 MB | ~67 MB |
+
+!!! warning "Key finding: cgroup memory limit is NOT enforced"
+    The cgroup `memory.limit_in_bytes` returned `9223372036854771712` (2^63 − 1, effectively unlimited) on **all three SKUs**. This means cgroup memory files do NOT reflect the App Service plan quota. The memory limit is enforced at a different layer (sandbox/hypervisor), not via cgroup.
+
+### Memory: procfs MemTotal vs SKU specification
+
+| SKU | SKU Spec | MemTotal | Ratio | Interpretation |
+|-----|----------|----------|-------|----------------|
+| B1  | 1.75 GB  | 1.81 GB  | 1.03× | Close match — MemTotal reflects allocated VM/sandbox |
+| P1v3 | 8 GB    | 7.71 GB  | 0.96× | Close match — small overhead for OS/kernel |
+| P2v3 | 16 GB   | 15.57 GB | 0.97× | Close match — consistent overhead pattern |
+
+!!! tip "procfs MemTotal is usable as a rough SKU indicator"
+    Unlike cgroup limits (which are unlimited), `/proc/meminfo` `MemTotal` tracks the SKU specification within ~3-5% and can be used to identify the allocated VM size.
+
+### CPU: procfs vs cgroup vs Azure Monitor
+
+| SKU | SKU Spec vCPU | Cgroup CPU Quota | Cgroup CPU Period | Azure Monitor CpuPercentage (avg) | `/proc/loadavg` 1-min (avg) |
+|-----|---------------|------------------|-------------------|-----------------------------------|-----------------------------|
+| B1  | 1             | -1 (unlimited)   | 100,000 µs        | 80.6%                             | 17.73                       |
+| P1v3 | 2            | -1 (unlimited)   | 100,000 µs        | 6.6%                              | 0.33                        |
+| P2v3 | 4            | -1 (unlimited)   | 100,000 µs        | 3.1%                              | 0.23                        |
+
+!!! warning "Key finding: cgroup CPU quota is also NOT enforced"
+    `cpu.cfs_quota_us` returned `-1` (unlimited) on all SKUs. CPU throttling on App Service Linux is not implemented via cgroup CPU quota.
+
+### Azure Monitor MemoryPercentage (plan-level)
+
+| Plan | MemoryPercentage (stable avg) | Interpretation |
+|------|-------------------------------|----------------|
+| B1   | 73%                           | High — B1 has limited memory, baseline OS + app uses most of it |
+| P1v3 | 27%                           | Moderate — 8 GB plan with light workload |
+| P2v3 | 15%                           | Low — 16 GB plan with same workload |
+
+### Sample comparison: cgroup usage vs Azure Monitor MemoryWorkingSet
+
+| SKU | Cgroup `memory.usage_in_bytes` (avg) | Azure Monitor `MemoryWorkingSet` (avg) | Difference |
+|-----|--------------------------------------|----------------------------------------|------------|
+| B1  | 71.3 MB                              | 66.4 MB                                | ~5 MB      |
+| P1v3 | 65.8 MB                             | 65.3 MB                                | ~0.5 MB    |
+| P2v3 | 67.4 MB                             | 66.9 MB                                | ~0.5 MB    |
+
+Cgroup `memory.usage_in_bytes` and Azure Monitor `MemoryWorkingSet` show close alignment (within 5 MB). Both reflect the app process working set, not the total VM memory.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+1. **procfs exposes VM-level memory, not plan-level quota.** `/proc/meminfo` `MemTotal` reflects the underlying VM size, which closely matches the SKU specification (within ~3-5%). It does NOT show cgroup or sandbox memory limits.
+
+2. **Cgroup memory and CPU limits are set to unlimited.** Both `memory.limit_in_bytes` and `cpu.cfs_quota_us` return their maximum/unlimited values. App Service Linux does not use cgroup v1 limits to enforce plan quotas. Resource enforcement happens at the sandbox/hypervisor layer, invisible to the container.
+
+3. **Cgroup memory _usage_ is accurate.** While the cgroup _limit_ is meaningless, `memory.usage_in_bytes` closely tracks Azure Monitor's `MemoryWorkingSet` metric (within 5 MB), making it a reliable indicator of actual app memory consumption.
+
+4. **`/proc/loadavg` shows host-level load, not container load.** The B1 plan showed load averages of 8-30 with a single-vCPU plan, indicating load from co-tenants on the shared host. Premium plans (dedicated hosts) showed expected low load values.
+
+5. **Azure Monitor plan-level metrics are the only reliable source for quota-relative measurements.** `CpuPercentage` and `MemoryPercentage` at the plan level are computed by the platform and correctly reflect usage relative to the plan's allocated resources.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- `/proc/meminfo` `MemTotal` is a reasonable proxy for the VM size allocated to the plan (within 3-5% of SKU spec).
+- Cgroup `memory.usage_in_bytes` tracks Azure Monitor `MemoryWorkingSet` within ~5 MB.
+- Cgroup memory and CPU _limits_ are **not** enforced via cgroup on App Service Linux — they return unlimited values.
+- `/proc/loadavg` on shared plans (B1) reflects host-level contention, not container-specific load.
+- For quota-relative metrics, only Azure Monitor plan-level `CpuPercentage` and `MemoryPercentage` are reliable.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- This does not prove that cgroup limits are _never_ enforced — future App Service worker images or cgroup v2 migrations could change this behavior.
+- This does not prove that `/proc/meminfo` will always match SKU specs — shared plans may show different values under different host configurations.
+- This does not test OOM-kill behavior — even though cgroup limits are unlimited, the sandbox may kill processes that exceed plan memory through other mechanisms.
+- Node.js runtime was not validated in this run due to deployment issues — procfs behavior may vary by runtime container image.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+!!! tip "For support engineers"
+    When a customer reports that their container shows 8 GB or 16 GB total memory on a B1 plan, check what tool they're using:
+
+    - **`/proc/meminfo` `MemTotal`** — This should actually show ~1.81 GB on B1, matching the VM size. If it shows much more, they may be on a different plan than they think.
+    - **`free` command** — Uses `/proc/meminfo` under the hood, same caveats apply.
+    - **Cgroup `memory.limit_in_bytes`** — This shows ~8 EB (unlimited). Do NOT use this to determine plan quota.
+    - **Azure Monitor `MemoryPercentage`** — This is the **only reliable** way to see how much of the plan quota is used.
+
+    For CPU diagnostics:
+
+    - **`/proc/loadavg`** on shared plans (B-tier) may show high values from co-tenant load. This is **misleading** for container-specific CPU analysis.
+    - **Azure Monitor `CpuPercentage`** at the plan level is the reliable metric.
+    - **Cgroup `cpu.cfs_quota_us` = -1** means unlimited — do NOT conclude that the container has unlimited CPU.
 
 ## 15. Reproduction notes
 

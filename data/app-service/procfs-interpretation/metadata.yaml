@@ -1,0 +1,32 @@
+experiment: procfs-interpretation
+date: 2026-04-11
+region: koreacentral
+plans:
+  - name: plan-procfs-b1
+    sku: B1
+    vcpu: 1
+    memory_gb: 1.75
+  - name: plan-procfs-p1v3
+    sku: P1v3
+    vcpu: 2
+    memory_gb: 8
+  - name: plan-procfs-p2v3
+    sku: P2v3
+    vcpu: 4
+    memory_gb: 16
+apps:
+  - name: app-procfs-py-b1
+    plan: plan-procfs-b1
+    runtime: "PYTHON|3.11"
+  - name: app-procfs-py-p1v3
+    plan: plan-procfs-p1v3
+    runtime: "PYTHON|3.11"
+  - name: app-procfs-py-p2v3
+    plan: plan-procfs-p2v3
+    runtime: "PYTHON|3.11"
+notes:
+  - "P1mv3 SKU not available in koreacentral for this resource group; substituted P2v3"
+  - "Node.js apps created but had deployment issues; Python apps used for data collection"
+  - "cgroup memory limit returned 9223372036854771712 (effectively unlimited) on all SKUs"
+  - "cgroup cpu_quota returned -1 (unlimited) on all SKUs"
+  - "/proc/meminfo MemTotal reflects host/VM memory, not container quota"
