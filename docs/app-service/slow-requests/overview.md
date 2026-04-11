@@ -83,7 +83,254 @@ Under controlled delay injection, telemetry will show distinguishable patterns f
 
 ## 8. Procedure
 
-_To be defined during execution._
+### 8.1 Infrastructure setup
+
+Create the baseline infrastructure in `koreacentral` on the `B1` plan.
+
+```bash
+RG="rg-slow-requests-lab"
+LOCATION="koreacentral"
+PLAN_NAME="plan-slow-requests-b1"
+APP_NAME="app-slow-requests-$RANDOM"
+WORKSPACE_NAME="log-slow-requests"
+APPINSIGHTS_NAME="appi-slow-requests"
+
+az group create --name "$RG" --location "$LOCATION"
+
+az appservice plan create \
+  --resource-group "$RG" \
+  --name "$PLAN_NAME" \
+  --location "$LOCATION" \
+  --sku B1 \
+  --is-linux
+
+az monitor log-analytics workspace create \
+  --resource-group "$RG" \
+  --workspace-name "$WORKSPACE_NAME" \
+  --location "$LOCATION"
+
+az monitor app-insights component create \
+  --app "$APPINSIGHTS_NAME" \
+  --resource-group "$RG" \
+  --location "$LOCATION" \
+  --workspace "$WORKSPACE_NAME" \
+  --application-type web
+
+az webapp create \
+  --resource-group "$RG" \
+  --plan "$PLAN_NAME" \
+  --name "$APP_NAME" \
+  --runtime "NODE|20-lts"
+```
+
+After the baseline run set is complete, repeat the same procedure with a second plan using `--sku P1v3` and a separate app name so `B1` and `P1v3` datasets stay isolated.
+
+### 8.2 Application code
+
+Implement a Node.js 20 Express app with four endpoints.
+
+```javascript
+import express from "express";
+import crypto from "node:crypto";
+
+const app = express();
+const port = process.env.PORT || 8080;
+
+function logEvent(event, scenario, requestId, extra = {}) {
+  console.log(
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      event,
+      scenario,
+      requestId,
+      ...extra
+    })
+  );
+}
+
+function busyWait(ms) {
+  const start = Date.now();
+  while (Date.now() - start < ms) {
+    Math.sqrt(Math.random());
+  }
+}
+
+app.get("/health", (req, res) => {
+  res.status(200).send("ok");
+});
+
+app.get("/delay/worker", (req, res) => {
+  const requestId = req.headers["x-ms-request-id"] || crypto.randomUUID();
+  const ms = Number(req.query.ms || 5000);
+  logEvent("entry", "worker", requestId, { ms });
+  logEvent("delay-start", "worker", requestId, { ms });
+  busyWait(ms);
+  logEvent("delay-end", "worker", requestId, { ms });
+  logEvent("response-send", "worker", requestId, { status: 200 });
+  res.status(200).json({ scenario: "worker", delayMs: ms });
+});
+
+app.get("/delay/dependency", async (req, res) => {
+  const requestId = req.headers["x-ms-request-id"] || crypto.randomUUID();
+  const ms = Number(req.query.ms || 5000);
+  logEvent("entry", "dependency", requestId, { ms });
+  logEvent("delay-start", "dependency", requestId, { ms });
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  logEvent("delay-end", "dependency", requestId, { ms });
+  logEvent("response-send", "dependency", requestId, { status: 200 });
+  res.status(200).json({ scenario: "dependency", delayMs: ms });
+});
+
+app.get("/delay/threadpool", async (req, res) => {
+  const requestId = req.headers["x-ms-request-id"] || crypto.randomUUID();
+  const ms = Number(req.query.ms || 5000);
+  logEvent("entry", "threadpool", requestId, { ms });
+  logEvent("delay-start", "threadpool", requestId, { ms });
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  logEvent("delay-end", "threadpool", requestId, { ms });
+  logEvent("response-send", "threadpool", requestId, { status: 200 });
+  res.status(200).json({ scenario: "threadpool", delayMs: ms });
+});
+
+app.listen(port, () => {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), event: "startup", port }));
+});
+```
+
+Use the following endpoint intent during testing:
+
+- `/delay/worker?ms=5000`: CPU-bound busy loop.
+- `/delay/dependency?ms=5000`: simulated downstream latency.
+- `/delay/threadpool?ms=5000`: high-concurrency blocking simulation to pressure worker thread handling.
+- `/health`: immediate baseline response.
+
+### 8.3 Deploy
+
+Deploy from the app source directory using `az webapp up`, then connect Application Insights and verify app settings.
+
+```bash
+az webapp up \
+  --resource-group "$RG" \
+  --name "$APP_NAME" \
+  --plan "$PLAN_NAME" \
+  --runtime "NODE|20-lts" \
+  --location "$LOCATION"
+
+APPINSIGHTS_CONNECTION_STRING=$(az monitor app-insights component show \
+  --app "$APPINSIGHTS_NAME" \
+  --resource-group "$RG" \
+  --query connectionString \
+  --output tsv)
+
+az webapp config appsettings set \
+  --resource-group "$RG" \
+  --name "$APP_NAME" \
+  --settings "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING"
+
+az webapp restart --resource-group "$RG" --name "$APP_NAME"
+```
+
+### 8.4 Test execution
+
+For each scenario (`worker`, `dependency`, `threadpool`), execute 5 independent runs with the same load profile.
+
+1. Warm the app for 2 minutes and exclude this period from comparison.
+2. Run k6 with 10 concurrent virtual users for 3 minutes.
+3. Keep scenario-specific endpoint and delay fixed during one run.
+4. Cool down for 2 minutes between runs.
+5. Repeat until 5 runs are complete per scenario and per SKU.
+
+```javascript
+import http from "k6/http";
+import { check, sleep } from "k6";
+
+export const options = {
+  scenarios: {
+    constant_load: {
+      executor: "constant-vus",
+      vus: 10,
+      duration: "3m"
+    }
+  }
+};
+
+const baseUrl = __ENV.BASE_URL;
+const path = __ENV.SCENARIO_PATH;
+
+export default function () {
+  const response = http.get(`${baseUrl}${path}`);
+  check(response, { "status is 200 or 504": (r) => r.status === 200 || r.status === 504 });
+  sleep(1);
+}
+```
+
+```bash
+BASE_URL="https://$APP_NAME.azurewebsites.net"
+
+k6 run --env BASE_URL="$BASE_URL" --env SCENARIO_PATH="/delay/worker?ms=5000" scripts/slow-requests.js
+k6 run --env BASE_URL="$BASE_URL" --env SCENARIO_PATH="/delay/dependency?ms=5000" scripts/slow-requests.js
+k6 run --env BASE_URL="$BASE_URL" --env SCENARIO_PATH="/delay/threadpool?ms=5000" scripts/slow-requests.js
+```
+
+ARR timeout boundary validation:
+
+```bash
+k6 run --env BASE_URL="$BASE_URL" --env SCENARIO_PATH="/delay/worker?ms=240000" scripts/slow-requests.js
+```
+
+Capture per-run `p95` from the k6 summary and store it with `{sku, scenario, run_number}` labels.
+
+### 8.5 Data collection
+
+Collect telemetry from Application Insights and App Service diagnostics for each run window.
+
+```kusto
+let runStart = datetime(<run-start-utc>);
+let runEnd = datetime(<run-end-utc>);
+requests
+| where timestamp between (runStart .. runEnd)
+| where url has "/delay/"
+| extend scenario = case(
+    url has "/delay/worker", "worker",
+    url has "/delay/dependency", "dependency",
+    url has "/delay/threadpool", "threadpool",
+    "unknown")
+| summarize p50=percentile(duration, 50), p95=percentile(duration, 95), p99=percentile(duration, 99), count() by scenario, resultCode
+| order by scenario asc
+```
+
+```kusto
+let runStart = datetime(<run-start-utc>);
+let runEnd = datetime(<run-end-utc>);
+dependencies
+| where timestamp between (runStart .. runEnd)
+| summarize depP50=percentile(duration, 50), depP95=percentile(duration, 95), depCount=count() by target, success
+| order by depP95 desc
+```
+
+```kusto
+let runStart = datetime(<run-start-utc>);
+let runEnd = datetime(<run-end-utc>);
+requests
+| where timestamp between (runStart .. runEnd)
+| where url has "/delay/"
+| summarize total=count(), status200=countif(resultCode == "200"), status502=countif(resultCode == "502"), status504=countif(resultCode == "504") by bin(timestamp, 1m)
+| order by timestamp asc
+```
+
+Correlate request-level duration with dependency duration and frontend timeout indicators to separate:
+
+- Worker delay pattern (high request duration, low dependency duration).
+- Dependency delay pattern (request and dependency durations increase together).
+- Timeout boundary pattern (ARR-related timeout status behavior, including 504/502 transitions where present).
+
+### 8.6 Cleanup
+
+Delete all lab resources after exporting required logs and result tables.
+
+```bash
+az group delete --name "$RG" --yes --no-wait
+```
 
 ## 9. Expected signal
 

@@ -73,7 +73,235 @@ When diagnosing App Service Linux containers, procfs values can be partially hos
 
 ## 8. Procedure
 
-_To be defined during execution._
+### 8.1 Infrastructure setup
+
+Create one resource group in `koreacentral`, three Linux App Service plans (`B1`, `P1v3`, `P1mv3`), and two web apps per SKU (Python 3.11 and Node.js 20).
+
+```bash
+RG="rg-procfs-lab"
+LOCATION="koreacentral"
+
+PLAN_B1="plan-procfs-b1"
+PLAN_P1V3="plan-procfs-p1v3"
+PLAN_P1MV3="plan-procfs-p1mv3"
+
+APP_PY_B1="app-procfs-py-b1"
+APP_NODE_B1="app-procfs-node-b1"
+APP_PY_P1V3="app-procfs-py-p1v3"
+APP_NODE_P1V3="app-procfs-node-p1v3"
+APP_PY_P1MV3="app-procfs-py-p1mv3"
+APP_NODE_P1MV3="app-procfs-node-p1mv3"
+
+az group create --name "$RG" --location "$LOCATION"
+
+az appservice plan create --resource-group "$RG" --name "$PLAN_B1" --location "$LOCATION" --is-linux --sku B1
+az appservice plan create --resource-group "$RG" --name "$PLAN_P1V3" --location "$LOCATION" --is-linux --sku P1v3
+az appservice plan create --resource-group "$RG" --name "$PLAN_P1MV3" --location "$LOCATION" --is-linux --sku P1mv3
+
+az webapp create --resource-group "$RG" --plan "$PLAN_B1" --name "$APP_PY_B1" --runtime "PYTHON|3.11"
+az webapp create --resource-group "$RG" --plan "$PLAN_B1" --name "$APP_NODE_B1" --runtime "NODE|20-lts"
+
+az webapp create --resource-group "$RG" --plan "$PLAN_P1V3" --name "$APP_PY_P1V3" --runtime "PYTHON|3.11"
+az webapp create --resource-group "$RG" --plan "$PLAN_P1V3" --name "$APP_NODE_P1V3" --runtime "NODE|20-lts"
+
+az webapp create --resource-group "$RG" --plan "$PLAN_P1MV3" --name "$APP_PY_P1MV3" --runtime "PYTHON|3.11"
+az webapp create --resource-group "$RG" --plan "$PLAN_P1MV3" --name "$APP_NODE_P1MV3" --runtime "NODE|20-lts"
+```
+
+### 8.2 Application code
+
+Use minimal apps exposing `GET /procinfo`, returning procfs fields and cgroup limits in JSON. Implement cgroup v1/v2 fallback so results are comparable across worker images.
+
+```python
+from flask import Flask, jsonify
+from pathlib import Path
+
+app = Flask(__name__)
+
+
+def read_text(path):
+    p = Path(path)
+    return p.read_text(encoding="utf-8").strip() if p.exists() else None
+
+
+def read_first_existing(paths):
+    for path in paths:
+        value = read_text(path)
+        if value is not None:
+            return value
+    return None
+
+
+def parse_meminfo():
+    fields = {"MemTotal": None, "MemFree": None, "MemAvailable": None}
+    content = read_text("/proc/meminfo") or ""
+    for line in content.splitlines():
+        for key in fields:
+            if line.startswith(f"{key}:"):
+                fields[key] = line.split(":", 1)[1].strip()
+    return fields
+
+
+@app.get("/procinfo")
+def procinfo():
+    stat_line = (read_text("/proc/stat") or "").splitlines()
+    return jsonify(
+        {
+            "meminfo": parse_meminfo(),
+            "proc_stat_first_line": stat_line[0] if stat_line else None,
+            "proc_loadavg": read_text("/proc/loadavg"),
+            "cgroup_memory_limit": read_first_existing(
+                [
+                    "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+                    "/sys/fs/cgroup/memory.max",
+                ]
+            ),
+            "cgroup_cpu_quota": read_first_existing(
+                [
+                    "/sys/fs/cgroup/cpu/cpu.cfs_quota_us",
+                    "/sys/fs/cgroup/cpu.max",
+                ]
+            ),
+        }
+    )
+```
+
+```javascript
+const express = require("express");
+const fs = require("fs");
+
+const app = express();
+
+function readText(path) {
+    try {
+        return fs.readFileSync(path, "utf8").trim();
+    } catch {
+        return null;
+    }
+}
+
+function readFirstExisting(paths) {
+    for (const path of paths) {
+        const value = readText(path);
+        if (value !== null) {
+            return value;
+        }
+    }
+    return null;
+}
+
+function parseMeminfo() {
+    const result = { MemTotal: null, MemFree: null, MemAvailable: null };
+    const content = readText("/proc/meminfo") || "";
+    for (const line of content.split("\n")) {
+        for (const key of Object.keys(result)) {
+            if (line.startsWith(`${key}:`)) {
+                result[key] = line.split(":")[1].trim();
+            }
+        }
+    }
+    return result;
+}
+
+app.get("/procinfo", (_req, res) => {
+    const stat = (readText("/proc/stat") || "").split("\n");
+    res.json({
+        meminfo: parseMeminfo(),
+        proc_stat_first_line: stat[0] || null,
+        proc_loadavg: readText("/proc/loadavg"),
+        cgroup_memory_limit: readFirstExisting([
+            "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+            "/sys/fs/cgroup/memory.max"
+        ]),
+        cgroup_cpu_quota: readFirstExisting([
+            "/sys/fs/cgroup/cpu/cpu.cfs_quota_us",
+            "/sys/fs/cgroup/cpu.max"
+        ])
+    });
+});
+```
+
+### 8.3 Deploy
+
+Deploy each app using `az webapp up` from its runtime folder (zip deployment path), then confirm HTTP 200 from `/procinfo`.
+
+```bash
+RG="rg-procfs-lab"
+LOCATION="koreacentral"
+
+# Python apps (run in Python app folder)
+az webapp up --name "$APP_PY_B1" --resource-group "$RG" --runtime "PYTHON:3.11" --location "$LOCATION"
+az webapp up --name "$APP_PY_P1V3" --resource-group "$RG" --runtime "PYTHON:3.11" --location "$LOCATION"
+az webapp up --name "$APP_PY_P1MV3" --resource-group "$RG" --runtime "PYTHON:3.11" --location "$LOCATION"
+
+# Node.js apps (run in Node.js app folder)
+az webapp up --name "$APP_NODE_B1" --resource-group "$RG" --runtime "NODE:20-lts" --location "$LOCATION"
+az webapp up --name "$APP_NODE_P1V3" --resource-group "$RG" --runtime "NODE:20-lts" --location "$LOCATION"
+az webapp up --name "$APP_NODE_P1MV3" --resource-group "$RG" --runtime "NODE:20-lts" --location "$LOCATION"
+```
+
+### 8.4 Test execution
+
+This is a config interpretation experiment (no load generation). For each SKU x runtime app (`6` total), collect five samples at one-minute intervals and align each sample to manual SSH reads.
+
+```bash
+RG="rg-procfs-lab"
+APP_NAME="$APP_PY_B1"  # Replace per target app
+
+for run in 1 2 3 4 5; do
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+  curl --silent "https://${APP_NAME}.azurewebsites.net/procinfo"
+  sleep 60
+done
+```
+
+For each timestamp window, open SSH for the same app and capture matching raw values:
+
+```bash
+cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable"
+head -n 1 /proc/stat
+cat /proc/loadavg
+cat /sys/fs/cgroup/memory/memory.limit_in_bytes
+cat /sys/fs/cgroup/memory.max
+cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us
+cat /sys/fs/cgroup/cpu.max
+```
+
+At the same timestamps, export Azure Monitor metrics (`CpuPercentage`, memory working set) so endpoint output, SSH snapshots, and platform telemetry can be compared on one timeline.
+
+### 8.5 Data collection
+
+Build a comparison table per app and timestamp with these columns:
+
+- `Procfs MemTotal` from `/proc/meminfo`
+- `Cgroup memory limit` from cgroup file
+- `Expected plan memory` from SKU reference
+- `/proc/stat` first line fields
+- `Cgroup CPU quota`
+- Azure Monitor `CpuPercentage`
+- Azure Monitor memory working set
+
+Use Azure Monitor metric queries for each app to pull CPU and memory values for the exact sample window:
+
+```bash
+RG="rg-procfs-lab"
+APP_NAME="$APP_PY_B1"
+APP_ID=$(az webapp show --resource-group "$RG" --name "$APP_NAME" --query id --output tsv)
+
+az monitor metrics list --resource "$APP_ID" --metric "CpuPercentage" --interval "PT1M"
+az monitor metrics list --resource "$APP_ID" --metric "MemoryWorkingSet" --interval "PT1M"
+```
+
+Interpretation focus: whether cgroup limits track SKU constraints and Azure Monitor more consistently than raw procfs totals.
+
+### 8.6 Cleanup
+
+Delete the entire lab resource group after data export and note capture are complete.
+
+```bash
+RG="rg-procfs-lab"
+az group delete --name "$RG" --yes --no-wait
+```
 
 ## 9. Expected signal
 
