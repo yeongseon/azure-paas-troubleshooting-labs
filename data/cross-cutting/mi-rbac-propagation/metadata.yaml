@@ -1,0 +1,44 @@
+experiment: mi-rbac-propagation
+title: Managed Identity RBAC Propagation vs Token Cache
+date_tested: "2026-04-11"
+region: koreacentral
+
+infrastructure:
+  resource_group: rg-mi-rbac-propagation-lab
+  storage_account: stmirbacprop4821
+  keyvault: kv-mi-rbac-4821
+  servicebus_namespace: sb-mi-rbac-4821
+  servicebus_queue: q-propagation
+  app_service_plan: plan-mi-rbac-prop (B1 Linux)
+  webapp: app-mi-rbac-prop-4821 (Python 3.11)
+  container_app: ca-mi-rbac-prop (quickstart image, not used for probing)
+  log_analytics: law-mi-rbac-prop
+
+principals:
+  webapp_mi: "6581f8d4-1581-4d03-b68d-2b4f000225d1"
+  container_app_mi: "bd4b3c3a-2fcf-495f-9d04-0caea135f334"
+
+roles_assigned:
+  keyvault: "Key Vault Secrets User"
+  storage: "Storage Blob Data Reader"
+  servicebus: "Azure Service Bus Data Sender"
+
+probe_app:
+  credential: ManagedIdentityCredential (new instance per request)
+  keyvault_operation: get_secret("propagation-sample")
+  storage_operation: list_containers(results_per_page=1)
+  servicebus_operation: send_messages("probe")
+
+test_methodology:
+  propagation_runs: 5
+  polling_interval_seconds: 10-17
+  role_removal_between_runs: yes
+  restart_method: "az webapp config appsettings set (forces new container)"
+
+notes:
+  - "Runs 2,4,5 SB values contaminated by prior token cache not fully clearing"
+  - "Clean SB propagation runs: 1 and 3 (273s, 302s)"
+  - "Storage used list_containers() not get_service_properties() (data plane vs ARM)"
+  - "KV configured with enable-rbac-authorization true"
+  - "allowSharedKeyAccess could not be set to false due to org policy"
+  - "SB revocation delay is service-side, not token cache (proven by restart test)"

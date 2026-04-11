@@ -1,0 +1,6 @@
+run,t0_utc,kv_propagation_seconds,storage_propagation_seconds,sb_propagation_seconds
+1,2026-04-11T16:49:57Z,11,87,273
+2,2026-04-11T16:57:52Z,10,77,10
+3,2026-04-11T17:01:28Z,10,32,302
+4,2026-04-11T17:09:53Z,10,105,10
+5,2026-04-11T17:14:55Z,13,69,13

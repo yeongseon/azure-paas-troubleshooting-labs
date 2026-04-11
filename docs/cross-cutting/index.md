@@ -55,16 +55,14 @@ graph LR
 
 | Experiment | Type | Status | Description |
 |-----------|------|--------|-------------|
-| [MI RBAC Propagation](mi-rbac-propagation/overview.md) | Hybrid | Planned | Role assignment delay and token cache interaction |
+| [MI RBAC Propagation](mi-rbac-propagation/overview.md) | Hybrid | Published | Role assignment delay and token cache interaction |
 | [PE DNS Negative Cache](pe-dns-negative-cache/overview.md) | Hybrid | Planned | Extended outages from DNS negative cache during PE cutover |
 
 ## Planned Experiments
 
-### [Managed Identity RBAC Propagation](mi-rbac-propagation/overview.md)
+### [Managed Identity RBAC Propagation](mi-rbac-propagation/overview.md) — Published
 
-Role assignment delay and token cache interaction across services. Tests the end-to-end propagation time from `az role assignment create` to successful API call, and how token caching at different layers (IMDS, SDK, application) affects the observable delay.
-
-This experiment tests the same RBAC assignment across App Service, Functions, and Container Apps to determine whether propagation delay is service-specific or platform-wide.
+Role assignment delay and token cache interaction across services. Tested end-to-end propagation time from `az role assignment create` to successful API call across Key Vault (~10s), Storage (~60s), and Service Bus (~5 min). Discovered that Service Bus has a server-side RBAC authorization cache that persists through application restarts — the delay is NOT Azure Identity SDK token cache.
 
 ### [Private Endpoint DNS Negative Caching](pe-dns-negative-cache/overview.md)
 

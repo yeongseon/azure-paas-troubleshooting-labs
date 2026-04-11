@@ -1,0 +1,1 @@
+{"keyvault":"success","servicebus":"success","storage":"fail","storage_error":"This request is not authorized to perform this operation using this permission.\nRequestId:fd414fdc-d01e-000f-75d7-c96262000000\nTime:2026-04-11T17:17:37.5108039Z\nErrorCode:AuthorizationPermissionMismat","timestamp_utc":"2026-04-11T17:17:37.046313+00:00"}
