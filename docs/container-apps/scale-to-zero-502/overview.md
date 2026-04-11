@@ -375,23 +375,23 @@ gantt
 
 ### 11.1 Cold-start latency is 4-20x worse than hypothesized
 
-**[E1]** The hypothesis predicted 2-10s cold-start latency. Actual observed latency was **20.9-42.1s** (median 40.7s). Even with optimal conditions — small 50MB image, same-region ACR, minimal Python app — the cold start takes ~40 seconds.
+**[E1]** The hypothesis predicted 2-10s cold-start latency. Actual observed latency was **20.9-42.1s** (median 40.7s) **[Measured]**. Even with optimal conditions — small 50MB image, same-region ACR, minimal Python app — the cold start takes ~40 seconds **[Inferred]**.
 
 ### 11.2 Infrastructure scheduling dominates, not image pull
 
 **[E2]** The cold-start breakdown reveals:
 
-- **Scheduling overhead** (KEDA → container on node): 12-15 seconds
-- **Image pull**: Only 2-4 seconds (ACR same region)
-- **Container initialization**: 4-12 seconds
-- **Envoy routing**: Remaining gap between container start and HTTP response
+- **Scheduling overhead** (KEDA → container on node): 12-15 seconds **[Measured]**
+- **Image pull**: Only 2-4 seconds (ACR same region) **[Measured]**
+- **Container initialization**: 4-12 seconds **[Measured]**
+- **Envoy routing**: Remaining gap between container start and HTTP response **[Inferred]**
 
 !!! tip "Implication"
-    Reducing image size from 50MB to 10MB would save perhaps 1 second. The 12-15s scheduling overhead is platform infrastructure and cannot be optimized by the customer.
+    Reducing image size from 50MB to 10MB would save perhaps 1 second **[Inferred]**. The 12-15s scheduling overhead is platform infrastructure and cannot be optimized by the customer **[Inferred]**.
 
 ### 11.3 No 503 errors — but the risk is real
 
-**[E1]** All 5 cold-start requests returned HTTP 200. The 40s cold start is well within the default 240s ingress timeout. However, customer reports of 503 errors may be caused by:
+**[E1]** All 5 cold-start requests returned HTTP 200 **[Observed]**. The 40s cold start is well within the default 240s ingress timeout **[Inferred]**. However, customer reports of 503 errors may be caused by:
 
 1. **Custom timeout configurations**: Client-side or proxy timeouts shorter than cold-start duration
 2. **Health probe failures**: Startup probes that timeout before the container is ready
@@ -400,15 +400,15 @@ gantt
 
 ### 11.4 Run 1 anomaly suggests node-level caching
 
-**[E3]** Run 1 was 20.9s while runs 2-5 averaged 41.0s. The initial deployment occurred 14 minutes before Run 1, likely leaving the image cached at the node level. Once the cache was invalidated (node reassignment or eviction), cold start stabilized at ~40s.
+**[E3]** Run 1 was 20.9s while runs 2-5 averaged 41.0s **[Measured]**. The initial deployment occurred 14 minutes before Run 1, likely leaving the image cached at the node level **[Inferred]**. Once the cache was invalidated (node reassignment or eviction), cold start stabilized at ~40s **[Observed]**.
 
 ## 12. What this proves
 
-1. **[E1]** Cold-start latency for a minimal Container App on Consumption plan is **37s median**, not the 2-10s range commonly expected
-2. **[E2]** Scheduling overhead (12-15s) dominates cold start, not image pull (2-4s) — image optimization alone provides marginal improvement
-3. **[E1]** The cold/warm performance ratio is **1,848x** — first users experience dramatically worse performance
-4. **[E4]** KEDA scale-to-zero triggers at ~5 minutes of inactivity, with container termination within 1 second of deactivation
-5. **[E1]** No 503 errors occurred in 5 runs — the default 240s ingress timeout provides ample headroom for 40s cold starts
+1. **[E1]** Cold-start latency for a minimal Container App on Consumption plan is **37s median** **[Measured]**, not the 2-10s range commonly expected
+2. **[E2]** Scheduling overhead (12-15s) dominates cold start, not image pull (2-4s) **[Measured]** — image optimization alone provides marginal improvement **[Inferred]**
+3. **[E1]** The cold/warm performance ratio is **1,848x** **[Measured]** — first users experience dramatically worse performance **[Observed]**
+4. **[E4]** KEDA scale-to-zero triggers at ~5 minutes of inactivity **[Observed]**, with container termination within 1 second of deactivation **[Measured]**
+5. **[E1]** No 503 errors occurred in 5 runs **[Observed]** — the default 240s ingress timeout provides ample headroom for 40s cold starts **[Inferred]**
 
 ## 13. What this does NOT prove
 

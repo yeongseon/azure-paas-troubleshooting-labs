@@ -532,27 +532,27 @@ Starting state: Instance A already evicted (UNKNOWN), Instance B serving 100% of
 
 ## 11. Interpretation
 
-**H1 — Partial eviction: CONFIRMED.** When Instance A failed health checks while Instance B remained healthy, Instance A was removed from load balancer rotation after exactly 10 minutes (~10 consecutive failed health probes at 1-minute intervals). The eviction was binary — traffic shifted from ~50% to 0% instantly, with no gradual drain period.
+**H1 — Partial eviction: CONFIRMED.** When Instance A failed health checks while Instance B remained healthy, Instance A was removed from load balancer rotation **[Observed]** after exactly 10 minutes **[Measured]** (~10 consecutive failed health probes at 1-minute intervals). The eviction was binary — traffic shifted from ~50% to 0% instantly **[Measured]**, with no gradual drain period **[Observed]**.
 
-**H2 — Total failure protection: CONFIRMED.** When both instances failed health checks simultaneously, neither was evicted even after 12+ minutes of continuous failures. The platform maintained the existing traffic distribution.
+**H2 — Total failure protection: CONFIRMED.** When both instances failed health checks simultaneously, neither was evicted **[Observed]** even after 12+ minutes of continuous failures **[Measured]**. The platform maintained the existing traffic distribution **[Measured]**.
 
-**H3 — Cascading amplification: CONFIRMED with nuance.** When the last healthy instance also became unhealthy, it was NOT evicted — it remained in rotation with 100% of traffic. The platform's protection mechanism prevents reducing to zero healthy instances. However, the instance state changed to STOPPED, which could mislead monitoring dashboards.
+**H3 — Cascading amplification: CONFIRMED with nuance.** When the last healthy instance also became unhealthy, it was NOT evicted **[Observed]** — it remained in rotation with 100% of traffic **[Measured]**. The platform's protection mechanism prevents reducing to zero healthy instances **[Inferred]**. However, the instance state changed to STOPPED **[Observed]**, which could mislead monitoring dashboards.
 
-**H4 — Recovery: CONFIRMED.** `az webapp restart` restored both instances to active rotation within 15 seconds, though the Azure API's instance state lagged behind by ~150 seconds.
+**H4 — Recovery: CONFIRMED.** `az webapp restart` restored both instances to active rotation within 15 seconds **[Measured]**, though the Azure API's instance state lagged behind by ~150 seconds **[Measured]**.
 
 ### Key Discovery: Binary Eviction, Not Gradual Drain
 
-The most significant finding is that health check eviction is an **all-or-nothing switch**:
+The most significant finding is that health check eviction is an **all-or-nothing switch** **[Inferred]**:
 
-- Before eviction: the unhealthy instance receives a normal share of traffic (~50%)
-- After eviction: the unhealthy instance receives exactly 0% of traffic
-- There is no "draining" period where traffic is gradually shifted
+- Before eviction: the unhealthy instance receives a normal share of traffic (~50%) **[Measured]**
+- After eviction: the unhealthy instance receives exactly 0% of traffic **[Measured]**
+- There is no "draining" period where traffic is gradually shifted **[Observed]**
 
-This means that for the first ~10 minutes after a health check starts failing, users hitting the unhealthy instance will experience degraded service. The platform does not reduce traffic to unhealthy instances — it either routes normally or stops routing entirely.
+This means that for the first ~10 minutes after a health check starts failing, users hitting the unhealthy instance will experience degraded service **[Inferred]**. The platform does not reduce traffic to unhealthy instances — it either routes normally or stops routing entirely **[Observed]**.
 
 ### Key Discovery: State API Lag
 
-The `az webapp list-instances` state does not reflect real-time routing decisions:
+The `az webapp list-instances` state does not reflect real-time routing decisions **[Observed]**:
 
 | Actual Behavior | Reported State |
 |----------------|----------------|
@@ -561,19 +561,19 @@ The `az webapp list-instances` state does not reflect real-time routing decision
 | Instance just restored, serving traffic | STOPPED (for ~90-150s) |
 | Instance fully operational | READY |
 
-Monitoring systems that rely on instance state will report misleading status during transitions.
+Monitoring systems that rely on instance state will report misleading status during transitions **[Inferred]**.
 
 ## 12. What this proves
 
-!!! success "Evidence level: Direct observation"
+!!! success "Evidence-based conclusions"
 
-1. Health check eviction occurs after **~10 consecutive failed probes** (~10 minutes at 1-minute intervals)
-2. Eviction is **binary**: traffic shifts from ~50% to 0% instantly — no gradual drain
-3. When **all instances are unhealthy**, the platform does NOT evict any instance — protects against total outage
-4. When the **last remaining instance** becomes unhealthy, it stays in rotation (never reduces to zero)
-5. **ARRAffinity cookies cannot route to evicted instances** — they are fully removed from the load balancer
-6. `az webapp restart` recovers evicted instances to active routing within **~15 seconds**
-7. Instance state API (`az webapp list-instances`) **lags behind** actual routing decisions by 90-150 seconds
+    1. Health check eviction occurs after **~10 consecutive failed probes** **[Measured]** (~10 minutes at 1-minute intervals).
+    2. Eviction is **binary**: traffic shifts from ~50% to 0% instantly **[Measured]** — no gradual drain **[Observed]**.
+    3. When **all instances are unhealthy**, the platform does NOT evict any instance **[Observed]** — protects against total outage **[Inferred]**.
+    4. When the **last remaining instance** becomes unhealthy, it stays in rotation **[Observed]** (never reduces to zero).
+    5. **ARRAffinity cookies cannot route to evicted instances** **[Observed]** — they are fully removed from the load balancer.
+    6. `az webapp restart` recovers evicted instances to active routing within **~15 seconds** **[Measured]**.
+    7. Instance state API (`az webapp list-instances`) **lags behind** actual routing decisions by 90-150 seconds **[Measured]**.
 
 ## 13. What this does NOT prove
 

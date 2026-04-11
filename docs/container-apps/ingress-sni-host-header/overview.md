@@ -326,23 +326,23 @@ flowchart TD
 
 The Container Apps Envoy ingress uses a **two-layer routing model**:
 
-1. **TLS layer (SNI)**: Acts as an **admission gate**, not a routing key. The ingress requires a valid SNI that matches the environment's wildcard certificate pattern. If SNI is missing or outside the wildcard, the TLS handshake is immediately rejected. However, any SNI value matching the wildcard pattern is accepted — even for non-existent apps.
+1. **TLS layer (SNI)**: Acts as an **admission gate** **[Inferred]**, not a routing key. The ingress requires a valid SNI that matches the environment's wildcard certificate pattern **[Observed]**. If SNI is missing or outside the wildcard, the TLS handshake is immediately rejected **[Measured]**. However, any SNI value matching the wildcard pattern is accepted **[Observed]** — even for non-existent apps **[Measured]**.
 
-2. **HTTP layer (Host header)**: Acts as the **routing key**. After TLS termination, Envoy uses the `Host` header to select which Container App receives the request. The SNI value is completely ignored for routing.
+2. **HTTP layer (Host header)**: Acts as the **routing key** **[Inferred]**. After TLS termination, Envoy uses the `Host` header to select which Container App receives the request **[Observed]**. The SNI value is completely ignored for routing **[Measured]**.
 
-This two-layer model explains the common customer confusion: if a client sends a TLS ClientHello with `app-alpha.*` as SNI but includes `Host: app-beta.*` in the HTTP request, **the request reaches `app-beta`**, not `app-alpha`. This is deterministic and reproducible, but counterintuitive if the customer assumes SNI drives routing.
+This two-layer model explains the common customer confusion: if a client sends a TLS ClientHello with `app-alpha.*` as SNI but includes `Host: app-beta.*` in the HTTP request, **the request reaches `app-beta`** **[Measured]**, not `app-alpha`. This is deterministic and reproducible, but counterintuitive if the customer assumes SNI drives routing **[Inferred]**.
 
-The wildcard certificate approach means all apps in an environment share the same TLS certificate. There is no per-app certificate selection based on SNI — the environment-level wildcard handles all default-domain apps uniformly.
+The wildcard certificate approach means all apps in an environment share the same TLS certificate **[Observed]**. There is no per-app certificate selection based on SNI — the environment-level wildcard handles all default-domain apps uniformly **[Inferred]**.
 
 ## 12. What this proves
 
 !!! success "Evidence-based conclusions"
 
-    1. **Host header determines routing, not SNI.** When SNI and Host header point to different apps (TC2, TC6), the request is always routed to the app matching the Host header. Confirmed across 3 runs with 100% reproducibility.
-    2. **SNI is mandatory for TLS.** Omitting SNI entirely (TC4) causes the Envoy frontend to reset the connection before any TLS negotiation occurs.
-    3. **SNI must match the environment wildcard.** An SNI value outside the `*.{env-suffix}.azurecontainerapps.io` pattern (TC8) is rejected at TLS level.
-    4. **Unknown Host header = 404, not connection failure.** When TLS succeeds but the Host header doesn't match any configured app (TC5, TC7), Envoy returns an HTTP 404 with the standard "Container App Unavailable" error page.
-    5. **Cross-app routing via Host header is possible.** Any client with access to the shared ingress IP can route to any app in the environment by setting the Host header — the TLS SNI does not restrict which app can be reached.
+    1. **Host header determines routing, not SNI.** **[Measured]** When SNI and Host header point to different apps (TC2, TC6), the request is always routed to the app matching the Host header. Confirmed across 3 runs with 100% reproducibility.
+    2. **SNI is mandatory for TLS.** **[Observed]** Omitting SNI entirely (TC4) causes the Envoy frontend to reset the connection before any TLS negotiation occurs **[Measured]**.
+    3. **SNI must match the environment wildcard.** **[Observed]** An SNI value outside the `*.{env-suffix}.azurecontainerapps.io` pattern (TC8) is rejected at TLS level **[Measured]**.
+    4. **Unknown Host header = 404, not connection failure.** **[Observed]** When TLS succeeds but the Host header doesn't match any configured app (TC5, TC7), Envoy returns an HTTP 404 with the standard "Container App Unavailable" error page **[Measured]**.
+    5. **Cross-app routing via Host header is possible.** **[Inferred]** Any client with access to the shared ingress IP can route to any app in the environment by setting the Host header **[Measured]** — the TLS SNI does not restrict which app can be reached.
 
 ## 13. What this does NOT prove
 

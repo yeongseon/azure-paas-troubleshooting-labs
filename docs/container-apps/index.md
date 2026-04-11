@@ -128,9 +128,6 @@ How Container Apps ingress handles Server Name Indication (SNI) and host header 
 ??? success "Experiment Complete"
     Completed 2026-04 on Consumption tier (koreacentral). Eight SNI/Host permutations tested across 3 runs with 100% reproducibility. Key finding: Host header is the routing key; SNI is only a TLS admission gate.
 
-
-## Planned Experiments
-
 ### [Custom DNS Forwarding](custom-dns-forwarding/overview.md) — **Published**
 
 Outbound resolution failure when custom DNS servers configured in the Container Apps environment become unreachable. Demonstrates that there is no DNS fallback to Azure Default DNS, that recovery requires VNet DNS change + propagation time + new revision, and that DNS failure also breaks platform-level operations (ACR image pulls).
@@ -144,8 +141,6 @@ Behavioral differences when accessing a Container App via private endpoint FQDN 
 
 ??? success "Experiment Complete"
     Completed 2026-04-12 on Consumption tier (internal-only, VNet-injected, koreacentral). 10 access patterns tested across 5 runs with 100% reproducibility. Key finding: SNI is mandatory for TLS admission; `-k` and `-H Host:` do not help because the failure occurs before certificate presentation and before HTTP layer processing.
-
-## Planned Experiments
 
 ## Related Experiments in Other Services
 

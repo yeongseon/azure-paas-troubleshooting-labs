@@ -109,7 +109,7 @@ When comparing configurations, compute per-run summaries first (e.g., each run's
 
 ### Decision tree
 
-```
+```text
 Is the outlier consistent across multiple runs?
 ├── YES → It is a real tail behavior, not an outlier. INCLUDE it.
 │         Report it in p99 and note its frequency.
@@ -146,7 +146,7 @@ Create a box plot of per-run summaries (median or p95) for each configuration. I
 
 Calculate the difference in medians between configurations, expressed as a percentage:
 
-```
+```text
 Effect size = (Median_B - Median_A) / Median_A × 100%
 ```
 

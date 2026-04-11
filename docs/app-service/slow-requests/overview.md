@@ -395,21 +395,21 @@ The `dependency` endpoint uses `setTimeout()` (async) which does NOT block the e
 
 ## 11. Interpretation
 
-1. **CPU-bound work blocks the Node.js event loop, causing request serialization.** When multiple requests hit a CPU-intensive endpoint concurrently, they queue behind each other. A 5s delay with 5 concurrent requests produces p50 of 10-15s (2-3× inflation). This is the most common cause of "slow requests" in Node.js apps: synchronous computation in the request path.
+1. **CPU-bound work blocks the Node.js event loop, causing request serialization.** **[Observed]** When multiple requests hit a CPU-intensive endpoint concurrently, they queue behind each other. A 5s delay with 5 concurrent requests produces p50 of 10-15s (2-3× inflation) **[Measured]**. This is the most common cause of "slow requests" in Node.js apps: synchronous computation in the request path **[Inferred]**.
 
-2. **Async delays (I/O-bound) do NOT cause serialization.** Even with 10 concurrent requests, async dependency delays complete in exactly the injected delay time. This proves that Node.js handles concurrent I/O waits efficiently — the event loop is free to accept new requests while waiting for async operations.
+2. **Async delays (I/O-bound) do NOT cause serialization.** **[Observed]** Even with 10 concurrent requests, async dependency delays complete in exactly the injected delay time **[Measured]**. This proves that Node.js handles concurrent I/O waits efficiently **[Inferred]** — the event loop is free to accept new requests while waiting for async operations.
 
-3. **The diagnostic fingerprint is unmistakable**: CPU-bound slow requests have a staircase pattern (each request takes N× delay longer) and produce timeouts under load. Dependency-bound slow requests have constant latency matching the dependency delay, zero errors even at high concurrency.
+3. **The diagnostic fingerprint is unmistakable**: CPU-bound slow requests have a staircase pattern **[Observed]** (each request takes N× delay longer) and produce timeouts under load **[Measured]**. Dependency-bound slow requests have constant latency matching the dependency delay, zero errors even at high concurrency **[Measured]**.
 
-4. **ARR timeout at 230s is a hard platform limit.** Requests that would have eventually succeeded get 504'd. The backend is unaware — it continues processing. This creates orphan work that wastes worker resources.
+4. **ARR timeout at 230s is a hard platform limit.** **[Observed]** Requests that would have eventually succeeded get 504'd **[Measured]**. The backend is unaware — it continues processing **[Inferred]**. This creates orphan work that wastes worker resources **[Strongly Suggested]**.
 
 ## 12. What this proves
 
-- [x] `[EVIDENCE:cpu-serialization]` CPU-bound delays cause event loop serialization: p50 inflates linearly with concurrency (5s delay × 5 concurrent = ~15s p50).
-- [x] `[EVIDENCE:async-parallel]` Async dependency delays are processed in parallel: p50 equals injected delay regardless of concurrency (5.1s with 10 concurrent).
-- [x] `[EVIDENCE:timeout-errors]` CPU-bound scenarios produce timeout errors (20-30% of requests) while dependency scenarios produce zero errors at same concurrency.
-- [x] `[EVIDENCE:arr-timeout]` ARR timeout boundary confirmed at 230-240s: 220s delay → 200 OK, 240s delay → 504 Gateway Timeout.
-- [x] `[EVIDENCE:staircase-pattern]` Worker delay with 5 concurrent × 15s = p50 of 45s, confirming linear serialization (request N waits for N-1 prior completions).
+- [x] `[EVIDENCE:cpu-serialization]` **[Measured]** CPU-bound delays cause event loop serialization: p50 inflates linearly with concurrency (5s delay × 5 concurrent = ~15s p50).
+- [x] `[EVIDENCE:async-parallel]` **[Measured]** Async dependency delays are processed in parallel: p50 equals injected delay regardless of concurrency (5.1s with 10 concurrent).
+- [x] `[EVIDENCE:timeout-errors]` **[Measured]** CPU-bound scenarios produce timeout errors (20-30% of requests) while dependency scenarios produce zero errors at same concurrency.
+- [x] `[EVIDENCE:arr-timeout]` **[Measured]** ARR timeout boundary confirmed at 230-240s: 220s delay → 200 OK, 240s delay → 504 Gateway Timeout.
+- [x] `[EVIDENCE:staircase-pattern]` **[Measured]** Worker delay with 5 concurrent × 15s = p50 of 45s, confirming linear serialization (request N waits for N-1 prior completions).
 
 ## 13. What this does NOT prove
 

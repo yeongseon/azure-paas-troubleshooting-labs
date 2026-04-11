@@ -325,21 +325,21 @@ Each configuration was tested with stop-verify-start cold restarts across two ba
 
 ## 11. Interpretation
 
-1. **Startup timing is not meaningfully different between zip deploy and custom container on the same SKU.** The median difference within each SKU (B1: 71.7s zip vs 67.1s container; P1v3: 26.4s zip vs 49.3s container) is within the standard deviation of each measurement. The dominant variance comes from platform scheduling, not deployment method.
+1. **Startup timing is not meaningfully different between zip deploy and custom container on the same SKU.** **[Observed]** The median difference within each SKU (B1: 71.7s zip vs 67.1s container; P1v3: 26.4s zip vs 49.3s container) is within the standard deviation of each measurement **[Measured]**. The dominant variance comes from platform scheduling **[Inferred]**, not deployment method.
 
-2. **P1v3 is faster than B1 across both methods.** Zip-P1v3 median (26.4s) is 63% faster than zip-B1 (71.7s). Container-P1v3 median (49.3s) is 27% faster than container-B1 (67.1s). Premium SKUs have dedicated compute and faster image pulling.
+2. **P1v3 is faster than B1 across both methods.** **[Observed]** Zip-P1v3 median (26.4s) is 63% faster than zip-B1 (71.7s) **[Measured]**. Container-P1v3 median (49.3s) is 27% faster than container-B1 (67.1s) **[Measured]**. Premium SKUs have dedicated compute and faster image pulling **[Inferred]**.
 
-3. **The deployment method fundamentally changes the filesystem and diagnostic surface, not the performance profile.** Zip deploy provides rich Kudu artifacts and server-side Oryx build logs. Custom containers provide none of these — troubleshooting shifts from Kudu browsing to container log inspection.
+3. **The deployment method fundamentally changes the filesystem and diagnostic surface, not the performance profile.** **[Observed]** Zip deploy provides rich Kudu artifacts and server-side Oryx build logs. Custom containers provide none of these **[Measured]** — troubleshooting shifts from Kudu browsing to container log inspection **[Inferred]**.
 
-4. **Environment variable semantics differ in a potentially breaking way.** Zip deploy uses `PORT` (set by Oryx). Custom container needs `WEBSITES_PORT` (user must set it). An app that reads `process.env.PORT` will break in a custom container if `WEBSITES_PORT` is set but `PORT` is not injected into the container.
+4. **Environment variable semantics differ in a potentially breaking way.** **[Observed]** Zip deploy uses `PORT` (set by Oryx). Custom container needs `WEBSITES_PORT` (user must set it) **[Measured]**. An app that reads `process.env.PORT` will break in a custom container if `WEBSITES_PORT` is set but `PORT` is not injected into the container **[Strongly Suggested]**.
 
 ## 12. What this proves
 
-- [x] `[EVIDENCE:env-diff]` Zip deploy and custom container apps expose different environment variables (`WEBSITE_STACK=NODE` vs `DOCKER`, `PORT` vs `WEBSITES_PORT`).
-- [x] `[EVIDENCE:fs-diff]` Filesystem layout differs significantly: `/home/site/wwwroot` with Oryx artifacts (zip) vs custom `WORKDIR` with no `/home` persistence (container).
-- [x] `[EVIDENCE:diag-diff]` Diagnostic surface changes: full Kudu access (zip) vs limited Kudu with container-only logs (container).
-- [x] `[EVIDENCE:startup-variance]` Cold start timing is dominated by platform variance (>50% CV across all configs), not by deployment method.
-- [x] `[EVIDENCE:sku-effect]` P1v3 consistently faster than B1 for both deployment methods.
+- [x] `[EVIDENCE:env-diff]` **[Measured]** Zip deploy and custom container apps expose different environment variables (`WEBSITE_STACK=NODE` vs `DOCKER`, `PORT` vs `WEBSITES_PORT`).
+- [x] `[EVIDENCE:fs-diff]` **[Observed]** Filesystem layout differs significantly: `/home/site/wwwroot` with Oryx artifacts (zip) vs custom `WORKDIR` with no `/home` persistence (container).
+- [x] `[EVIDENCE:diag-diff]` **[Observed]** Diagnostic surface changes: full Kudu access (zip) vs limited Kudu with container-only logs (container).
+- [x] `[EVIDENCE:startup-variance]` **[Measured]** Cold start timing is dominated by platform variance (>50% CV across all configs), not by deployment method.
+- [x] `[EVIDENCE:sku-effect]` **[Measured]** P1v3 consistently faster than B1 for both deployment methods.
 
 ## 13. What this does NOT prove
 

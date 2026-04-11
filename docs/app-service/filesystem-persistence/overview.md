@@ -512,43 +512,43 @@ Type: overlay (rw,relatime,lowerdir=122:...:41,upperdir=/mnt/lwasv2/container/..
 
 All three hypotheses are **confirmed**:
 
-**H1 confirmed**: `/home` files persisted across every trigger event — restart, stop/start, deployment, and scale-out. The mount info confirms `/home` is backed by an Azure Storage CIFS (SMB 3.1.1) share at `//10.1.160.32/volume-18-default/...` with 10 GB capacity.
+**H1 confirmed**: `/home` files persisted across every trigger event **[Observed]** — restart, stop/start, deployment, and scale-out. The mount info confirms `/home` is backed by an Azure Storage CIFS (SMB 3.1.1) share **[Observed]** at `//10.1.160.32/volume-18-default/...` with 10 GB capacity **[Measured]**.
 
-**H2 confirmed**: Files written to `/tmp` and `/var/local` were lost whenever the container was recreated (stop/start, deployment). The only exception was `az webapp restart`, which performs a soft restart without recreating the container.
+**H2 confirmed**: Files written to `/tmp` and `/var/local` were lost whenever the container was recreated **[Observed]** (stop/start, deployment). The only exception was `az webapp restart`, which performs a soft restart without recreating the container **[Observed]**.
 
-**H3 confirmed**: A new instance added during scale-out could read `/home` files written by the original instance, but could not see `/tmp` or `/var/local` files. The two instances were in different availability zones (az3 and az2), confirming that `/home` is a network-attached shared mount, not local storage.
+**H3 confirmed**: A new instance added during scale-out could read `/home` files written by the original instance **[Observed]**, but could not see `/tmp` or `/var/local` files **[Observed]**. The two instances were in different availability zones (az3 and az2) **[Measured]**, confirming that `/home` is a network-attached shared mount, not local storage **[Inferred]**.
 
 ### Unexpected Finding: Soft Restart Behavior
 
-`az webapp restart` does **not** recreate the container — it only restarts the application process inside the existing container. This means:
+`az webapp restart` does **not** recreate the container **[Observed]** — it only restarts the application process inside the existing container. This means:
 
-- The container hostname remains unchanged
-- All writable layer files survive
-- This is a fundamentally different operation from stop+start or deployment
+- The container hostname remains unchanged **[Measured]**
+- All writable layer files survive **[Observed]**
+- This is a fundamentally different operation from stop+start or deployment **[Inferred]**
 
-This distinction is critical for troubleshooting: if a customer reports files surviving a "restart" but not a "deployment," it's because these operations have different container lifecycle impacts.
+This distinction is critical for troubleshooting: if a customer reports files surviving a "restart" but not a "deployment," it's because these operations have different container lifecycle impacts **[Inferred]**.
 
 ### I/O Performance Implications
 
-The `/home` CIFS mount introduces significant write latency overhead:
+The `/home` CIFS mount introduces significant write latency overhead **[Measured]**:
 
-- **Instance 1**: `/home` write = 62ms median vs `/tmp` write = 0.35ms (**~180x slower**)
-- **Instance 2**: `/home` write = 155ms median vs `/tmp` write = 12ms (**~13x slower**)
-- Read latency is comparable across all paths (sub-millisecond) due to page caching
+- **Instance 1**: `/home` write = 62ms median vs `/tmp` write = 0.35ms (**~180x slower**) **[Measured]**
+- **Instance 2**: `/home` write = 155ms median vs `/tmp` write = 12ms (**~13x slower**) **[Measured]**
+- Read latency is comparable across all paths (sub-millisecond) **[Measured]** due to page caching **[Inferred]**.
 
-Applications that perform frequent writes (logging, caching, session storage) should use `/tmp` for performance-sensitive operations and only use `/home` for data that must persist. However, they must accept that `/tmp` data will be lost on any container recreation event.
+Applications that perform frequent writes (logging, caching, session storage) should use `/tmp` for performance-sensitive operations and only use `/home` for data that must persist **[Inferred]**. However, they must accept that `/tmp` data will be lost on any container recreation event **[Observed]**.
 
 ## 12. What this proves
 
-!!! success "Evidence level: Direct observation"
+!!! success "Evidence-based conclusions"
 
-1. `/home` is a **CIFS (SMB 3.1.1)** mount backed by Azure Storage, confirmed by `mount` output
-2. `/home` files persist across **all tested lifecycle events**: soft restart, stop/start, deployment, scale-out
-3. Files outside `/home` exist only in the container's **overlay writable layer** and are lost on container recreation
-4. `az webapp restart` performs a **soft restart** that does not recreate the container
-5. `az webapp stop` + `az webapp start` and `az webapp deploy` **recreate** the container
-6. `/home` is a **shared mount** visible to all instances of the same app across availability zones
-7. `/home` write latency is **62–155ms** (median) vs **0.3–20ms** for local overlay — a 10–180x difference
+    1. `/home` is a **CIFS (SMB 3.1.1)** mount backed by Azure Storage **[Observed]**, confirmed by `mount` output.
+    2. `/home` files persist across **all tested lifecycle events** **[Observed]**: soft restart, stop/start, deployment, scale-out.
+    3. Files outside `/home` exist only in the container's **overlay writable layer** and are lost on container recreation **[Observed]**.
+    4. `az webapp restart` performs a **soft restart** that does not recreate the container **[Observed]**.
+    5. `az webapp stop` + `az webapp start` and `az webapp deploy` **recreate** the container **[Observed]**.
+    6. `/home` is a **shared mount** visible to all instances of the same app across availability zones **[Observed]**.
+    7. `/home` write latency is **62–155ms** (median) **[Measured]** vs **0.3–20ms** for local overlay **[Measured]** — a 10–180x difference.
 
 ## 13. What this does NOT prove
 

@@ -513,41 +513,41 @@ flowchart TD
 
 ## 11. Interpretation
 
-The experiment confirms that **Container Apps' Envoy ingress treats SNI as a mandatory TLS admission gate** in private endpoint scenarios, just as it does for external ingress. The failure mode when accessing by IP address is not a certificate validation error — it is an **SNI absence error** that occurs before any certificate is even presented.
+The experiment confirms that **Container Apps' Envoy ingress treats SNI as a mandatory TLS admission gate** in private endpoint scenarios **[Observed]**, just as it does for external ingress. The failure mode when accessing by IP address is not a certificate validation error — it is an **SNI absence error** that occurs before any certificate is even presented **[Inferred]**.
 
 **Why direct IP access fails:**
 
-1. When `curl` connects to an IP address (`https://10.80.0.23`), it sends the IP as the target hostname in the TLS ClientHello SNI extension.
-2. Envoy's listener filter expects SNI values matching the environment wildcard pattern (`*.politemoss-5ce30cfa...`).
-3. An IP address (or empty SNI) does not match this pattern, so Envoy resets the connection immediately — before presenting any certificate.
+1. When `curl` connects to an IP address (`https://10.80.0.23`), it sends the IP as the target hostname in the TLS ClientHello SNI extension **[Observed]**.
+2. Envoy's listener filter expects SNI values matching the environment wildcard pattern (`*.politemoss-5ce30cfa...`) **[Inferred]**.
+3. An IP address (or empty SNI) does not match this pattern, so Envoy resets the connection immediately — before presenting any certificate **[Observed]**.
 
 **Why `-k` doesn't help:**
 
-The `-k` (insecure) flag tells curl to skip **certificate validation** (step after TLS handshake). But the connection is reset **during** the TLS handshake due to SNI mismatch. Certificate validation never gets a chance to run.
+The `-k` (insecure) flag tells curl to skip **certificate validation** (step after TLS handshake). But the connection is reset **during** the TLS handshake due to SNI mismatch **[Observed]**. Certificate validation never gets a chance to run **[Inferred]**.
 
 **Why `-H "Host: FQDN"` doesn't help for HTTPS:**
 
-The `Host` header is an HTTP/1.1 concept set **after** the TLS handshake completes. Since the connection is reset during TLS (before HTTP), setting the Host header has no effect. This is the most common misconception — customers assume Host and SNI are the same, but they operate at different protocol layers.
+The `Host` header is an HTTP/1.1 concept set **after** the TLS handshake completes. Since the connection is reset during TLS (before HTTP), setting the Host header has no effect **[Inferred]**. This is the most common misconception — customers assume Host and SNI are the same, but they operate at different protocol layers **[Strongly Suggested]**.
 
 **Why `--resolve` works:**
 
-`curl --resolve FQDN:443:IP` tells curl to "pretend DNS resolved FQDN to IP." curl then sends the FQDN as SNI (TLS layer) and Host (HTTP layer), but connects to the specified IP address. This satisfies both layers of Envoy's routing model.
+`curl --resolve FQDN:443:IP` tells curl to "pretend DNS resolved FQDN to IP." curl then sends the FQDN as SNI (TLS layer) and Host (HTTP layer), but connects to the specified IP address **[Observed]**. This satisfies both layers of Envoy's routing model **[Inferred]**.
 
 **HTTP (port 80) behaves differently:**
 
-HTTP has no TLS handshake, so no SNI gate. Envoy accepts all TCP connections on port 80 but routes purely by Host header. Without a Host header → 404. With a valid Host header → 301 redirect to HTTPS (since the app has HTTPS-only ingress).
+HTTP has no TLS handshake, so no SNI gate. Envoy accepts all TCP connections on port 80 but routes purely by Host header **[Observed]**. Without a Host header → 404. With a valid Host header → 301 redirect to HTTPS (since the app has HTTPS-only ingress) **[Observed]**.
 
 ## 12. What this proves
 
 !!! success "Evidence-based conclusions"
 
-    1. **SNI is mandatory for HTTPS access to Container Apps — including via private endpoint.** Direct IP access without SNI results in an immediate connection reset (curl exit 35). Confirmed 5/5 runs.
-    2. **The failure is SNI-level, not certificate-level.** Skipping certificate verification (`-k`) does not change the outcome. The connection is rejected before any certificate is presented.
-    3. **HTTP Host header cannot substitute for TLS SNI.** Setting `-H "Host: FQDN"` while connecting to the IP does not help because the Host header is set after the TLS handshake, which never completes.
-    4. **`curl --resolve` is the correct workaround for IP-based access.** It sends the FQDN as both SNI and Host while connecting to the specified IP, satisfying both TLS admission and HTTP routing.
-    5. **openssl confirms SNI is the sole gate.** `openssl s_client -connect IP:443` fails without `-servername`, but succeeds with explicit `-servername FQDN` — isolating SNI as the single discriminating factor.
-    6. **HTTP (port 80) routing uses Host header only.** No SNI gate exists for unencrypted traffic. Without Host → 404; with Host → 301 redirect to HTTPS.
-    7. **Private DNS Zone is the intended access mechanism.** The wildcard A record (`* → 10.80.0.23`) ensures all app FQDNs resolve to the internal IP, and curl automatically uses the FQDN as SNI.
+    1. **SNI is mandatory for HTTPS access to Container Apps — including via private endpoint.** Direct IP access without SNI results in an immediate connection reset (curl exit 35) **[Observed]**. Confirmed 5/5 runs **[Measured]**.
+    2. **The failure is SNI-level, not certificate-level.** Skipping certificate verification (`-k`) does not change the outcome **[Observed]**. The connection is rejected before any certificate is presented **[Inferred]**.
+    3. **HTTP Host header cannot substitute for TLS SNI.** Setting `-H "Host: FQDN"` while connecting to the IP does not help because the Host header is set after the TLS handshake, which never completes **[Inferred]**.
+    4. **`curl --resolve` is the correct workaround for IP-based access.** It sends the FQDN as both SNI and Host while connecting to the specified IP, satisfying both TLS admission and HTTP routing **[Observed]**.
+    5. **openssl confirms SNI is the sole gate.** `openssl s_client -connect IP:443` fails without `-servername`, but succeeds with explicit `-servername FQDN` **[Observed]** — isolating SNI as the single discriminating factor **[Inferred]**.
+    6. **HTTP (port 80) routing uses Host header only.** No SNI gate exists for unencrypted traffic **[Inferred]**. Without Host → 404; with Host → 301 redirect to HTTPS **[Observed]**.
+    7. **Private DNS Zone is the intended access mechanism.** The wildcard A record (`* → 10.80.0.23`) ensures all app FQDNs resolve to the internal IP, and curl automatically uses the FQDN as SNI **[Inferred]**.
 
 ## 13. What this does NOT prove
 

@@ -631,32 +631,32 @@ The 200 and 300 connection configurations showed significant variance across run
 
 ## 11. Interpretation
 
-**H1 — Threshold exists: CONFIRMED.** The boundary lies between 128 and 200 concurrent connections. At 128 connections without pooling, all three runs showed 0% failure rate with baseline latency. At 200 connections, all three runs showed failures (6.9–22.2%). This aligns with the documented ~128 SNAT port preallocated limit per destination IP:port.
+**H1 — Threshold exists: CONFIRMED.** **[Observed]** The boundary lies between 128 and 200 concurrent connections. At 128 connections without pooling, all three runs showed 0% failure rate with baseline latency **[Measured]**. At 200 connections, all three runs showed failures (6.9–22.2%) **[Measured]**. This aligns with the documented ~128 SNAT port preallocated limit per destination IP:port **[Inferred]**.
 
-**H2 — CPU/memory independent: CONFIRMED.** CPU ranged from 29.2% to 33.4% and memory from 75.8% to 83.7% across all configurations — including the 300-connection test with 49.3% failure rate. SNAT exhaustion produces zero signal in standard resource metrics.
+**H2 — CPU/memory independent: CONFIRMED.** **[Observed]** CPU ranged from 29.2% to 33.4% and memory from 75.8% to 83.7% across all configurations **[Measured]** — including the 300-connection test with 49.3% failure rate. SNAT exhaustion produces zero signal in standard resource metrics **[Inferred]**.
 
-**H3 — Pooling prevents exhaustion: CONFIRMED.** At 200 concurrent workers, connection pooling produced 0.000% failure rate across all 3 runs, while the identical worker count without pooling produced 6.9–22.2% failure rates. Connection pooling is a complete mitigation.
+**H3 — Pooling prevents exhaustion: CONFIRMED.** **[Observed]** At 200 concurrent workers, connection pooling produced 0.000% failure rate across all 3 runs **[Measured]**, while the identical worker count without pooling produced 6.9–22.2% failure rates **[Measured]**. Connection pooling is a complete mitigation **[Inferred]**.
 
-**H4 — High variance: CONFIRMED.** The 300-connection configuration showed failure rates ranging from 11.3% to 49.3% across three runs with identical parameters and 4-minute cooldowns. This variance is inherent to SNAT mechanics and makes single-run testing unreliable.
+**H4 — High variance: CONFIRMED.** **[Observed]** The 300-connection configuration showed failure rates ranging from 11.3% to 49.3% across three runs with identical parameters and 4-minute cooldowns **[Measured]**. This variance is inherent to SNAT mechanics and makes single-run testing unreliable **[Inferred]**.
 
 ### Key Discovery: SNAT Exhaustion is a Soft Cliff, Not a Hard Wall
 
-At 128 connections (the documented preallocated limit), we observed 0% failures — suggesting the platform can allocate additional ports beyond the preallocated pool when capacity exists. The exhaustion becomes probabilistic: at 200 connections, some runs show 7% failures while others show 22%, depending on port availability at the moment of the test.
+At 128 connections (the documented preallocated limit), we observed 0% failures **[Measured]** — suggesting the platform can allocate additional ports beyond the preallocated pool when capacity exists **[Inferred]**. The exhaustion becomes probabilistic **[Inferred]**: at 200 connections, some runs show 7% failures while others show 22% **[Measured]**, depending on port availability at the moment of the test **[Correlated]**.
 
 ### Key Discovery: Failure Phase Matters
 
-All failures occurred in the `request` phase (TCP connection establishment), not the `read` phase. This means the application's HTTP handler never ran — the connection was rejected at the SNAT layer before any application-level communication occurred. This is why application-level retries won't help unless they include a backoff period long enough for ports to become available.
+All failures occurred in the `request` phase (TCP connection establishment), not the `read` phase **[Observed]**. This means the application's HTTP handler never ran **[Inferred]** — the connection was rejected at the SNAT layer before any application-level communication occurred **[Inferred]**. This is why application-level retries won't help unless they include a backoff period long enough for ports to become available **[Strongly Suggested]**.
 
 ## 12. What this proves
 
 !!! success "Evidence level: Statistical (3 independent runs per config, randomized order)"
 
-1. **SNAT exhaustion causes connection failures between 128 and 200 concurrent outbound connections** per destination IP:port on App Service B1
-2. **CPU and memory remain completely normal** during SNAT exhaustion (29–34% CPU, 76–84% memory with up to 49% failure rate)
-3. **Connection pooling is a complete mitigation** — 200 concurrent workers with pooling: 0% failures; without pooling: 7.5% median failure rate
-4. **Failure rates are highly variable** across identical runs (11–49% range at 300 connections), making single-run testing misleading
-5. **All failures are TimeoutError in the request phase** — connection establishment fails, not request processing
-6. **Pooling increases throughput by ~29%** (1,200 vs 928 requests in 60 seconds) because it avoids TCP handshake overhead
+1. **SNAT exhaustion causes connection failures between 128 and 200 concurrent outbound connections** **[Measured]** per destination IP:port on App Service B1
+2. **CPU and memory remain completely normal** **[Measured]** during SNAT exhaustion (29–34% CPU, 76–84% memory with up to 49% failure rate)
+3. **Connection pooling is a complete mitigation** **[Measured]** — 200 concurrent workers with pooling: 0% failures; without pooling: 7.5% median failure rate
+4. **Failure rates are highly variable** **[Measured]** across identical runs (11–49% range at 300 connections), making single-run testing misleading **[Inferred]**
+5. **All failures are TimeoutError in the request phase** **[Observed]** — connection establishment fails, not request processing
+6. **Pooling increases throughput by ~29%** **[Measured]** (1,200 vs 928 requests in 60 seconds) because it avoids TCP handshake overhead **[Inferred]**
 
 ## 13. What this does NOT prove
 

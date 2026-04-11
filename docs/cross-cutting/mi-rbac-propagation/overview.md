@@ -471,31 +471,31 @@ sequenceDiagram
 
 ## 11. Interpretation
 
-The experiment reveals that RBAC propagation is **not a single delay** but a multi-layer pipeline where each Azure service has its own authorization cache with dramatically different timing characteristics.
+The experiment reveals that RBAC propagation is **not a single delay** but a multi-layer pipeline where each Azure service has its own authorization cache with dramatically different timing characteristics **[Inferred]**.
 
-**Key Vault propagates fastest (~10 seconds)** because it evaluates RBAC permissions in near-real-time during each API call. There is minimal caching at the Key Vault service layer. The 10-second delay likely reflects only the time for Entra ID to internally propagate the role assignment to the region-local policy store.
+**Key Vault propagates fastest (~10 seconds)** because it evaluates RBAC permissions in near-real-time during each API call **[Observed]**. There is minimal caching at the Key Vault service layer **[Inferred]**. The 10-second delay likely reflects only the time for Entra ID to internally propagate the role assignment to the region-local policy store **[Inferred]**.
 
-**Storage Blob is moderately slow (32–105 seconds)** with high variance. The wide range suggests Storage's authorization service has a distributed cache with variable consistency windows. The fastest run (32s) may have hit a cache node that was updated quickly; the slowest (105s) may have hit a stale replica.
+**Storage Blob is moderately slow (32–105 seconds)** with high variance **[Measured]**. The wide range suggests Storage's authorization service has a distributed cache with variable consistency windows **[Inferred]**. The fastest run (32s) may have hit a cache node that was updated quickly; the slowest (105s) may have hit a stale replica **[Inferred]**.
 
-**Service Bus is consistently slow (~273–302 seconds)** for both propagation and revocation. The restart test definitively proved this is NOT Azure Identity SDK token cache — it's the Service Bus service's own RBAC authorization cache. Even with a brand-new token from a fresh container, Service Bus continues to honor the cached authorization for ~5 minutes. This is a service-side behavior that applications cannot control or bypass.
+**Service Bus is consistently slow (~273–302 seconds)** for both propagation and revocation **[Measured]**. The restart test definitively proved this is NOT Azure Identity SDK token cache — it's the Service Bus service's own RBAC authorization cache **[Observed]**. Even with a brand-new token from a fresh container, Service Bus continues to honor the cached authorization for ~5 minutes **[Observed]**. This is a service-side behavior that applications cannot control or bypass **[Inferred]**.
 
 **Revocation order differs from propagation order:**
 
-- Storage revokes fastest (≤10s) despite propagating moderately slowly (32–105s). This asymmetry suggests Storage may aggressively invalidate revoked permissions while lazily propagating new grants.
-- Key Vault revokes in ~45s — slower than its grant propagation (~10s). This suggests KV may cache "allow" decisions longer than it caches "deny" lookups.
-- Service Bus is slowest in both directions, with ~5-minute delays for both grant and revocation.
+- Storage revokes fastest (≤10s) **[Measured]** despite propagating moderately slowly (32–105s). This asymmetry suggests Storage may aggressively invalidate revoked permissions while lazily propagating new grants **[Strongly Suggested]**.
+- Key Vault revokes in ~45s — slower than its grant propagation (~10s) **[Measured]**. This suggests KV may cache "allow" decisions longer than it caches "deny" lookups **[Inferred]**.
+- Service Bus is slowest in both directions, with ~5-minute delays for both grant and revocation **[Measured]**.
 
-**Token cache contamination across runs:** Runs 2, 4, and 5 showed SB succeeding from poll 1, not because SB propagation was instant, but because the previous run's authorization was still cached in SB's backend (the role was removed and re-added within SB's cache TTL). This confirms that short role removal windows (< 5 min) may not fully clear SB's authorization cache.
+**Token cache contamination across runs:** Runs 2, 4, and 5 showed SB succeeding from poll 1 **[Observed]**, not because SB propagation was instant, but because the previous run's authorization was still cached in SB's backend (the role was removed and re-added within SB's cache TTL) **[Inferred]**. This confirms that short role removal windows (< 5 min) may not fully clear SB's authorization cache **[Inferred]**.
 
 ## 12. What this proves
 
 !!! success "Evidence-based conclusions"
 
-    1. **RBAC propagation delay varies dramatically by service.** Key Vault: ~10s, Storage: 32–105s, Service Bus: 273–302s. The "up to 10 minutes" documented by Microsoft is conservative but real for Service Bus. Confirmed across 5 runs.
-    2. **The Azure Identity SDK token cache is NOT the primary cause of RBAC delays.** The restart test proved that Service Bus continues to authorize requests with a brand-new token from a fresh container. The delay is in the service's own authorization backend, not the SDK.
-    3. **Service Bus has a server-side RBAC authorization cache of ~5 minutes.** This cache persists through application restarts, token refreshes, and new `ManagedIdentityCredential` instances. It is invisible to the application and cannot be bypassed.
-    4. **Revocation timing differs from propagation timing.** Storage revokes fastest (≤10s) despite moderate propagation speed. Key Vault revokes slower (~45s) than it propagates (~10s). Service Bus is slowest in both directions (~5 min).
-    5. **Short role removal/re-assignment cycles contaminate results.** When roles are removed and re-assigned within SB's cache TTL (~5 min), the cached authorization from the previous assignment persists, making propagation appear instant.
+    1. **RBAC propagation delay varies dramatically by service.** Key Vault: ~10s, Storage: 32–105s, Service Bus: 273–302s **[Measured]**. The "up to 10 minutes" documented by Microsoft is conservative but real for Service Bus **[Strongly Suggested]**. Confirmed across 5 runs **[Measured]**.
+    2. **The Azure Identity SDK token cache is NOT the primary cause of RBAC delays.** The restart test proved that Service Bus continues to authorize requests with a brand-new token from a fresh container **[Observed]**. The delay is in the service's own authorization backend, not the SDK **[Inferred]**.
+    3. **Service Bus has a server-side RBAC authorization cache of ~5 minutes.** This cache persists through application restarts, token refreshes, and new `ManagedIdentityCredential` instances **[Observed]**. It is invisible to the application and cannot be bypassed **[Inferred]**.
+    4. **Revocation timing differs from propagation timing.** Storage revokes fastest (≤10s) despite moderate propagation speed. Key Vault revokes slower (~45s) than it propagates (~10s). Service Bus is slowest in both directions (~5 min) **[Measured]**.
+    5. **Short role removal/re-assignment cycles contaminate results.** When roles are removed and re-assigned within SB's cache TTL (~5 min), the cached authorization from the previous assignment persists, making propagation appear instant **[Observed]**.
 
 ## 13. What this does NOT prove
 

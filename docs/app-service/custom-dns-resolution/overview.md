@@ -370,17 +370,17 @@ flowchart LR
 
 ## 11. Interpretation
 
-The experiment **refutes** the original hypothesis. DNS resolution changes propagated **immediately** to the VNet-integrated App Service — there was no observable DNS cache drift window.
+The experiment **refutes** the original hypothesis. DNS resolution changes propagated **immediately** **[Observed]** to the VNet-integrated App Service — there was no observable DNS cache drift window.
 
-When App Service uses VNet integration, DNS queries for private endpoints follow the Azure DNS resolution path through the VNet's DNS configuration. When a Private DNS Zone link is added or removed, the change takes effect as soon as the Azure control plane processes it (~30 seconds for the CLI command). The app's `socket.getaddrinfo()` calls reflected the updated IP on the very first probe after each change.
+When App Service uses VNet integration, DNS queries for private endpoints follow the Azure DNS resolution path through the VNet's DNS configuration. When a Private DNS Zone link is added or removed, the change takes effect as soon as the Azure control plane processes it (~30 seconds for the CLI command). The app's `socket.getaddrinfo()` calls reflected the updated IP on the very first probe after each change **[Measured]**.
 
 This means:
 
-1. **Python's `getaddrinfo` does not cache DNS results** in this environment — each call goes through the platform resolver.
-2. **Azure DNS does not impose a TTL-based cache delay** on Private DNS Zone link changes within the VNet.
-3. **The transition is atomic** — no mixed resolution was observed even with rapid toggle testing. All probes within each phase returned a consistent IP.
+1. **Python's `getaddrinfo` does not cache DNS results** in this environment **[Inferred]** — each call goes through the platform resolver.
+2. **Azure DNS does not impose a TTL-based cache delay** on Private DNS Zone link changes within the VNet **[Observed]**.
+3. **The transition is atomic** **[Observed]** — no mixed resolution was observed even with rapid toggle testing. All probes within each phase returned a consistent IP **[Measured]**.
 
-The customer symptom of "intermittent DNS failures after adding a private endpoint" is therefore unlikely to be caused by DNS cache drift in this configuration. The root cause is more likely one of:
+The customer symptom of "intermittent DNS failures after adding a private endpoint" is therefore unlikely to be caused by DNS cache drift in this configuration **[Inferred]**. The root cause is more likely one of:
 
 - Incorrect DNS zone link configuration (zone linked to wrong VNet or not linked at all)
 - Application-level DNS caching (HTTP client connection pools, SDK keepalive connections)
@@ -390,10 +390,10 @@ The customer symptom of "intermittent DNS failures after adding a private endpoi
 
 !!! success "Evidence-based conclusions"
 
-    1. **Private DNS Zone changes propagate immediately** to VNet-integrated App Service apps. All 4 phases showed zero-delay transitions across 80 total DNS probes.
-    2. **No DNS cache drift** — the hypothesis of TTL-based cache causing intermittent failures is refuted for this configuration.
-    3. **Unlink causes immediate fallback to public DNS** — when the Private DNS Zone link is removed, the app immediately resolves the storage FQDN to its public IP.
-    4. **The transition is deterministic and repeatable** — no mixed resolution was observed even under rapid toggle testing.
+    1. **Private DNS Zone changes propagate immediately** **[Observed]** to VNet-integrated App Service apps. All 4 phases showed zero-delay transitions across 80 total DNS probes **[Measured]**.
+    2. **No DNS cache drift** **[Observed]** — the hypothesis of TTL-based cache causing intermittent failures is refuted for this configuration.
+    3. **Unlink causes immediate fallback to public DNS** **[Observed]** — when the Private DNS Zone link is removed, the app immediately resolves the storage FQDN to its public IP.
+    4. **The transition is deterministic and repeatable** **[Measured]** — no mixed resolution was observed even under rapid toggle testing.
 
 ## 13. What this does NOT prove
 

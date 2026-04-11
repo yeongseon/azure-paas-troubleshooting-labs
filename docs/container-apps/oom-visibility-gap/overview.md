@@ -572,13 +572,13 @@ Worker PIDs killed: 7, 12, 16, 19, 22, 26, 29, 32, 37, 40, 43, 47, 50, 53, 56
 
 ## 11. Interpretation
 
-**H1 — System logs gap: CONFIRMED.** `ContainerAppSystemLogs_CL` recorded zero events after the initial container creation, despite 5 OOM kills across 9 minutes. The gap exists because the system logs track container lifecycle events (create, start, stop, terminate), and the container never stopped or terminated — only the worker process inside it was killed.
+**H1 — System logs gap: CONFIRMED.** `ContainerAppSystemLogs_CL` recorded zero events after the initial container creation **[Observed]**, despite 5 OOM kills across 9 minutes. The gap exists because the system logs track container lifecycle events (create, start, stop, terminate), and the container never stopped or terminated **[Inferred]** — only the worker process inside it was killed.
 
-**H2 — Metrics partial visibility: CONFIRMED.** `WorkingSetBytes` showed a memory pattern (202.9MB average dropping to 33.9MB) that hints at something, but the 1-minute aggregation severely underreports the actual peak (496MB vs reported 202.9MB). `RestartCount` stayed at 0 in the replica API, confirming the container was never restarted. The platform has no metric that distinguishes "worker process OOM-killed" from "everything is fine."
+**H2 — Metrics partial visibility: CONFIRMED.** `WorkingSetBytes` showed a memory pattern (202.9MB average dropping to 33.9MB) that hints at something **[Observed]**, but the 1-minute aggregation severely underreports the actual peak (496MB vs reported 202.9MB) **[Measured]**. `RestartCount` stayed at 0 in the replica API **[Observed]**, confirming the container was never restarted. The platform has no metric that distinguishes "worker process OOM-killed" from "everything is fine."
 
-**H3 — Console logs only evidence: CONFIRMED.** `ContainerAppConsoleLogs_CL` is the only telemetry source that contains direct evidence of OOM kills. The gunicorn master process logging `Worker was sent SIGKILL! Perhaps out of memory?` is application-level intelligence, not platform-provided. Applications that don't have a supervisor logging SIGKILL deaths would have **zero evidence** across all telemetry sources.
+**H3 — Console logs only evidence: CONFIRMED.** `ContainerAppConsoleLogs_CL` is the only telemetry source that contains direct evidence of OOM kills **[Observed]**. The gunicorn master process logging `Worker was sent SIGKILL! Perhaps out of memory?` is application-level intelligence, not platform-provided. Applications that don't have a supervisor logging SIGKILL deaths would have **zero evidence** across all telemetry sources **[Inferred]**.
 
-**H4 — Two failure modes: CONFIRMED.** Gradual memory leaks produced zero client-visible errors — the health endpoint (served by a separate thread in the gthread worker class) continued responding throughout the OOM kill and worker restart. Spike allocations caused client-visible `upstream connect error or disconnect/reset before headers` because the request-handling thread was killed mid-response, and the Envoy proxy couldn't forward the response.
+**H4 — Two failure modes: CONFIRMED.** Gradual memory leaks produced zero client-visible errors — the health endpoint (served by a separate thread in the gthread worker class) continued responding throughout the OOM kill and worker restart **[Observed]**. Spike allocations caused client-visible `upstream connect error or disconnect/reset before headers` **[Observed]** because the request-handling thread was killed mid-response, and the Envoy proxy couldn't forward the response **[Inferred]**.
 
 ### Key Discovery: The Gunicorn Absorption Effect
 
@@ -589,22 +589,22 @@ The most significant finding is that gunicorn's process model completely absorbs
 3. No exit code 137 propagation to the platform
 4. Container health probes pass (master process is alive)
 
-This is not a bug — it's the intended behavior of process supervisors. But it creates a **systematic blind spot** for any customer using gunicorn (Python), Supervisor, or similar multi-process architectures.
+This is not a bug — it's the intended behavior of process supervisors. But it creates a **systematic blind spot** for any customer using gunicorn (Python), Supervisor, or similar multi-process architectures **[Inferred]**.
 
 ### Key Discovery: Spike Causes Kill-Restart Loop
 
-The spike variant revealed a pathological interaction between gunicorn's request queuing and OOM kills. When a request triggers a large allocation and the worker is killed, gunicorn's master process queues the pending request for the next worker. The new worker accepts the same request, triggers the same allocation, and is killed again — creating a loop of 6 killed workers over ~8 seconds. This only stops when the Envoy proxy's request timeout expires.
+The spike variant revealed a pathological interaction between gunicorn's request queuing and OOM kills **[Observed]**. When a request triggers a large allocation and the worker is killed, gunicorn's master process queues the pending request for the next worker. The new worker accepts the same request, triggers the same allocation, and is killed again — creating a loop of 6 killed workers over ~8 seconds **[Measured]**. This only stops when the Envoy proxy's request timeout expires **[Inferred]**.
 
 ## 12. What this proves
 
 !!! success "Evidence level: Reproduced (5 OOM kills, 2 variants, consistent across all runs)"
 
-1. **Container Apps system logs have zero visibility into worker-level OOM kills** — `ContainerAppSystemLogs_CL` contains no events whatsoever for OOM kills that don't terminate PID 1
-2. **Azure Monitor metrics underreport OOM impact** — 1-minute `WorkingSetBytes` average showed 202.9MB when actual peak was 496MB (2.4× underreporting); `RestartCount` stayed 0
-3. **Console logs are the ONLY evidence source** — `ContainerAppConsoleLogs_CL` captured gunicorn's SIGKILL messages, but this depends entirely on the application having a process supervisor that logs child deaths
-4. **Gradual memory leaks are invisible to clients** — health probes pass, no HTTP errors, no availability impact visible externally. Memory drops to baseline and the cycle can repeat indefinitely without anyone noticing
-5. **Spike allocations cause client-visible connection errors** — `upstream connect error or disconnect/reset before headers` with a kill-restart loop lasting ~8 seconds
-6. **OOM kill threshold is deterministic**: All 3 gradual runs killed at exactly 464MB allocated / 496MB RSS in a 0.5Gi container — baseline (~32MB) + allocations = cgroup limit
+1. **Container Apps system logs have zero visibility into worker-level OOM kills** — `ContainerAppSystemLogs_CL` contains no events whatsoever for OOM kills that don't terminate PID 1 **[Observed]**
+2. **Azure Monitor metrics underreport OOM impact** — 1-minute `WorkingSetBytes` average showed 202.9MB when actual peak was 496MB (2.4× underreporting) **[Measured]**; `RestartCount` stayed 0 **[Observed]**
+3. **Console logs are the ONLY evidence source** — `ContainerAppConsoleLogs_CL` captured gunicorn's SIGKILL messages **[Observed]**, but this depends entirely on the application having a process supervisor that logs child deaths **[Inferred]**
+4. **Gradual memory leaks are invisible to clients** — health probes pass, no HTTP errors, no availability impact visible externally **[Observed]**. Memory drops to baseline and the cycle can repeat indefinitely without anyone noticing **[Inferred]**
+5. **Spike allocations cause client-visible connection errors** — `upstream connect error or disconnect/reset before headers` **[Observed]** with a kill-restart loop lasting ~8 seconds **[Measured]**
+6. **OOM kill threshold is deterministic**: All 3 gradual runs killed at exactly 464MB allocated / 496MB RSS in a 0.5Gi container **[Measured]** — baseline (~32MB) + allocations = cgroup limit **[Inferred]**
 
 ## 13. What this does NOT prove
 

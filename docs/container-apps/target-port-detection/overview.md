@@ -377,10 +377,10 @@ After fix:  runningState=Running, healthState=Healthy
 
 | Hypothesis | Verdict | Evidence |
 |-----------|---------|----------|
-| **H1**: Auto-detect reads EXPOSE | **Partially wrong** | Auto-detect works, but NOT because of EXPOSE — T5 proves it works without EXPOSE too |
-| **H2**: EXPOSE required for auto-detect | **Disproved** ❌ | T5: no EXPOSE, targetPort=0, HTTP 200. Platform scans listening ports at runtime |
-| **H3**: Wrong port = 502/503 | **Partially correct** | T4 gives 503, but T2 gives **timeout** (HTTP 000) — failure mode depends on deployment state |
-| **H4**: Container health unaffected | **Confirmed** ✅ | T2: container logs show healthy gunicorn, but StartUp probe fails 190 times |
+| **H1**: Auto-detect reads EXPOSE | **Partially wrong** | Auto-detect works **[Observed]**, but NOT because of EXPOSE — T5 proves it works without EXPOSE too **[Measured]** |
+| **H2**: EXPOSE required for auto-detect | **Disproved** ❌ | T5: no EXPOSE, targetPort=0, HTTP 200 **[Observed]**. Platform scans listening ports at runtime **[Inferred]** |
+| **H3**: Wrong port = 502/503 | **Partially correct** | T4 gives 503 **[Observed]**, but T2 gives **timeout** (HTTP 000) **[Observed]** — failure mode depends on deployment state **[Inferred]** |
+| **H4**: Container health unaffected | **Confirmed** ✅ | T2: container logs show healthy gunicorn **[Observed]**, but StartUp probe fails 190 times **[Measured]** |
 
 ### Two Distinct Failure Modes
 
@@ -409,41 +409,41 @@ The experiment revealed that **wrong targetPort produces different symptoms depe
 
 **Why the difference?**
 
-- **Fresh deploy**: The revision is brand new. The StartUp probe fires against the wrong port and never succeeds. The revision never transitions from `Activating` to `Running`. Ingress has no healthy backend → holds the connection open → **timeout**.
-- **Running app**: The revision is already `Running` with active replicas. Envoy proxy attempts to connect to the new port but immediately gets "connection refused" → **503 in ~300ms**.
+- **Fresh deploy**: The revision is brand new. The StartUp probe fires against the wrong port and never succeeds **[Observed]**. The revision never transitions from `Activating` to `Running` **[Observed]**. Ingress has no healthy backend → holds the connection open → **timeout** **[Inferred]**.
+- **Running app**: The revision is already `Running` with active replicas. Envoy proxy attempts to connect to the new port but immediately gets "connection refused" **[Observed]** → **503 in ~300ms** **[Measured]**.
 
 ### Auto-Detection Mechanism
 
-The experiment proves that Container Apps auto-detection (`targetPort=0`) does **not** rely on the Dockerfile `EXPOSE` directive. Instead, it appears to scan the container's listening sockets at runtime:
+The experiment proves that Container Apps auto-detection (`targetPort=0`) does **not** rely on the Dockerfile `EXPOSE` directive **[Observed]**. Instead, it appears to scan the container's listening sockets at runtime **[Inferred]**:
 
 1. Container starts and opens a TCP listener on port 9999
 2. The platform detects the listening socket
 3. Ingress routes traffic to the detected port
 
-This explains why `az containerapp up --source` works reliably even for non-standard ports — it builds from source, starts the container, detects the port dynamically.
+This explains why `az containerapp up --source` works reliably even for non-standard ports — it builds from source, starts the container, detects the port dynamically **[Inferred]**.
 
 !!! warning "Auto-detect is deployment-method-dependent"
     - `az containerapp up --source`: Supports auto-detect (`targetPort=0`)
     - `az containerapp create --image`: **Requires** explicit `--target-port`
     - `az containerapp ingress update`: **Requires** explicit `--target-port`
 
-    Auto-detection is only available at initial creation time via `az containerapp up`.
+    Auto-detection is only available at initial creation time via `az containerapp up` **[Observed]**.
 
 ## 12. What this proves
 
 !!! abstract "Evidence-backed conclusions"
 
-    1. **`EXPOSE` is irrelevant for auto-detection.** The platform scans listening ports at runtime, not Dockerfile metadata. T3 (with EXPOSE) and T5 (without EXPOSE) both succeeded equally.
+    1. **`EXPOSE` is irrelevant for auto-detection.** The platform scans listening ports at runtime, not Dockerfile metadata **[Inferred]**. T3 (with EXPOSE) and T5 (without EXPOSE) both succeeded equally **[Observed]**.
 
-    2. **Wrong targetPort on fresh deploy = timeout + stuck Activating.** Not 502/503 — the revision never activates because StartUp probes fail on the wrong port. Users see a 30-second timeout followed by no response (HTTP 000).
+    2. **Wrong targetPort on fresh deploy = timeout + stuck Activating.** Not 502/503 — the revision never activates because StartUp probes fail on the wrong port **[Observed]**. Users see a 30-second timeout followed by no response (HTTP 000) **[Measured]**.
 
-    3. **Wrong targetPort on running app = 503 Connection refused.** Fast failure (250-500ms) with Envoy error message.
+    3. **Wrong targetPort on running app = 503 Connection refused.** Fast failure (250-500ms) with Envoy error message **[Measured]**.
 
-    4. **Container appears healthy even with wrong port.** Gunicorn logs show normal startup. The mismatch is only visible in system logs (StartUp probe failures).
+    4. **Container appears healthy even with wrong port.** Gunicorn logs show normal startup **[Observed]**. The mismatch is only visible in system logs (StartUp probe failures) **[Observed]**.
 
-    5. **Recovery is fast after port correction.** Fixing `targetPort` creates a new replica that activates in ~13.5 seconds.
+    5. **Recovery is fast after port correction.** Fixing `targetPort` creates a new replica that activates in ~13.5 seconds **[Measured]**.
 
-    6. **Auto-detect is deployment-method-dependent.** Only `az containerapp up` supports `targetPort=0`. `az containerapp create` requires explicit `--target-port`.
+    6. **Auto-detect is deployment-method-dependent.** Only `az containerapp up` supports `targetPort=0` **[Observed]**. `az containerapp create` requires explicit `--target-port` **[Observed]**.
 
 ## 13. What this does NOT prove
 

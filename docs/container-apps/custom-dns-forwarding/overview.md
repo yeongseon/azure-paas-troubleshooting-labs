@@ -419,23 +419,24 @@ flowchart LR
 ```
 ## 11. Interpretation
 
-The Container Apps DNS resolution chain is **opaque to the application**. The container always sees `nameserver 127.0.0.11` in `/etc/resolv.conf` regardless of the VNet DNS configuration. The Docker embedded DNS proxy (`127.0.0.11`) forwards queries to the k8s node's DNS resolver, which in turn forwards to whatever DNS servers are configured on the VNet.
+The Container Apps DNS resolution chain is **opaque to the application**. **[Observed]** The container always sees `nameserver 127.0.0.11` in `/etc/resolv.conf` regardless of the VNet DNS configuration **[Measured]**. The Docker embedded DNS proxy (`127.0.0.11`) forwards queries to the k8s node's DNS resolver **[Inferred]**, which in turn forwards to whatever DNS servers are configured on the VNet **[Inferred]**.
 
-When the VNet custom DNS points to an unreachable IP, the failure is total and immediate — there is no fallback, no retry to Azure Default DNS, and no timeout escalation. The `[Errno -3] Temporary failure in name resolution` error appears within seconds of the DNS change propagating.
+When the VNet custom DNS points to an unreachable IP, the failure is total and immediate **[Observed]** — there is no fallback, no retry to Azure Default DNS, and no timeout escalation **[Measured]**. The `[Errno -3] Temporary failure in name resolution` error appears within seconds of the DNS change propagating **[Measured]**.
 
-The most operationally significant finding is the **asymmetric propagation behavior**:
+The most operationally significant finding is the **asymmetric propagation behavior** **[Inferred]**:
 
-- **Breaking DNS** (setting unreachable custom DNS): Takes effect within ~30s after revision restart. Cached DNS entries provide a brief grace period.
-- **Restoring DNS** (clearing custom DNS): Requires 2-5 minutes total. A revision restart alone is NOT sufficient — the k8s node's DNS configuration must update first, then a new revision must be created to get a fresh container on an updated node.
+- **Breaking DNS** (setting unreachable custom DNS): Takes effect within ~30s after revision restart **[Measured]**. Cached DNS entries provide a brief grace period **[Inferred]**.
+- **Restoring DNS** (clearing custom DNS): Requires 2-5 minutes total **[Measured]**. A revision restart alone is NOT sufficient **[Observed]** — the k8s node's DNS configuration must update first, then a new revision must be created to get a fresh container on an updated node **[Inferred]**.
+
 ## 12. What this proves
 
 !!! success "Evidence-based conclusions"
 
-    1. **Container starts successfully regardless of DNS state.** The container received HTTP 200 responses throughout all phases — DNS failure does not prevent container startup or cause container crashes. (H1: CONFIRMED)
-    2. **All outbound DNS queries fail when custom DNS is unreachable.** 21 out of 24 probes failed during Phase 2. The 3 successes occurred within ~30s of the restart (cached entries). (H2: CONFIRMED)
-    3. **Failure manifests at both application AND platform level.** Application-level DNS resolution fails with `[Errno -3]`. Additionally, platform-level operations (ACR image pulls) also fail with `server misbehaving`. (H3: PARTIALLY CONFIRMED — broader than expected)
-    4. **No automatic fallback to Azure Default DNS.** When custom DNS is unreachable, the system does not fall back to `168.63.129.16`. All queries fail until the DNS configuration is corrected. (H4: CONFIRMED)
-    5. **Recovery from DNS misconfiguration requires VNet DNS change + propagation time + new revision.** A simple revision restart is not sufficient. (UNEXPECTED FINDING)
+    1. **Container starts successfully regardless of DNS state.** **[Observed]** The container received HTTP 200 responses throughout all phases — DNS failure does not prevent container startup or cause container crashes **[Measured]**. (H1: CONFIRMED)
+    2. **All outbound DNS queries fail when custom DNS is unreachable.** **[Observed]** 21 out of 24 probes failed during Phase 2 **[Measured]**. The 3 successes occurred within ~30s of the restart (cached entries) **[Inferred]**. (H2: CONFIRMED)
+    3. **Failure manifests at both application AND platform level.** **[Observed]** Application-level DNS resolution fails with `[Errno -3]` **[Measured]**. Additionally, platform-level operations (ACR image pulls) also fail with `server misbehaving` **[Measured]**. (H3: PARTIALLY CONFIRMED — broader than expected)
+    4. **No automatic fallback to Azure Default DNS.** **[Observed]** When custom DNS is unreachable, the system does not fall back to `168.63.129.16`. All queries fail until the DNS configuration is corrected **[Measured]**. (H4: CONFIRMED)
+    5. **Recovery from DNS misconfiguration requires VNet DNS change + propagation time + new revision.** **[Observed]** A simple revision restart is not sufficient **[Measured]**. (UNEXPECTED FINDING)
 ## 13. What this does NOT prove
 
 !!! warning "Scope limitations"

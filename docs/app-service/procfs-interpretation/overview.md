@@ -365,23 +365,25 @@ Cgroup `memory.usage_in_bytes` and Azure Monitor `MemoryWorkingSet` show close a
 
 ## 11. Interpretation
 
-1. **procfs exposes VM-level memory, not plan-level quota.** `/proc/meminfo` `MemTotal` reflects the underlying VM size, which closely matches the SKU specification (within ~3-5%). It does NOT show cgroup or sandbox memory limits.
+1. **procfs exposes VM-level memory, not plan-level quota.** `/proc/meminfo` `MemTotal` reflects the underlying VM size **[Observed]**, which closely matches the SKU specification **[Measured]** (within ~3-5%). It does NOT show cgroup or sandbox memory limits **[Observed]**.
 
-2. **Cgroup memory and CPU limits are set to unlimited.** Both `memory.limit_in_bytes` and `cpu.cfs_quota_us` return their maximum/unlimited values. App Service Linux does not use cgroup v1 limits to enforce plan quotas. Resource enforcement happens at the sandbox/hypervisor layer, invisible to the container.
+2. **Cgroup memory and CPU limits are set to unlimited.** Both `memory.limit_in_bytes` and `cpu.cfs_quota_us` return their maximum/unlimited values **[Measured]**. App Service Linux does not use cgroup v1 limits to enforce plan quotas **[Observed]**. Resource enforcement happens at the sandbox/hypervisor layer, invisible to the container **[Inferred]**.
 
-3. **Cgroup memory _usage_ is accurate.** While the cgroup _limit_ is meaningless, `memory.usage_in_bytes` closely tracks Azure Monitor's `MemoryWorkingSet` metric (within 5 MB), making it a reliable indicator of actual app memory consumption.
+3. **Cgroup memory _usage_ is accurate.** While the cgroup _limit_ is meaningless, `memory.usage_in_bytes` closely tracks Azure Monitor's `MemoryWorkingSet` metric **[Measured]** (within 5 MB), making it a reliable indicator of actual app memory consumption **[Inferred]**.
 
-4. **`/proc/loadavg` shows host-level load, not container load.** The B1 plan showed load averages of 8-30 with a single-vCPU plan, indicating load from co-tenants on the shared host. Premium plans (dedicated hosts) showed expected low load values.
+4. **`/proc/loadavg` shows host-level load, not container load.** The B1 plan showed load averages of 8-30 with a single-vCPU plan **[Measured]**, indicating load from co-tenants on the shared host **[Inferred]**. Premium plans (dedicated hosts) showed expected low load values **[Measured]**.
 
-5. **Azure Monitor plan-level metrics are the only reliable source for quota-relative measurements.** `CpuPercentage` and `MemoryPercentage` at the plan level are computed by the platform and correctly reflect usage relative to the plan's allocated resources.
+5. **Azure Monitor plan-level metrics are the only reliable source for quota-relative measurements.** `CpuPercentage` and `MemoryPercentage` at the plan level are computed by the platform and correctly reflect usage relative to the plan's allocated resources **[Inferred]**.
 
 ## 12. What this proves
 
-- `/proc/meminfo` `MemTotal` is a reasonable proxy for the VM size allocated to the plan (within 3-5% of SKU spec).
-- Cgroup `memory.usage_in_bytes` tracks Azure Monitor `MemoryWorkingSet` within ~5 MB.
-- Cgroup memory and CPU _limits_ are **not** enforced via cgroup on App Service Linux — they return unlimited values.
-- `/proc/loadavg` on shared plans (B1) reflects host-level contention, not container-specific load.
-- For quota-relative metrics, only Azure Monitor plan-level `CpuPercentage` and `MemoryPercentage` are reliable.
+!!! success "Evidence-based conclusions"
+
+    1. `/proc/meminfo` `MemTotal` is a reasonable proxy for the VM size allocated to the plan **[Measured]** (within 3-5% of SKU spec).
+    2. Cgroup `memory.usage_in_bytes` tracks Azure Monitor `MemoryWorkingSet` **[Measured]** within ~5 MB.
+    3. Cgroup memory and CPU _limits_ are **not** enforced via cgroup on App Service Linux **[Observed]** — they return unlimited values **[Measured]**.
+    4. `/proc/loadavg` on shared plans (B1) reflects host-level contention **[Observed]**, not container-specific load.
+    5. For quota-relative metrics, only Azure Monitor plan-level `CpuPercentage` and `MemoryPercentage` are reliable **[Inferred]**.
 
 ## 13. What this does NOT prove
 
