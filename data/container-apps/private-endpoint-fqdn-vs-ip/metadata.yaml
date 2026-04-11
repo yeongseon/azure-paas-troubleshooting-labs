@@ -1,0 +1,70 @@
+# Private Endpoint FQDN vs IP Access Experiment — Metadata
+experiment: private-endpoint-fqdn-vs-ip
+date: "2026-04-12"
+region: koreacentral
+resource_group: rg-pe-fqdn-vs-ip-lab
+
+environment:
+  name: cae-pe-fqdn-vs-ip
+  default_domain: politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+  static_ip: "10.80.0.23"
+  type: internal-only (VNet-injected)
+
+vnet:
+  name: vnet-pe-fqdn-vs-ip
+  address_space: "10.80.0.0/16"
+  subnets:
+    aca_infra: "10.80.0.0/23"
+    private_endpoint: "10.80.2.0/24"
+    jumpbox: "10.80.3.0/24"
+
+acr_name: acrpefqdnvsip7892
+image: acrpefqdnvsip7892.azurecr.io/pe-fqdn-vs-ip:v1
+
+app:
+  name: ca-pe-fqdn-vs-ip
+  fqdn: ca-pe-fqdn-vs-ip.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+  target_port: 8000
+  ingress: external
+  min_replicas: 1
+  max_replicas: 1
+  endpoints:
+    - "/health — status + hostname"
+    - "/headers — request headers inspection"
+
+private_dns_zone:
+  name: politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+  wildcard_record: "* → 10.80.0.23"
+  linked_vnet: vnet-pe-fqdn-vs-ip
+
+jumpbox:
+  name: vm-jumpbox
+  ip: "10.80.3.4"
+  sku: Standard_B1s
+  os: Ubuntu 22.04 LTS
+  tools: curl, dnsutils, openssl, jq
+
+certificate:
+  cn: politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+  san:
+    - "*.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io"
+    - "*.scm.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io"
+    - "*.internal.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io"
+    - "*.ext.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io"
+    - "politemoss-5ce30cfa.koreacentral.azurecontainerapps.io"
+  issuer: Microsoft Azure RSA TLS Issuing CA 04
+  valid_from: "2026-04-10"
+  valid_to: "2026-08-25"
+
+runs: 5
+reproducibility: "100% — all 7 test cases + extras produced identical results across 5 runs"
+
+key_findings:
+  - "FQDN access via Private DNS Zone works perfectly — DNS resolves, TLS validates, app responds"
+  - "Direct IP access fails at TLS level — curl to https://IP doesn't send SNI, Envoy resets connection"
+  - "curl -k (skip cert verify) does NOT help — the issue is SNI, not certificate validation"
+  - "curl -H 'Host: FQDN' does NOT help for HTTPS — Host header is HTTP-level, set after TLS handshake"
+  - "curl --resolve FQDN:443:IP works — sends FQDN as both SNI and Host while connecting to IP"
+  - "openssl with explicit -servername to IP works — proves SNI is the sole TLS admission gate"
+  - "HTTP (port 80) to direct IP without Host returns 404; with Host returns 301 redirect to HTTPS"
+  - "Consistent with ingress-sni-host-header experiment — Envoy requires SNI matching env wildcard"

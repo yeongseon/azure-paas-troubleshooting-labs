@@ -89,7 +89,7 @@ graph TB
 | [OOM Visibility Gap](oom-visibility-gap/overview.md) | **Published** | Observability gaps across metrics and logs for OOM kills |
 | [Custom DNS Forwarding](custom-dns-forwarding/overview.md) | **Published** | Outbound resolution failure with unreachable custom DNS |
 | [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) | **Published** | SNI and host header routing behavior |
-| [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) | Planned | FQDN vs. direct IP access differences |
+| [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) | **Published** | FQDN vs. direct IP access differences |
 | [Startup Probes](startup-probes/overview.md) | **Published** | Probe interaction and failure patterns |
 
 ## Published Experiments
@@ -138,9 +138,15 @@ Outbound resolution failure when custom DNS servers configured in the Container 
 ??? success "Experiment Complete"
     Completed 2026-04-11 on Consumption tier (VNet-injected, koreacentral). 54 probes across 4 phases. All 4 hypothesis points confirmed; unexpected finding that recovery is asymmetric — breaking DNS takes ~30s but restoring takes 2-5 minutes.
 
-### [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md)
+### [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) — **Published**
 
-Behavioral differences when accessing a Container App via private endpoint FQDN versus direct IP address. Investigates TLS validation, routing behavior, and failure modes specific to private network access patterns.
+Behavioral differences when accessing a Container App via private endpoint FQDN versus direct IP address. Demonstrates that direct IP access fails at the TLS level due to missing SNI — not certificate validation — and that `curl --resolve` is the correct workaround.
+
+??? success "Experiment Complete"
+    Completed 2026-04-12 on Consumption tier (internal-only, VNet-injected, koreacentral). 10 access patterns tested across 5 runs with 100% reproducibility. Key finding: SNI is mandatory for TLS admission; `-k` and `-H Host:` do not help because the failure occurs before certificate presentation and before HTTP layer processing.
+
+## Planned Experiments
+
 ## Related Experiments in Other Services
 
 - **App Service** — [Memory Pressure](../app-service/memory-pressure/overview.md) (**Published**) covers plan-level resource contention, relevant when comparing Container Apps scaling and resource isolation.

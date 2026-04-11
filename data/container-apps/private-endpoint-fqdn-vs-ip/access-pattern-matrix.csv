@@ -1,0 +1,23 @@
+# Private Endpoint FQDN vs IP Access Experiment — Raw Results
+# Date: 2026-04-12
+# Environment: Azure Container Apps (Consumption, internal-only, VNet-injected), koreacentral
+# Environment FQDN suffix: politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+# Static IP: 10.80.0.23 (internal VNet IP)
+# App FQDN: ca-pe-fqdn-vs-ip.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+# Certificate CN: politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+# Certificate SAN: *.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io (wildcard)
+# Certificate Issuer: Microsoft Azure RSA TLS Issuing CA 04
+# All tests run from jumpbox VM (10.80.3.4) inside the VNet
+# Runs: 5 per test case (all identical — deterministic config test)
+
+test_id,protocol,target,sni_sent,host_header,tls_verify,tls_outcome,http_status,response,curl_exit_code,notes
+T1,HTTPS,FQDN,FQDN (auto),FQDN (auto),enabled,OK — cert validates against wildcard SAN,200,{"status":"ok"} + hostname,0,"Baseline: FQDN access via Private DNS Zone. DNS resolves to 10.80.0.23. All 5 runs succeed."
+T2,HTTPS,IP (10.80.0.23),<none> (IP has no SNI),<none>,enabled,CONNECTION_RESET,n/a,n/a,35,"Direct IP — curl sends no SNI. Envoy resets TLS handshake immediately. curl exit code 35 (SSL connect error)."
+T3,HTTPS,IP (10.80.0.23),<none> (IP has no SNI),<none>,disabled (-k),CONNECTION_RESET,n/a,n/a,35,"Direct IP with -k flag. Still fails — -k only skips cert verification but SNI is still missing. Issue is SNI not cert."
+T4,HTTPS,FQDN (via --resolve to IP),FQDN (auto from --resolve),FQDN (auto from --resolve),enabled,OK — cert validates,200,{"status":"ok"} + hostname,0,"curl --resolve FQDN:443:IP makes curl send FQDN as SNI+Host but connect to 10.80.0.23. TLS and HTTP both succeed."
+T5,HTTPS,IP (10.80.0.23),<none> (IP has no SNI),FQDN (-H Host:),disabled (-k),CONNECTION_RESET,n/a,n/a,35,"IP + Host header + -k. Still fails — -H Host: is HTTP-level (post-TLS). SNI still missing. Connection reset."
+T6a,TLS (openssl),FQDN,FQDN (-servername),n/a,n/a,OK — cert returned,n/a,cert: CN=politemoss-5ce30cfa... wildcard SAN,0,"openssl s_client with FQDN. TLS handshake succeeds. Certificate chain returned."
+T6b,TLS (openssl),IP (10.80.0.23),<none>,n/a,n/a,CONNECTION_RESET — no peer cert,n/a,no certificate returned,1,"openssl s_client to IP without -servername. Connection reset. No peer certificate."
+T6c,TLS (openssl),IP (10.80.0.23),FQDN (-servername explicit),n/a,n/a,OK — cert returned,n/a,cert: CN=politemoss-5ce30cfa... wildcard SAN,0,"openssl s_client to IP WITH -servername FQDN. TLS succeeds. Proves SNI is the sole gate."
+T7a,HTTP,IP (10.80.0.23),n/a (no TLS),<none>,n/a (no TLS),n/a,404,"Container App Unavailable",0,"HTTP port 80 direct IP without Host header. Envoy accepts TCP but returns 404 — no Host to route."
+T7b,HTTP,IP (10.80.0.23),n/a (no TLS),FQDN (-H Host:),n/a (no TLS),n/a,301,"Redirect to https://FQDN/health",0,"HTTP port 80 IP + Host header. Envoy matches app by Host header and returns 301 redirect to HTTPS."

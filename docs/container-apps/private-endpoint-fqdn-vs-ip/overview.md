@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: 2026-04-12
+    result: pass
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,7 @@ validation:
 
 # Private Endpoint: FQDN vs IP Access
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
 
 ## 1. Question
 
@@ -42,7 +42,7 @@ For a Container App behind a private endpoint, FQDN-based access through private
 | Region | Korea Central |
 | Runtime | Containerized HTTP app |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-04-12 |
 
 ## 6. Variables
 
@@ -403,23 +403,175 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-_Awaiting execution._
+### Access Pattern Matrix
+
+All tests run from jumpbox VM (`10.80.3.4`) inside the VNet. Each test executed 5 times with identical results (deterministic config test).
+
+| Test | Protocol | Target | SNI Sent | Host Header | TLS Outcome | HTTP Status | Notes |
+|------|----------|--------|----------|-------------|-------------|-------------|-------|
+| T1 | HTTPS | FQDN | FQDN (auto) | FQDN (auto) | ✅ OK — cert validates | 200 | Baseline. DNS resolves to `10.80.0.23` via Private DNS Zone. |
+| T2 | HTTPS | IP (`10.80.0.23`) | ❌ None (IP) | None | ❌ CONNECTION_RESET | n/a | curl exit 35. No SNI sent → Envoy resets TLS immediately. |
+| T3 | HTTPS | IP + `-k` | ❌ None (IP) | None | ❌ CONNECTION_RESET | n/a | `-k` only skips cert verify. SNI still missing → reset. |
+| T4 | HTTPS | FQDN via `--resolve` | FQDN (auto) | FQDN (auto) | ✅ OK — cert validates | 200 | `--resolve FQDN:443:IP` sends FQDN as SNI+Host but connects to IP. |
+| T5 | HTTPS | IP + `-H Host:` + `-k` | ❌ None (IP) | FQDN | ❌ CONNECTION_RESET | n/a | `-H Host:` is HTTP-level (post-TLS). SNI still missing → reset. |
+| T6a | TLS (openssl) | FQDN | FQDN | n/a | ✅ Cert returned | n/a | Wildcard SAN matches. Full cert chain returned. |
+| T6b | TLS (openssl) | IP | ❌ None | n/a | ❌ CONNECTION_RESET | n/a | No `-servername` → no SNI → no peer certificate. |
+| T6c | TLS (openssl) | IP + `-servername` | FQDN (explicit) | n/a | ✅ Cert returned | n/a | Explicit SNI to IP works. Proves SNI is the sole gate. |
+| T7a | HTTP | IP (port 80) | n/a | None | n/a | 404 | "Container App Unavailable" — no Host to route. |
+| T7b | HTTP | IP (port 80) | n/a | FQDN | n/a | 301 | Redirect to `https://FQDN/health` — Envoy matches by Host. |
+
+### Key Observations from Raw Output
+
+```text
+# T1: FQDN access — DNS resolution + successful response
+$ nslookup ca-pe-fqdn-vs-ip.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+Server:   127.0.0.53
+Address:  10.80.0.23  (Private DNS Zone wildcard record)
+
+$ curl https://ca-pe-fqdn-vs-ip.politemoss-5ce30cfa.../health
+{"hostname": "ca-pe-fqdn-vs-ip--xxxxxxx-xxxxxxxxx-xxxxx", "status": "ok", ...}
+
+# T2: Direct IP — connection reset at TLS
+$ curl --verbose https://10.80.0.23/health
+* Trying 10.80.0.23:443...
+* Connected to 10.80.0.23 port 443
+* OpenSSL SSL_connect: Connection reset by peer
+curl: (35) OpenSSL SSL_connect: Connection reset by peer
+
+# T3: Direct IP + skip TLS — still fails (SNI issue, not cert)
+$ curl --insecure https://10.80.0.23/health
+curl: (35) OpenSSL SSL_connect: Connection reset by peer
+
+# T5: Direct IP + Host header — still fails (Host is HTTP-level, post-TLS)
+$ curl --insecure -H "Host: ca-pe-fqdn-vs-ip.politemoss-5ce30cfa..." https://10.80.0.23/health
+curl: (35) OpenSSL SSL_connect: Connection reset by peer
+
+# T4: --resolve workaround — success (sends FQDN as SNI+Host)
+$ curl --resolve "ca-pe-fqdn-vs-ip.politemoss-5ce30cfa...:443:10.80.0.23" https://ca-pe-fqdn-vs-ip.politemoss-5ce30cfa.../health
+{"hostname": "ca-pe-fqdn-vs-ip--xxxxxxx-xxxxxxxxx-xxxxx", "status": "ok", ...}
+
+# T6b: openssl to IP without SNI — connection reset
+$ echo | openssl s_client -connect 10.80.0.23:443
+140xxx:error:...Connection reset by peer
+no peer certificate available
+
+# T6c: openssl to IP WITH explicit SNI — success
+$ echo | openssl s_client -connect 10.80.0.23:443 -servername ca-pe-fqdn-vs-ip.politemoss-5ce30cfa...
+subject=CN = politemoss-5ce30cfa.koreacentral.azurecontainerapps.io
+issuer=C = US, O = Microsoft, CN = Microsoft Azure RSA TLS Issuing CA 04
+
+# T7a: HTTP to IP without Host — 404
+$ curl http://10.80.0.23/health
+< HTTP/1.1 404 Not Found
+Container App Unavailable
+
+# T7b: HTTP to IP with Host — 301 redirect
+$ curl -H "Host: ca-pe-fqdn-vs-ip.politemoss-5ce30cfa..." http://10.80.0.23/health
+< HTTP/1.1 301 Moved Permanently
+< location: https://ca-pe-fqdn-vs-ip.politemoss-5ce30cfa.../health
+```
+
+### Architecture: TLS and HTTP Routing in Private Endpoint Scenarios
+
+```mermaid
+flowchart TD
+    A[Client in VNet] --> B{Access method?}
+    B -- "FQDN<br>(Private DNS Zone)" --> C[DNS resolves to<br>10.80.0.23]
+    C --> D[TLS ClientHello<br>with SNI = FQDN]
+    D --> E[✅ Envoy accepts SNI<br>wildcard cert match]
+    E --> F[HTTP request<br>Host: FQDN]
+    F --> G[✅ Route to app<br>200 OK]
+
+    B -- "Direct IP<br>(https://10.80.0.23)" --> H[TLS ClientHello<br>SNI = ❌ empty]
+    H --> I[❌ Envoy resets<br>connection — no SNI]
+
+    B -- "IP + curl --resolve" --> J[TLS ClientHello<br>SNI = FQDN via --resolve]
+    J --> E
+
+    B -- "IP + -H Host:<br>(HTTPS)" --> K[TLS ClientHello<br>SNI = ❌ still empty]
+    K --> I
+
+    B -- "IP + -H Host:<br>(HTTP port 80)" --> L{Host header<br>present?}
+    L -- No --> M[404 Not Found]
+    L -- Yes --> N[301 Redirect<br>to HTTPS]
+
+    style G fill:#efe,stroke:#0a0,color:#060
+    style I fill:#fee,stroke:#c00,color:#900
+    style M fill:#ffd,stroke:#aa0,color:#660
+    style N fill:#def,stroke:#06a,color:#036
+```
+
+### TLS Certificate Details
+
+| Field | Value |
+|-------|-------|
+| Subject CN | `politemoss-5ce30cfa.koreacentral.azurecontainerapps.io` |
+| SAN (wildcard) | `*.politemoss-5ce30cfa.koreacentral.azurecontainerapps.io` |
+| SAN (others) | `*.scm.*`, `*.internal.*`, `*.ext.*` |
+| Issuer | Microsoft Azure RSA TLS Issuing CA 04 |
+| Valid | 2026-04-10 to 2026-08-25 |
 
 ## 11. Interpretation
 
-_Awaiting execution._
+The experiment confirms that **Container Apps' Envoy ingress treats SNI as a mandatory TLS admission gate** in private endpoint scenarios, just as it does for external ingress. The failure mode when accessing by IP address is not a certificate validation error — it is an **SNI absence error** that occurs before any certificate is even presented.
+
+**Why direct IP access fails:**
+
+1. When `curl` connects to an IP address (`https://10.80.0.23`), it sends the IP as the target hostname in the TLS ClientHello SNI extension.
+2. Envoy's listener filter expects SNI values matching the environment wildcard pattern (`*.politemoss-5ce30cfa...`).
+3. An IP address (or empty SNI) does not match this pattern, so Envoy resets the connection immediately — before presenting any certificate.
+
+**Why `-k` doesn't help:**
+
+The `-k` (insecure) flag tells curl to skip **certificate validation** (step after TLS handshake). But the connection is reset **during** the TLS handshake due to SNI mismatch. Certificate validation never gets a chance to run.
+
+**Why `-H "Host: FQDN"` doesn't help for HTTPS:**
+
+The `Host` header is an HTTP/1.1 concept set **after** the TLS handshake completes. Since the connection is reset during TLS (before HTTP), setting the Host header has no effect. This is the most common misconception — customers assume Host and SNI are the same, but they operate at different protocol layers.
+
+**Why `--resolve` works:**
+
+`curl --resolve FQDN:443:IP` tells curl to "pretend DNS resolved FQDN to IP." curl then sends the FQDN as SNI (TLS layer) and Host (HTTP layer), but connects to the specified IP address. This satisfies both layers of Envoy's routing model.
+
+**HTTP (port 80) behaves differently:**
+
+HTTP has no TLS handshake, so no SNI gate. Envoy accepts all TCP connections on port 80 but routes purely by Host header. Without a Host header → 404. With a valid Host header → 301 redirect to HTTPS (since the app has HTTPS-only ingress).
 
 ## 12. What this proves
 
-_Awaiting execution._
+!!! success "Evidence-based conclusions"
+
+    1. **SNI is mandatory for HTTPS access to Container Apps — including via private endpoint.** Direct IP access without SNI results in an immediate connection reset (curl exit 35). Confirmed 5/5 runs.
+    2. **The failure is SNI-level, not certificate-level.** Skipping certificate verification (`-k`) does not change the outcome. The connection is rejected before any certificate is presented.
+    3. **HTTP Host header cannot substitute for TLS SNI.** Setting `-H "Host: FQDN"` while connecting to the IP does not help because the Host header is set after the TLS handshake, which never completes.
+    4. **`curl --resolve` is the correct workaround for IP-based access.** It sends the FQDN as both SNI and Host while connecting to the specified IP, satisfying both TLS admission and HTTP routing.
+    5. **openssl confirms SNI is the sole gate.** `openssl s_client -connect IP:443` fails without `-servername`, but succeeds with explicit `-servername FQDN` — isolating SNI as the single discriminating factor.
+    6. **HTTP (port 80) routing uses Host header only.** No SNI gate exists for unencrypted traffic. Without Host → 404; with Host → 301 redirect to HTTPS.
+    7. **Private DNS Zone is the intended access mechanism.** The wildcard A record (`* → 10.80.0.23`) ensures all app FQDNs resolve to the internal IP, and curl automatically uses the FQDN as SNI.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+!!! warning "Scope limitations"
+
+    - **External ingress with public IP.** This experiment tested internal-only environments with VNet access. External environments with public ingress IPs may have different SNI handling.
+    - **Custom domain certificates.** Only the platform-managed wildcard certificate was tested. Per-app custom domain certificates with distinct SNI matching rules may behave differently.
+    - **Application Gateway or Front Door in front of Container Apps.** These L7 proxies rewrite SNI and Host headers, so the direct IP access patterns may differ when a reverse proxy is involved.
+    - **Private endpoint to external environment.** This test used an internal-only environment where the static IP is inherently private. A private endpoint attached to an external environment (to give VNet clients a private path to an otherwise public app) may have different behavior.
+    - **mTLS or client certificate scenarios.** Mutual TLS adds additional handshake requirements beyond SNI that were not tested.
+    - **Envoy version-specific behavior.** The SNI gate behavior is determined by the Envoy proxy version deployed by the Container Apps platform, which may change in future updates.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+!!! tip "Key diagnostic insight"
+
+    When a customer reports "app works via FQDN but fails via IP address" in a Container Apps private endpoint scenario:
+
+    1. **Explain the SNI requirement.** Container Apps ingress (Envoy) requires a valid SNI matching the environment wildcard domain. Direct IP access omits SNI, causing an immediate connection reset — not a certificate error.
+    2. **`-k` will not fix it.** Customers often try `curl -k` thinking it's a certificate issue. It's not. The connection is rejected before any certificate is presented because SNI is missing.
+    3. **`-H "Host: ..."` will not fix it for HTTPS.** The Host header operates at the HTTP layer, which comes after TLS. Since TLS fails first, the Host header never reaches Envoy's HTTP router.
+    4. **Correct workaround: `curl --resolve FQDN:443:IP`.** This tells curl to send the FQDN as SNI while connecting to the IP address. Useful for debugging when DNS is not resolving correctly.
+    5. **The real fix is Private DNS Zone configuration.** Ensure the Private DNS Zone for the environment default domain is linked to the client's VNet and contains a wildcard A record pointing to the environment's static IP. Once DNS resolves correctly, standard FQDN access works without workarounds.
+    6. **If HTTP (port 80) works but HTTPS doesn't**, the issue is confirmed to be TLS/SNI-related, not network connectivity. The Envoy proxy can be reached but rejects the TLS handshake due to missing SNI.
 
 ## 15. Reproduction notes
 
