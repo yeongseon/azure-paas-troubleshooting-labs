@@ -88,7 +88,7 @@ graph TB
 | [Target Port Detection](target-port-detection/overview.md) | **Published** | Auto-detection failures causing 502 on running containers |
 | [OOM Visibility Gap](oom-visibility-gap/overview.md) | **Published** | Observability gaps across metrics and logs for OOM kills |
 | [Custom DNS Forwarding](custom-dns-forwarding/overview.md) | Planned | Outbound resolution failure with unreachable custom DNS |
-| [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) | Planned | SNI and host header routing behavior |
+| [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) | **Published** | SNI and host header routing behavior |
 | [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) | Planned | FQDN vs. direct IP access differences |
 | [Startup Probes](startup-probes/overview.md) | **Published** | Probe interaction and failure patterns |
 
@@ -121,6 +121,13 @@ Interaction between startup, readiness, and liveness probes. Investigates failur
 
 ??? success "Experiment Complete"
     Completed 2026-04 on Consumption tier (koreacentral). Four probe scenarios tested: startup-only failure, no-startup with liveness, readiness-only failure, and combined aggressive probes. Documents restart cascades, traffic routing gaps, and probe handoff timing.
+### [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) — **Published**
+
+How Container Apps ingress handles Server Name Indication (SNI) and host header routing. Demonstrates that Envoy routes by Host header (not SNI), SNI is required for TLS admission, and any app in a shared environment can be reached by manipulating the Host header.
+
+??? success "Experiment Complete"
+    Completed 2026-04 on Consumption tier (koreacentral). Eight SNI/Host permutations tested across 3 runs with 100% reproducibility. Key finding: Host header is the routing key; SNI is only a TLS admission gate.
+
 
 ## Planned Experiments
 
@@ -128,9 +135,6 @@ Interaction between startup, readiness, and liveness probes. Investigates failur
 
 Outbound resolution failure when custom DNS servers configured in the Container Apps environment become unreachable. Investigates fallback behavior and the blast radius of DNS misconfiguration.
 
-### [Ingress SNI / Host Header](ingress-sni-host-header/overview.md)
-
-How Container Apps ingress handles Server Name Indication (SNI) and host header routing. Investigates edge cases with custom domains, mismatched headers, and multi-app environments where routing decisions may produce unexpected results.
 
 ### [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md)
 

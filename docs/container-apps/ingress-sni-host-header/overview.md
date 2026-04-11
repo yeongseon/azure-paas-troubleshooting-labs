@@ -15,7 +15,7 @@ validation:
 
 # Ingress Host Header and SNI Behavior
 
-!!! info "Status: Planned"
+!!! success "Status: Published"
 
 ## 1. Question
 
@@ -42,7 +42,7 @@ Ingress routing decisions in Azure Container Apps depend on both TLS SNI and HTT
 | Region | Korea Central |
 | Runtime | Containerized HTTP app (nginx + test API) |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-04-11 |
 
 ## 6. Variables
 
@@ -258,23 +258,113 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-_Awaiting execution._
+Two Container Apps (`app-alpha`, `app-beta`) were deployed in a shared Consumption environment (`cae-ingress-sni-lab`) in `koreacentral`. Both apps used nginx returning their identity string on port 8080. All apps resolved to the same ingress IP (`20.200.224.215`). The environment wildcard certificate covered `*.orangewave-86b9faae.koreacentral.azurecontainerapps.io`.
+
+Eight test cases were executed across 3 runs with 100% reproducibility.
+
+### Evidence: SNI and Host Header Routing Matrix
+
+| # | SNI Value | Host Header | TLS Outcome | HTTP Status | Response Body | Routing Decision |
+|---|-----------|-------------|-------------|-------------|---------------|------------------|
+| TC1 | `alpha.*` (correct) | `alpha.*` (correct) | ✅ OK | 200 | `app-alpha` | ✅ Correct — routed to alpha |
+| TC2 | `alpha.*` (correct) | `beta.*` (wrong) | ✅ OK | 200 | **`app-beta`** | ⚠️ Routed by **Host header**, not SNI |
+| TC3 | `nonexistent.*` (wrong, within env) | `alpha.*` (correct) | ✅ OK (`-k`) | 200 | `app-alpha` | Routed by Host header; SNI within wildcard passes TLS |
+| TC4 | `<none>` (no SNI) | `alpha.*` (correct) | ❌ **Connection reset** | n/a | n/a | TLS handshake rejected — SNI is **required** |
+| TC5 | `alpha.*` (correct) | `<empty>` | ✅ OK | **404** | Error page | TLS succeeded; no Host = Envoy returns 404 |
+| TC6 | `beta.*` | `alpha.*` | ✅ OK | 200 | `app-alpha` | Confirms: routing follows **Host**, not SNI |
+| TC7 | `alpha.*` (correct) | `totally-unknown.example.com` | ✅ OK | **404** | Error page | Host doesn't match any app → 404 |
+| TC8 | `completely-outside.example.com` | `alpha.*` | ❌ **Connection reset** | 000 | n/a | SNI outside env wildcard → TLS rejected |
+
+### Evidence: TLS Certificate Details
+
+| Field | Value |
+|-------|-------|
+| CN | `orangewave-86b9faae.koreacentral.azurecontainerapps.io` |
+| SAN (wildcard) | `*.orangewave-86b9faae.koreacentral.azurecontainerapps.io` |
+| SAN (scm) | `*.scm.orangewave-86b9faae.koreacentral.azurecontainerapps.io` |
+| SAN (internal) | `*.internal.orangewave-86b9faae.koreacentral.azurecontainerapps.io` |
+| SAN (ext) | `*.ext.orangewave-86b9faae.koreacentral.azurecontainerapps.io` |
+| Issuer | Microsoft Azure RSA TLS Issuing CA 03 |
+| Protocol | TLSv1.3 / TLS_AES_256_GCM_SHA384 |
+| Key size | RSA 2048-bit |
+| Validity | 2026-04-10 to 2026-08-25 |
+
+### Evidence: SNI Filtering Behavior
+
+```text
+# No SNI → immediate connection reset (TC4)
+write:errno=104
+SSL handshake has read 0 bytes and written 293 bytes
+
+# SNI outside environment wildcard → connection reset (TC8)
+OpenSSL SSL_connect: Connection reset by peer in connection to completely-outside.example.com:443
+
+# SNI within environment wildcard (even nonexistent app) → TLS succeeds (TC3)
+SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384
+subjectAltName: host "nonexistent.orangewave-..." matched cert's "*.orangewave-..."
+```
+
+### Architecture: Two-Layer Routing Decision
+
+```mermaid
+flowchart TD
+    A[Client TLS ClientHello] --> B{SNI present?}
+    B -- No --> C[❌ Connection Reset]
+    B -- Yes --> D{SNI matches<br>environment wildcard?}
+    D -- No --> C
+    D -- Yes --> E[✅ TLS terminates<br>with wildcard cert]
+    E --> F{Host header matches<br>a configured app?}
+    F -- No / Empty --> G[404 Not Found]
+    F -- Yes --> H[✅ Route to app<br>matching Host header]
+
+    style C fill:#fee,stroke:#c00,color:#900
+    style G fill:#ffd,stroke:#aa0,color:#660
+    style H fill:#efe,stroke:#0a0,color:#060
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+The Container Apps Envoy ingress uses a **two-layer routing model**:
+
+1. **TLS layer (SNI)**: Acts as an **admission gate**, not a routing key. The ingress requires a valid SNI that matches the environment's wildcard certificate pattern. If SNI is missing or outside the wildcard, the TLS handshake is immediately rejected. However, any SNI value matching the wildcard pattern is accepted — even for non-existent apps.
+
+2. **HTTP layer (Host header)**: Acts as the **routing key**. After TLS termination, Envoy uses the `Host` header to select which Container App receives the request. The SNI value is completely ignored for routing.
+
+This two-layer model explains the common customer confusion: if a client sends a TLS ClientHello with `app-alpha.*` as SNI but includes `Host: app-beta.*` in the HTTP request, **the request reaches `app-beta`**, not `app-alpha`. This is deterministic and reproducible, but counterintuitive if the customer assumes SNI drives routing.
+
+The wildcard certificate approach means all apps in an environment share the same TLS certificate. There is no per-app certificate selection based on SNI — the environment-level wildcard handles all default-domain apps uniformly.
 
 ## 12. What this proves
 
-_Awaiting execution._
+!!! success "Evidence-based conclusions"
+
+    1. **Host header determines routing, not SNI.** When SNI and Host header point to different apps (TC2, TC6), the request is always routed to the app matching the Host header. Confirmed across 3 runs with 100% reproducibility.
+    2. **SNI is mandatory for TLS.** Omitting SNI entirely (TC4) causes the Envoy frontend to reset the connection before any TLS negotiation occurs.
+    3. **SNI must match the environment wildcard.** An SNI value outside the `*.{env-suffix}.azurecontainerapps.io` pattern (TC8) is rejected at TLS level.
+    4. **Unknown Host header = 404, not connection failure.** When TLS succeeds but the Host header doesn't match any configured app (TC5, TC7), Envoy returns an HTTP 404 with the standard "Container App Unavailable" error page.
+    5. **Cross-app routing via Host header is possible.** Any client with access to the shared ingress IP can route to any app in the environment by setting the Host header — the TLS SNI does not restrict which app can be reached.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+!!! warning "Scope limitations"
+
+    - **Custom domain certificate behavior.** This experiment used only the platform-managed wildcard certificate. Per-app custom domain certificates with distinct SNI routing may behave differently.
+    - **Internal environment ingress.** All tests used external ingress. Internal (VNet-only) environments may have different SNI handling or certificate provisioning.
+    - **WAF or Front Door interaction.** No additional L7 proxy (Azure Front Door, Application Gateway) was placed in front of the Container Apps ingress. These services add their own SNI/Host rewriting logic.
+    - **mTLS scenarios.** Client certificate requirements were not tested. Mutual TLS may add additional SNI validation logic.
+    - **Rate limiting or abuse detection.** Whether the ingress applies any throttling or alerting when a client rapidly switches Host headers across apps was not measured.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+!!! tip "Key diagnostic insight"
+
+    When a customer reports "wrong app responding" in Container Apps:
+
+    1. **Check the Host header**, not the SNI. The Host header is what determines which app receives the request.
+    2. **If using a reverse proxy** (nginx, CDN, Front Door), verify it forwards the correct `Host` header — not a rewritten one. A proxy that resolves `alpha.example.com` but forwards `Host: beta.example.com` will route to beta.
+    3. **If the customer sees TLS connection resets**, check that their client sends SNI and that it matches the environment wildcard pattern. Legacy HTTP clients or IoT devices that omit SNI will be rejected.
+    4. **If the customer sees 404 errors**, the TLS handshake succeeded but the Host header doesn't match any configured app FQDN. Check for typos or mismatched custom domain bindings.
+    5. **Environment isolation is at the DNS/TLS layer, not the HTTP layer.** All apps in an environment are reachable from any client that passes TLS admission. True app-level isolation requires separate environments.
 
 ## 15. Reproduction notes
 
@@ -282,8 +372,13 @@ _Awaiting execution._
 - Flush local DNS cache when switching between FQDN and direct test variants.
 - Capture full TLS handshake output alongside HTTP response for each case.
 - Keep one certificate and domain change at a time to avoid overlapping configuration effects.
+- Use `--resolve` flag with `curl` and `-servername` with `openssl s_client` to control SNI independently from DNS resolution.
+- For "no SNI" tests, use `openssl s_client -noservername` — curl always sends SNI by default.
+- All 8 test cases are deterministic (config experiment) — 3 runs sufficient to confirm reproducibility.
 
 ## 16. Related guide / official docs
 
 - [Microsoft Learn: Custom domains in Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates)
-- [azure-container-apps-practical-guide](https://github.com/yeongseon/azure-container-apps-practical-guide)
+- [Microsoft Learn: Ingress in Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/ingress-overview)
+- [Microsoft Learn: Networking in Container Apps environment](https://learn.microsoft.com/en-us/azure/container-apps/networking)
+- [Envoy Proxy: SNI-based filtering](https://www.envoyproxy.io/docs/envoy/latest/faq/configuration/sni)

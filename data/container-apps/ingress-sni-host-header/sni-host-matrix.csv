@@ -1,0 +1,25 @@
+# Ingress SNI and Host Header Experiment — Raw Results
+# Date: 2026-04-11
+# Environment: Azure Container Apps (Consumption), koreacentral
+# Environment FQDN suffix: orangewave-86b9faae.koreacentral.azurecontainerapps.io
+# Ingress IP: 20.200.224.215 (shared Envoy frontend)
+# Certificate CN: orangewave-86b9faae.koreacentral.azurecontainerapps.io
+# Certificate SAN: *.orangewave-86b9faae.koreacentral.azurecontainerapps.io,
+#   *.scm.orangewave-86b9faae.koreacentral.azurecontainerapps.io,
+#   *.internal.orangewave-86b9faae.koreacentral.azurecontainerapps.io,
+#   *.ext.orangewave-86b9faae.koreacentral.azurecontainerapps.io,
+#   orangewave-86b9faae.koreacentral.azurecontainerapps.io
+# Certificate Issuer: Microsoft Azure RSA TLS Issuing CA 03
+# Certificate Validity: 2026-04-10 to 2026-08-25
+# Apps: app-alpha (returns "app-alpha"), app-beta (returns "app-beta")
+# Runs: 3 (all identical — deterministic config test)
+
+test_case_id,sni_value,host_header_value,tls_outcome,certificate_cn_san_match,http_status_code,response_body_identity,notes
+TC1,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,OK,wildcard_match,200,app-alpha,"Baseline: correct SNI + correct Host → routes to intended app"
+TC2,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,app-beta.orangewave-86b9faae.koreacentral.azurecontainerapps.io,OK,wildcard_match,200,app-beta,"SNI=alpha but Host=beta → Envoy routes by HOST HEADER not SNI. Response is app-beta."
+TC3,nonexistent.orangewave-86b9faae.koreacentral.azurecontainerapps.io,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,OK (with -k),wildcard_match,200,app-alpha,"SNI=nonexistent within env wildcard + Host=alpha → TLS succeeds (wildcard cert), routes by Host to alpha"
+TC4,<none> (-noservername),app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,CONNECTION_RESET,n/a,n/a,n/a,"No SNI → Envoy rejects TLS handshake immediately (connection reset by peer). SNI is REQUIRED."
+TC5,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,<empty>,OK,wildcard_match,404,error_page,"Correct SNI + empty Host → TLS succeeds but Envoy returns 404 (Container App Unavailable page)"
+TC6,app-beta.orangewave-86b9faae.koreacentral.azurecontainerapps.io,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,OK,wildcard_match,200,app-alpha,"SNI=beta + Host=alpha → Routes to alpha. Confirms Host header is the routing key, not SNI."
+TC7,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,totally-unknown.example.com,OK,wildcard_match,404,error_page,"Valid SNI + unknown Host → TLS succeeds but Envoy returns 404 (no matching app for Host)"
+TC8,completely-outside.example.com,app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io,CONNECTION_RESET,n/a,000,n/a,"SNI outside env wildcard → Connection reset. Envoy only accepts SNI matching environment wildcard."

@@ -1,0 +1,46 @@
+# Ingress SNI and Host Header Experiment — Metadata
+experiment: ingress-sni-host-header
+date: "2026-04-11"
+region: koreacentral
+resource_group: rg-ingress-sni-lab
+environment_name: cae-ingress-sni-lab
+environment_suffix: orangewave-86b9faae
+ingress_ip: "20.200.224.215"
+acr_name: acringresssni15246
+
+apps:
+  alpha:
+    name: app-alpha
+    fqdn: app-alpha.orangewave-86b9faae.koreacentral.azurecontainerapps.io
+    image: acringresssni15246.azurecr.io/alpha:1.0.0
+    response_body: "app-alpha"
+  beta:
+    name: app-beta
+    fqdn: app-beta.orangewave-86b9faae.koreacentral.azurecontainerapps.io
+    image: acringresssni15246.azurecr.io/beta:1.0.0
+    response_body: "app-beta"
+
+certificate:
+  cn: orangewave-86b9faae.koreacentral.azurecontainerapps.io
+  san:
+    - "*.orangewave-86b9faae.koreacentral.azurecontainerapps.io"
+    - "*.scm.orangewave-86b9faae.koreacentral.azurecontainerapps.io"
+    - "*.internal.orangewave-86b9faae.koreacentral.azurecontainerapps.io"
+    - "*.ext.orangewave-86b9faae.koreacentral.azurecontainerapps.io"
+    - "orangewave-86b9faae.koreacentral.azurecontainerapps.io"
+  issuer: Microsoft Azure RSA TLS Issuing CA 03
+  valid_from: "2026-04-10"
+  valid_to: "2026-08-25"
+  protocol: TLSv1.3
+  cipher: TLS_AES_256_GCM_SHA384
+
+runs: 3
+reproducibility: "100% — all 8 test cases produced identical results across 3 runs"
+
+key_findings:
+  - "Envoy routes HTTP requests by Host header, NOT by TLS SNI"
+  - "SNI is required for TLS termination — no SNI = connection reset"
+  - "SNI must match the environment wildcard — outside-env SNI = connection reset"
+  - "Any SNI within the env wildcard succeeds TLS (even nonexistent apps)"
+  - "Envoy returns 404 when Host header doesn't match any configured app"
+  - "Cross-app routing via Host header mismatch is a real security concern in shared environments"
