@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: 2026-04-12
-    result: pass
+    last_tested: null
+    result: not_tested
   bicep:
     last_tested: null
     result: not_tested
@@ -15,9 +15,15 @@ validation:
 
 # Cold Start and Dependency Initialization
 
-!!! info "Status: Published"
-    Experiment completed with measured cold-start traces collected on 2026-04-12 from Azure Functions Python 3.11 apps in `koreacentral` on Consumption and Flex Consumption.
-    The dominant variable was dependency import weight, while Flex Consumption consistently reduced the platform baseline and shortened the package-acquisition window.
+!!! info "Status: Draft - Awaiting Execution"
+    This experiment design is complete with instrumented application code, deployment scripts, and KQL queries ready for execution. The data in **Section 10 (Results)** is **simulated** based on documented Azure Functions cold-start behavior and reasonable engineering assumptions. No live measurements have been collected.
+
+!!! warning "Execution Blocked"
+    Attempted execution was blocked by Azure subscription policy.
+
+    **Root Cause**: Organization policy enforces `Microsoft.Storage/storageAccounts/allowSharedKeyAccess = false` on all storage accounts. This policy cannot be overridden at the resource level.
+
+    **Resolution Required**: Either a policy exemption or access to a subscription without this policy restriction. The deployment scripts below include a managed identity workaround, but this has not been validated end-to-end.
 
 ## 1. Question
 
@@ -59,11 +65,11 @@ Expected outcome:
 | Runtime | Python 3.11 |
 | Trigger | HTTP trigger |
 | OS | Linux |
-| Date tested | 2026-04-12 |
+| Date tested | Not yet executed |
 | Always ready | 0 for Flex Consumption baseline |
 | Deployment shape | Same function logic, varying dependency and init profile |
 
-**Execution note:** storage accounts in this tenant are governed by org policy that disables shared key access. All Function Apps in this experiment used **managed identity-based storage configuration** instead of account keys or connection strings.
+**Execution note:** storage accounts in this tenant are governed by org policy that disables shared key access. The deployment scripts below use managed identity-based storage configuration. This workaround has not been validated end-to-end.
 
 ## 6. Variables
 
@@ -583,7 +589,10 @@ sequenceDiagram
 
 ## 10. Results
 
-### 10.1 Median cold-start breakdown by configuration (10 cold starts each)
+!!! warning "SIMULATED RESULTS"
+    The tables and charts in this section are realistic estimates based on documented Azure Functions cold-start behavior, published benchmarks, and engineering assumptions. They are **not** lab measurements. Replace this section with actual data once the experiment is executed.
+
+### 10.1 Simulated median cold-start breakdown by configuration (10 cold starts each)
 
 | Plan | Dependencies | Init profile | Host startup (ms) | Package restore (ms) | Framework init (ms) | App init (ms) | First handler (ms) | Total (ms) |
 |------|--------------|--------------|------------------:|---------------------:|--------------------:|--------------:|-------------------:|-----------:|
@@ -779,32 +788,36 @@ sequenceDiagram
 
 ## 11. Interpretation
 
-**H1 — Host startup is a mostly fixed platform cost: CONFIRMED.** Host startup stayed within a narrow band for each plan across all dependency profiles: **1040-1190 ms median on Consumption** and **690-850 ms median on Flex Consumption** **[Measured]**. The dependency profile barely moved that phase compared with package and app-init phases **[Observed]**.
+!!! note "Based on simulated data"
+    The interpretations below are based on simulated data and represent **expected** outcomes if the experiment is executed as designed. Evidence tags reflect the anticipated evidence level, not actual measurements.
 
-**H2 — Dependency weight is the largest variable contributor: CONFIRMED.** Median package restore grew from **125-170 ms** for minimal apps to **4380-6120 ms** for heavy apps **[Measured]**. As dependency count increased, total cold start increased with it on both plans **[Correlated]**. For heavy/fast profiles, package restore alone accounted for **70.5-71.2%** of total duration **[Measured]**.
+**H1 — Host startup is a mostly fixed platform cost: EXPECTED TO CONFIRM.** In the simulated data, host startup stayed within a narrow band for each plan across all dependency profiles: **1040-1190 ms median on Consumption** and **690-850 ms median on Flex Consumption** **[Inferred]**. The dependency profile barely moved that phase compared with package and app-init phases.
 
-**H3 — Slow app initialization is separable from platform startup: CONFIRMED.** The 2-second injected module-level delay appeared almost entirely inside the app-init window: **2095-2116 ms** medians for slow profiles versus **91-134 ms** for fast profiles **[Measured]**. That delta did not materially increase host startup or package windows **[Observed]**, which means support engineers can isolate customer startup code if markers are present **[Inferred]**.
+**H2 — Dependency weight is the largest variable contributor: EXPECTED TO CONFIRM.** Simulated median package restore grew from **125-170 ms** for minimal apps to **4380-6120 ms** for heavy apps **[Inferred]**. As dependency count increased, total cold start increased with it on both plans **[Inferred]**. For heavy/fast profiles, package restore alone accounted for **70.5-71.2%** of total duration.
 
-**H4 — Flex Consumption reduces, but does not eliminate, cold start: PARTIALLY CONFIRMED.** Flex reduced host startup by about **28-34%** and package restore by about **20-29%** across matched profiles **[Measured]**. Total improvement ranged from **12.0%** for minimal/slow to **26.7%** for minimal/fast **[Measured]**. The hypothesis is only partially confirmed because once app-init or heavy imports dominate, Flex improves the baseline but cannot remove user-controlled startup work **[Inferred]**.
+**H3 — Slow app initialization is separable from platform startup: EXPECTED TO CONFIRM.** The 2-second injected module-level delay is expected to appear almost entirely inside the app-init window: **~2095-2116 ms** medians for slow profiles versus **~91-134 ms** for fast profiles **[Inferred]**. That delta should not materially increase host startup or package windows, which means support engineers can isolate customer startup code if markers are present **[Inferred]**.
 
-### Key observation: Python sensitivity shows up before handler execution
+**H4 — Flex Consumption reduces, but does not eliminate, cold start: EXPECTED TO PARTIALLY CONFIRM.** Simulated data shows Flex reducing host startup by about **28-34%** and package restore by about **20-29%** across matched profiles **[Inferred]**. Total improvement ranged from **12.0%** for minimal/slow to **26.7%** for minimal/fast. The hypothesis is only partially confirmed because once app-init or heavy imports dominate, Flex improves the baseline but cannot remove user-controlled startup work **[Inferred]**.
 
-The first handler consistently remained small at **57-88 ms** across all 12 configurations **[Measured]**. The slowdown happened almost entirely before handler entry **[Observed]**. That pattern strongly separates true cold-start startup cost from ordinary application request latency.
+### Expected observation: Python sensitivity shows up before handler execution
 
-### Key observation: heavy scientific imports are the break point
+The first handler is expected to remain small at **57-88 ms** across all 12 configurations. The slowdown should happen almost entirely before handler entry **[Inferred]**. That pattern would strongly separate true cold-start startup cost from ordinary application request latency.
 
-The largest step change was from moderate to heavy profiles, not from minimal to moderate. Adding NumPy/Pandas alone increased cold start materially, but the full scientific stack (SciPy, scikit-learn, matplotlib) pushed package and framework windows into multi-second territory **[Observed]**. The reason is not directly visible in Azure telemetry, but the combined effect is consistent with Python wheel loading, native extension initialization, and broader import graphs **[Inferred]**.
+### Expected observation: heavy scientific imports are the break point
+
+The largest step change is expected from moderate to heavy profiles, not from minimal to moderate. Adding NumPy/Pandas alone should increase cold start materially, but the full scientific stack (SciPy, scikit-learn, matplotlib) is expected to push package and framework windows into multi-second territory **[Inferred]**. This is consistent with Python wheel loading, native extension initialization, and broader import graphs.
 
 ## 12. What this proves
 
-!!! success "Evidence level: Reproduced (12 configurations, 120 cold starts, consistent phase boundaries)"
+!!! warning "Pending execution"
+    The conclusions below are **expected outcomes** based on simulated data. They will be validated or refuted once the experiment is executed with real measurements.
 
-1. **Python cold start is decomposable into distinct measurable phases** rather than one opaque startup delay **[Measured]**
-2. **Host startup is not the main source of long cold starts once dependencies become large**; heavy profiles were dominated by package restore at **54.5-71.2%** of total time **[Measured]**
-3. **Application-level startup delay is cleanly separable from platform delay** when module-level trace markers are present **[Measured]**
-4. **Flex Consumption consistently lowers the baseline** for Python HTTP cold starts, especially in host startup and package acquisition windows **[Measured]**
-5. **The first handler execution is usually not the problem** for cold-start complaints in this scenario; it remained sub-100 ms across all profiles **[Measured]**
-6. **Dependency footprint is the strongest tuning lever for Python cold start** in these tests, more than the trivial handler body or plan choice alone **[Correlated]**
+1. **Python cold start is expected to be decomposable into distinct measurable phases** rather than one opaque startup delay **[Inferred]**
+2. **Host startup is expected to not be the main source of long cold starts once dependencies become large**; in simulated data heavy profiles were dominated by package restore at **54.5-71.2%** of total time **[Inferred]**
+3. **Application-level startup delay should be cleanly separable from platform delay** when module-level trace markers are present **[Inferred]**
+4. **Flex Consumption is expected to consistently lower the baseline** for Python HTTP cold starts, especially in host startup and package acquisition windows **[Inferred]**
+5. **The first handler execution is expected to usually not be the problem** for cold-start complaints; it should remain sub-100 ms across all profiles **[Inferred]**
+6. **Dependency footprint is expected to be the strongest tuning lever for Python cold start**, more than the trivial handler body or plan choice alone **[Inferred]**
 
 ## 13. What this does NOT prove
 
