@@ -599,10 +599,10 @@ boot
 
 Within this test setup, the experiment proved the following:
 
-- startup probe failure budget directly determines whether a slow-starting container survives long enough to finish initialization
-- readiness failure can block traffic routing without necessarily causing restarts
-- liveness without a protective startup probe can terminate an otherwise recoverable slow-start container
-- aggressive settings across all probes can create compound availability problems that are worse than any single misconfigured probe alone
+- Startup probe failure budget directly determines whether a slow-starting container survives long enough to finish initialization **[Measured]**
+- Readiness failure can block traffic routing without necessarily causing restarts **[Observed]**
+- Liveness without a protective startup probe can terminate an otherwise recoverable slow-start container **[Observed]**
+- Aggressive settings across all probes can create compound availability problems that are worse than any single misconfigured probe alone **[Correlated]**
 
 ## 13. What this does NOT prove
 
