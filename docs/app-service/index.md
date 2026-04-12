@@ -74,6 +74,8 @@ graph TB
 | [procfs Interpretation](procfs-interpretation/overview.md) | **Published** | /proc reliability and limits in Linux containers |
 | [Slow Requests](slow-requests/overview.md) | **Published** | Frontend timeout vs. worker-side delay vs. dependency latency |
 | [Zip Deploy vs Container](zip-vs-container/overview.md) | **Published** | Deployment method behavioral differences |
+| [Slot Swap Warmup](slot-swap-warmup/overview.md) | **Draft** | In-flight request handling during slot swap warmup |
+| [Access Restrictions SCM](access-restrictions-scm/overview.md) | **Draft** | Access restriction behavior on SCM site |
 
 ## Published Experiments
 
@@ -132,6 +134,22 @@ Behavioral differences between zip deployment and custom container deployment. I
 
 ??? success "Experiment Complete"
     Completed 2026-04 on B1/P1v3 Linux (koreacentral). Key finding: cold start timing is dominated by platform variance (>50% CV), not deployment method. Major differences are in filesystem layout (cwd, /home contents) and environment variables (PORT vs WEBSITES_PORT).
+## Draft Experiments
+
+### [Slot Swap Warmup](slot-swap-warmup/overview.md) — **Draft**
+
+How in-flight requests are handled during slot swap warmup phase. Investigates whether requests are dropped, queued, or routed to the old slot during the warmup period, and what signals indicate warmup completion.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Oracle recommendations. Awaiting execution.
+
+### [Access Restrictions SCM](access-restrictions-scm/overview.md) — **Draft**
+
+Behavior of access restrictions on the SCM (Kudu) site. Tests whether main site access restrictions automatically apply to SCM, whether SCM has independent restrictions, and edge cases with VNet integration.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Oracle recommendations. Awaiting execution.
+
 ## Related Experiments in Other Services
 
 - **Functions** — [Cold Start](../functions/cold-start/overview.md) explores startup phase breakdown, which shares diagnostic overlap with App Service container startup behavior.

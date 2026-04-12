@@ -91,6 +91,10 @@ graph TB
 | [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) | **Published** | SNI and host header routing behavior |
 | [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) | **Published** | FQDN vs. direct IP access differences |
 | [Startup Probes](startup-probes/overview.md) | **Published** | Probe interaction and failure patterns |
+| [Revision Update Downtime](revision-update-downtime/overview.md) | **Draft** | 502/503 errors during revision updates |
+| [Internal Name Routing](internal-name-routing/overview.md) | **Draft** | Internal name vs FQDN routing behavior |
+| [Burst Scaling Queueing](burst-scaling-queueing/overview.md) | **Draft** | Request queueing during burst scaling |
+| [Scaling Rule Conflicts](scaling-rule-conflicts/overview.md) | **Draft** | Conflicting KEDA scaling rules behavior |
 
 ## Published Experiments
 
@@ -141,6 +145,36 @@ Behavioral differences when accessing a Container App via private endpoint FQDN 
 
 ??? success "Experiment Complete"
     Completed 2026-04-12 on Consumption tier (internal-only, VNet-injected, koreacentral). 10 access patterns tested across 5 runs with 100% reproducibility. Key finding: SNI is mandatory for TLS admission; `-k` and `-H Host:` do not help because the failure occurs before certificate presentation and before HTTP layer processing.
+
+## Draft Experiments
+
+### [Revision Update Downtime](revision-update-downtime/overview.md) — **Draft**
+
+502/503 errors during revision updates. Documents the downtime window when deploying new revisions, conditions that cause failed requests, and mitigation strategies (traffic splitting, minReplicas).
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Container Apps GitHub issues #1166, #1305. Awaiting execution.
+
+### [Internal Name Routing](internal-name-routing/overview.md) — **Draft**
+
+Internal name vs FQDN routing behavior in Container Apps. Investigates when internal names (without environment domain) work vs fail, the "Connection refused" errors, and DNS resolution differences.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Container Apps GitHub issue #1315. Awaiting execution.
+
+### [Burst Scaling Queueing](burst-scaling-queueing/overview.md) — **Draft**
+
+Request queueing behavior during rapid scale-out events. Tests how incoming requests are handled when KEDA triggers scaling faster than replicas can start, and whether Envoy queues or rejects excess traffic.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Container Apps scaling patterns. Awaiting execution.
+
+### [Scaling Rule Conflicts](scaling-rule-conflicts/overview.md) — **Draft**
+
+Behavior when multiple KEDA scaling rules conflict. Tests what happens when HTTP and custom (queue-based) scaling rules give contradictory signals, and which rule takes precedence.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Container Apps GitHub issues #468, #536, #972. Awaiting execution.
 
 ## Related Experiments in Other Services
 

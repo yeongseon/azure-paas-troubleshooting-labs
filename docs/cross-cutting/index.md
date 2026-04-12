@@ -56,7 +56,9 @@ graph LR
 | Experiment | Type | Status | Description |
 |-----------|------|--------|-------------|
 | [MI RBAC Propagation](mi-rbac-propagation/overview.md) | Hybrid | Published | Role assignment delay and token cache interaction |
-| [PE DNS Negative Cache](pe-dns-negative-cache/overview.md) | Hybrid | Planned | Extended outages from DNS negative cache during PE cutover |
+| [PE DNS Negative Cache](pe-dns-negative-cache/overview.md) | Hybrid | Published | Extended outages from DNS negative cache during PE cutover |
+| [Ingress Idle Timeout](ingress-idle-timeout/overview.md) | Hybrid | Draft | Ingress idle timeout vs application streaming |
+| [Config Change Restart](config-change-restart/overview.md) | Hybrid | Draft | Container restart behavior on configuration changes |
 
 ## Planned Experiments
 
@@ -64,11 +66,25 @@ graph LR
 
 Role assignment delay and token cache interaction across services. Tested end-to-end propagation time from `az role assignment create` to successful API call across Key Vault (~10s), Storage (~60s), and Service Bus (~5 min). Discovered that Service Bus has a server-side RBAC authorization cache that persists through application restarts — the delay is NOT Azure Identity SDK token cache.
 
-### [Private Endpoint DNS Negative Caching](pe-dns-negative-cache/overview.md)
+### [Private Endpoint DNS Negative Caching](pe-dns-negative-cache/overview.md) — Published
 
-Extended outages from DNS negative cache during private endpoint cutover. When a private endpoint is created or migrated, DNS records change — but negative cache entries from the transition window can persist for minutes, causing continued failures even after the DNS change is complete.
+Extended outages from DNS negative cache during private endpoint cutover. **Unexpected finding:** DNS negative caching was NOT observed in App Service Linux — transitions were immediate. The experiment refutes the original hypothesis for this platform.
 
-This experiment measures the negative cache TTL and its impact across services with VNet integration.
+## Draft Experiments
+
+### [Ingress Idle Timeout](ingress-idle-timeout/overview.md) — **Draft**
+
+Ingress idle timeout vs application streaming behavior. Tests what happens when long-running requests (SSE, file downloads) exceed the ingress idle timeout, and whether the timeout applies to idle connections or total request duration.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Oracle recommendations. High priority for streaming/SSE use cases.
+
+### [Config Change Restart](config-change-restart/overview.md) — **Draft**
+
+Container restart behavior on configuration changes. Tests which configuration changes trigger container restarts across services, and whether in-flight requests are handled gracefully.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed based on Oracle recommendations. Awaiting execution.
 
 ## Related Experiments
 

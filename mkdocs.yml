@@ -41,6 +41,10 @@ nav:
           - Overview: app-service/slow-requests/overview.md
       - Zip vs Container:
           - Overview: app-service/zip-vs-container/overview.md
+      - Slot Swap Warmup:
+          - Overview: app-service/slot-swap-warmup/overview.md
+      - Access Restrictions SCM:
+          - Overview: app-service/access-restrictions-scm/overview.md
   - Functions:
       - Overview: functions/index.md
       - Flex Router Queueing:
@@ -65,12 +69,24 @@ nav:
           - Overview: container-apps/target-port-detection/overview.md
       - OOM Visibility Gap:
           - Overview: container-apps/oom-visibility-gap/overview.md
+      - Revision Update Downtime:
+          - Overview: container-apps/revision-update-downtime/overview.md
+      - Internal Name Routing:
+          - Overview: container-apps/internal-name-routing/overview.md
+      - Burst Scaling Queueing:
+          - Overview: container-apps/burst-scaling-queueing/overview.md
+      - Scaling Rule Conflicts:
+          - Overview: container-apps/scaling-rule-conflicts/overview.md
   - Cross-cutting:
       - Overview: cross-cutting/index.md
       - MI RBAC Propagation:
           - Overview: cross-cutting/mi-rbac-propagation/overview.md
       - PE DNS Negative Cache:
           - Overview: cross-cutting/pe-dns-negative-cache/overview.md
+      - Ingress Idle Timeout:
+          - Overview: cross-cutting/ingress-idle-timeout/overview.md
+      - Config Change Restart:
+          - Overview: cross-cutting/config-change-restart/overview.md
       - Custom DNS Forwarding:
           - Overview: container-apps/custom-dns-forwarding/overview.md
       - Ingress SNI / Host Header:
