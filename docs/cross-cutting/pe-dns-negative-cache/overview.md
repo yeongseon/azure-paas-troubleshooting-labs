@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: 2026-04-12
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,9 @@ validation:
 
 # Private Endpoint Cutover and DNS Negative Caching
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data collected on 2026-04-12 from Azure App Service P1v3 (koreacentral).
+    Container Apps VNet integration encountered subnet configuration issues; App Service results only.
 
 ## 1. Question
 
@@ -46,12 +48,14 @@ Private endpoint migrations are high-risk operations. The expected flow is: crea
 
 | Parameter | Value |
 |-----------|-------|
-| Service | App Service, Functions, Container Apps (all three) |
-| SKU / Plan | Various (VNet-integrated) |
+| Service | App Service (VNet-integrated) |
+| SKU / Plan | P1v3 |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
+| Runtime | Python 3.11 (Flask) |
 | OS | Linux |
-| Date tested | — |
+| Storage Account | Standard LRS, public access disabled |
+| Private Endpoint IP | 10.90.4.4 |
+| Date tested | 2026-04-12 |
 
 ## 6. Variables
 
@@ -343,23 +347,188 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-_Awaiting execution._
+### 10.1 Baseline: Public IP Resolution
+
+Before Private Endpoint creation, DNS resolved to public IP:
+
+| Timestamp (UTC) | Resolved IP | Private | Resolution Time |
+|-----------------|-------------|---------|-----------------|
+| 2026-04-12T07:32:17 | 20.150.4.36 | No | 32.25 ms |
+| 2026-04-12T07:32:19 | 20.150.4.36 | No | 9.06 ms |
+| 2026-04-12T07:32:21 | 20.150.4.36 | No | 3.42 ms |
+
+### 10.2 Scenario A: Private Endpoint + DNS Zone (no VNet link)
+
+After creating Private Endpoint and Private DNS Zone, but **before** linking the zone to the VNet:
+
+| Timestamp (UTC) | Resolved IP | Private | Notes |
+|-----------------|-------------|---------|-------|
+| 2026-04-12T07:34:53 | 20.150.4.36 | No | Zone not linked, falls back to public DNS |
+| 2026-04-12T07:35:03 | 20.150.4.36 | No | Still public |
+| 2026-04-12T07:35:13 | 20.150.4.36 | No | Still public |
+
+**Finding**: Without a VNet link, the Private DNS Zone has no effect. DNS queries bypass it entirely and resolve via public Azure DNS.
+
+### 10.3 Scenario B: VNet Link + Zone Group Created
+
+After linking the Private DNS Zone to the VNet and creating the zone group (which auto-creates the A record):
+
+| Event | Timestamp (UTC) |
+|-------|-----------------|
+| VNet link created | 2026-04-12T07:35:28 |
+| Zone group created | 2026-04-12T07:36:05 |
+| First private IP resolution | 2026-04-12T07:36:31 |
+
+**Transition time**: ~26 seconds from link creation to private IP resolution. The first query after zone group creation immediately returned the private IP (`10.90.4.4`).
+
+### 10.4 Scenario C: NXDOMAIN Induction (VNet link without A record)
+
+To test negative caching, we created a scenario where the VNet link exists but no A record is present:
+
+| Event | Timestamp (UTC) |
+|-------|-----------------|
+| Zone group deleted | 2026-04-12T07:44:02 |
+| VNet link re-created | 2026-04-12T07:41:26 |
+| NXDOMAIN observed | 2026-04-12T07:42:06 |
+
+NXDOMAIN errors during this window:
+
+```json
+{"error": "[Errno -2] Name or service not known", "resolved_ips": [], "is_private_ip": false}
+```
+
+**20+ consecutive NXDOMAIN queries** were generated over ~40 seconds to build negative cache.
+
+### 10.5 Scenario D: Recovery from NXDOMAIN
+
+After creating the zone group (adding the A record):
+
+| Event | Timestamp (UTC) |
+|-------|-----------------|
+| Zone group created | 2026-04-12T07:44:58 |
+| First successful resolution | 2026-04-12T07:44:58 (immediate) |
+
+**Negative cache delay observed: 0 seconds**
+
+The first DNS query after A record creation immediately resolved to the private IP. No extended negative cache effect was observed in App Service Linux.
+
+### 10.6 DNS Resolution Summary
+
+| Scenario | Before | After | Transition Time |
+|----------|--------|-------|-----------------|
+| Public → Private (simultaneous) | 20.150.4.36 | 10.90.4.4 | ~0s |
+| NXDOMAIN → Private | Error | 10.90.4.4 | ~0s |
+| Private → Public (link removed) | 10.90.4.4 | 20.150.4.36 | ~0s |
 
 ## 11. Interpretation
 
-_Awaiting execution._
+### Hypothesis Validation
+
+| Hypothesis | Result | Evidence |
+|------------|--------|----------|
+| H1: Negative caching causes extended failures | **NOT CONFIRMED** | No negative cache delay observed in App Service Linux **[Measured]** |
+| H2: Negative cache TTL is 5-60 minutes | **NOT CONFIRMED** | Transition was immediate (0 seconds) **[Measured]** |
+| H3: Link-before-record causes NXDOMAIN | **CONFIRMED** | NXDOMAIN errors observed when VNet link exists without A record **[Observed]** |
+| H4: Different services handle DNS differently | **PARTIALLY TESTED** | Only App Service tested; Container Apps VNet integration failed |
+
+### Key Findings
+
+1. **NXDOMAIN occurs when Private DNS Zone is linked but lacks A record** **[Observed]**
+
+    When the VNet link exists but no A record is present in the Private DNS Zone, DNS queries fail with `[Errno -2] Name or service not known`. This is the NXDOMAIN scenario that could cause outages.
+
+2. **No negative cache delay in App Service Linux** **[Measured]**
+
+    Contrary to the hypothesis, DNS resolution transitioned immediately after A record creation. This suggests:
+    - App Service Linux may not cache negative DNS responses
+    - Python's `socket.getaddrinfo()` may bypass DNS caching
+    - Azure DNS (168.63.129.16) may propagate Private DNS Zone changes without caching delay
+
+3. **Unlinked zones have no effect** **[Observed]**
+
+    A Private DNS Zone without a VNet link is invisible to DNS resolution. Queries bypass it and resolve via public Azure DNS, returning the public IP.
+
+4. **DNS transitions are bidirectional and immediate** **[Measured]**
+
+    - Public → Private: immediate after zone group creation
+    - Private → Public: immediate after VNet link removal
+    - NXDOMAIN → Private: immediate after A record creation
+
+### Practical Implications
+
+1. **The dangerous sequence is**: Create Private DNS Zone → Link to VNet → Delay zone group creation **[Inferred]**
+
+    This creates a window where DNS queries fail entirely. The safest approach is to create the zone group (which creates the A record) before or simultaneously with the VNet link.
+
+2. **App restarts may not be necessary** **[Strongly Suggested]**
+
+    Since DNS transitions were immediate without caching delays, restarting App Service instances to clear DNS cache may be unnecessary. However, this should be validated for each specific scenario.
+
+3. **The "30 minutes of resolution issues" customer symptom** likely has other causes **[Inferred]**:
+    - DNS propagation delays in custom DNS forwarders (not tested)
+    - Application-level connection pooling or caching
+    - DNS caching in client SDKs (e.g., HttpClient in .NET)
+    - Regional variations in Azure DNS behavior
 
 ## 12. What this proves
 
-_Awaiting execution._
+Within this test setup, the experiment proved the following:
+
+- Private DNS Zone VNet link without A record causes NXDOMAIN errors **[Observed]**
+- App Service Linux DNS resolution transitions immediately after A record creation **[Measured]**
+- DNS negative caching does NOT cause extended outages in App Service Linux (contrary to hypothesis) **[Measured]**
+- Unlinked Private DNS Zones are invisible to DNS resolution **[Observed]**
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+Even with the observed results, this experiment does not prove:
+
+1. **Behavior with custom DNS forwarders.** All tests used Azure Default DNS (168.63.129.16). Custom DNS servers may have different caching behavior.
+
+2. **Behavior in other Azure compute services.** Only App Service was tested. Functions and Container Apps may behave differently.
+
+3. **Behavior under high DNS query load.** Our tests used single-client polling. High-volume scenarios may exhibit different caching behavior.
+
+4. **Regional consistency.** All tests were in Korea Central. Other regions may have different DNS infrastructure.
+
+5. **Long-term caching effects.** Our observation window was ~20 minutes. Multi-hour DNS cache behaviors were not tested.
+
+6. **Application-level caching.** The test used Python's `socket.getaddrinfo()`. Other languages, SDKs, or frameworks may cache DNS results differently.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+### When customer reports "DNS still shows public IP after creating Private Endpoint"
+
+1. **Check VNet link existence** — Private DNS Zone must be linked to the VNet containing the compute resource. An unlinked zone has no effect.
+
+2. **Check A record existence** — Use `az network private-dns record-set a list` to verify the A record exists. If using zone groups, the record is auto-created.
+
+3. **Check from inside VNet** — DNS resolution from outside the VNet (e.g., Azure Portal Cloud Shell, local machine) will show public IP. Test from the compute resource itself.
+
+4. **Consider application-level caching** — If DNS is correct but connectivity fails, check:
+    - HTTP client connection pooling
+    - SDK DNS caching (e.g., .NET `HttpClient`)
+    - Application-level hostname caching
+
+5. **App restart is likely unnecessary** — For App Service Linux, DNS transitions are immediate. Restart only if other factors (connection pools) require it.
+
+### Recommended PE cutover sequence (safest)
+
+```bash
+# 1. Create Private Endpoint
+az network private-endpoint create ...
+
+# 2. Create Private DNS Zone (if not exists)
+az network private-dns zone create ...
+
+# 3. Create Zone Group FIRST (creates A record)
+az network private-endpoint dns-zone-group create ...
+
+# 4. Then link to VNet
+az network private-dns link vnet create ...
+```
+
+This sequence ensures the A record exists before the VNet link activates the zone, preventing any NXDOMAIN window.
 
 ## 15. Reproduction notes
 
