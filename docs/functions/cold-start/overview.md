@@ -15,15 +15,15 @@ validation:
 
 # Cold Start and Dependency Initialization
 
-!!! info "Status: Draft - Awaiting Execution"
-    This experiment design is complete with instrumented application code, deployment scripts, and KQL queries ready for execution. The data in **Section 10 (Results)** is **simulated** based on documented Azure Functions cold-start behavior and reasonable engineering assumptions. No live measurements have been collected.
+!!! info "Status: Draft - Design Complete"
+    Experiment design is complete with instrumented application code, deployment scripts, KQL queries, and full 16-section documentation. The data in **Section 10 (Results)** is **simulated** based on documented Azure Functions cold-start behavior, published benchmarks, and reasonable engineering assumptions. No live measurements have been collected yet.
 
-!!! warning "Execution Blocked"
-    Attempted execution was blocked by Azure subscription policy.
+    **Next step**: Execute the experiment on a subscription without shared key access restrictions, then replace simulated data with measured results and update status to "Published".
 
-    **Root Cause**: Organization policy enforces `Microsoft.Storage/storageAccounts/allowSharedKeyAccess = false` on all storage accounts. This policy cannot be overridden at the resource level.
+!!! warning "Execution Blocked by Subscription Policy"
+    Organization policy enforces `Microsoft.Storage/storageAccounts/allowSharedKeyAccess = false` on all storage accounts. This prevents Function App creation that requires shared key storage access.
 
-    **Resolution Required**: Either a policy exemption or access to a subscription without this policy restriction. The deployment scripts below include a managed identity workaround, but this has not been validated end-to-end.
+    The deployment scripts include a managed identity workaround, but this has not been validated end-to-end. Execution requires either a policy exemption or access to an unrestricted subscription.
 
 ## 1. Question
 
@@ -775,7 +775,7 @@ sequenceDiagram
 !!! tip "How to read this"
     The heavy-profile raw runs show the same shape on both plans: package restore dominates every run, but Flex consistently removes roughly 300-400 ms of host startup and about 1.4-1.6 seconds of package time. The moderate/slow profile shows a different pattern: once the dependency set is smaller, the injected 2-second app-init window becomes the largest contributor.
 
-### 10.7 Measured plan comparison deltas
+### 10.7 Simulated plan comparison deltas
 
 | Profile | Consumption total (ms) | Flex total (ms) | Improvement (ms) | Improvement (%) |
 |---------|-----------------------:|----------------:|-----------------:|----------------:|

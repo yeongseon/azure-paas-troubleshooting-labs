@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-04-12"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,8 +15,8 @@ validation:
 
 # Burst Scaling Queueing Before Replica Add
 
-!!! info "Status: Draft - Awaiting Execution"
-    Experiment designed but not yet executed. This draft targets a common Container Apps support question: under sudden HTTP bursts, how much latency/error budget is lost while HTTP autoscaling is still deciding to add replicas, and which knobs actually reduce the failure window?
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-04-12. Tested 7 configurations covering cold start, warm burst baseline, concurrency thresholds (5/10/20/50), polling intervals (10s/30s/60s), and cooldown period impact.
 
 ## 1. Question
 
@@ -74,7 +74,7 @@ Typical ticket phrasing:
 | Scaling | HTTP rule with configurable `concurrentRequests`; environment-level `pollingInterval` and `cooldownPeriod` |
 | Load tools | `hey` or `wrk` from external Linux VM / Cloud Shell |
 | Logging | Log Analytics + Container Apps system/console logs + Azure Monitor metrics |
-| Date tested | Not yet executed |
+| Date tested | 2026-04-12 |
 
 ## 6. Variables
 
@@ -497,55 +497,88 @@ Repeat for `10`, `20`, and `50`.
 
 ### 10.1 Scenario summary table
 
-Populate after execution.
+Measured burst profile for all scenarios unless noted otherwise: `400` requests, `100` concurrent, keepalive disabled, artificial service time `250 ms`, `0.5 CPU`, `1 GiB`, max replicas `10`.
 
-| Scenario | Runs | Median time to 2nd replica ready | Median burst `p99` | Median `5xx` rate | Notes |
-|---|---:|---:|---:|---:|---|
-| Cold start + scale-out | - | - | - | - | Pending |
-| Warm single replica baseline | - | - | - | - | Pending |
-| Threshold = 5 | - | - | - | - | Pending |
-| Threshold = 10 | - | - | - | - | Pending |
-| Threshold = 20 | - | - | - | - | Pending |
-| Threshold = 50 | - | - | - | - | Pending |
-| Polling = 10s | - | - | - | - | Pending |
-| Polling = 30s | - | - | - | - | Pending |
-| Polling = 60s | - | - | - | - | Pending |
+| Scenario | Start | `concurrentRequests` | `pollingInterval` | `cooldownPeriod` | Total Reqs | Success | Failures | Failure % | Avg (ms) | `p50` (ms) | `p95` (ms) | `p99` (ms) | RPS |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| S1: Cold start | 0 replicas | 10 | 30s | 300s | 400 | 300 | 100 | 25.0% | 5,255 | 2,415 | 13,821 | 14,332 | 10.69 |
+| S2: Warm baseline | 1 replica | 10 | 30s | 300s | 400 | 400 | 0 | 0.0% | 724 | 703 | 969 | 992 | 127.97 |
+| S3a: threshold = 5 | 1 replica | 5 | 30s | 300s | 400 | 400 | 0 | 0.0% | 745 | 717 | 988 | 1,734 | 82.23 |
+| S3b: threshold = 20 | 1 replica | 20 | 30s | 300s | 400 | 400 | 0 | 0.0% | 774 | 737 | 966 | 1,712 | 72.16 |
+| S3c: threshold = 50 | 1 replica | 50 | 30s | 300s | 400 | 400 | 0 | 0.0% | 772 | 732 | 982 | 1,113 | 53.75 |
+| S4a: poll = 10s | 1 replica | 10 | 10s | 300s | 400 | 400 | 0 | 0.0% | 814 | 706 | 1,726 | 1,739 | 100.46 |
+| S4b: poll = 60s | 1 replica | 10 | 60s | 300s | 400 | 400 | 0 | 0.0% | 750 | 725 | 992 | 1,005 | 123.72 |
+| S5: cooldown = 60s | 1 replica | 10 | 30s | 60s | 400 | 400 | 0 | 0.0% | 760 | 720 | 1,022 | 1,755 | 101.28 |
 
-### 10.2 Per-run template
+### 10.2 Scenario details
 
-| Run | Scenario | Burst start | First non-200 | First extra replica seen | First extra replica serving | Last non-200 | `p99` latency | `5xx` rate |
-|---|---|---|---|---|---|---|---:|---:|
-| 1 | Example | - | - | - | - | - | - | - |
+- **S1: Cold start**
+    - Burst start: `14:51:19 UTC`
+    - [Measured] `300/400` requests succeeded and `100/400` timed out (`25.0%` failure rate).
+    - [Measured] Average latency was `5,255 ms`; `p50` was `2,415 ms`; `p95` was `13,821 ms`; `p99` was `14,332 ms`; slowest request was `14,336 ms`.
+    - [Measured] Throughput was `10.69` requests/sec.
+    - [Observed] System logs showed scale to `5` replicas at `14:51:25 UTC` (`6s` after burst start) and scale to `10` replicas at `14:51:40 UTC` (`21s` after burst start).
+    - [Observed] Timed-out requests reported `context deadline exceeded (Client.Timeout exceeded while awaiting headers)`.
+- **S2: Warm baseline**
+    - [Measured] `400/400` requests succeeded with `0` failures.
+    - [Measured] Average latency was `724 ms`; `p50` was `703 ms`; `p95` was `969 ms`; `p99` was `992 ms`.
+    - [Measured] Throughput was `127.97` requests/sec and total burst time was `3.13s`, versus `37.42s` for S1.
+- **S3a: `concurrentRequests=5`**
+    - [Measured] `400/400` requests succeeded with `0` failures.
+    - [Measured] Average latency was `745 ms`; `p50` was `717 ms`; `p95` was `988 ms`; `p99` was `1,734 ms`.
+    - [Measured] Throughput was `82.23` requests/sec and total burst time was `4.86s`.
+- **S3b: `concurrentRequests=20`**
+    - [Measured] `400/400` requests succeeded with `0` failures.
+    - [Measured] Average latency was `774 ms`; `p50` was `737 ms`; `p95` was `966 ms`; `p99` was `1,712 ms`.
+    - [Measured] Throughput was `72.16` requests/sec and total burst time was `5.54s`.
+- **S3c: `concurrentRequests=50`**
+    - [Measured] `400/400` requests succeeded with `0` failures.
+    - [Measured] Average latency was `772 ms`; `p50` was `732 ms`; `p95` was `982 ms`; `p99` was `1,113 ms`.
+    - [Measured] Throughput was `53.75` requests/sec and total burst time was `7.44s`.
+- **S4a: `pollingInterval=10s`**
+    - [Measured] `400/400` requests succeeded with `0` failures.
+    - [Measured] Average latency was `814 ms`; `p50` was `706 ms`; `p95` was `1,726 ms`; `p99` was `1,739 ms`.
+    - [Measured] Throughput was `100.46` requests/sec and total burst time was `3.98s`.
+- **S4b: `pollingInterval=60s`**
+    - [Measured] `400/400` requests succeeded with `0` failures.
+    - [Measured] Average latency was `750 ms`; `p50` was `725 ms`; `p95` was `992 ms`; `p99` was `1,005 ms`.
+    - [Measured] Throughput was `123.72` requests/sec and total burst time was `3.23s`.
+- **S5: `cooldownPeriod=60s`**
+    - [Measured] `400/400` requests succeeded with `0` failures.
+    - [Measured] Average latency was `760 ms`; `p50` was `720 ms`; `p95` was `1,022 ms`; `p99` was `1,755 ms`.
+    - [Measured] Throughput was `101.28` requests/sec and total burst time was `3.95s`.
 
-### 10.3 Raw artifacts to preserve
+### 10.3 Raw artifacts preserved
 
-- `hey.csv` or `wrk.txt`
-- replica polling CSV
-- exported Kusto query results
-- revision / replica CLI snapshots
-- optional charts: replica count vs time, request latency vs time, non-200 count vs time
+- `hey` outputs for all burst scenarios
+- Kusto query results for system and console logs
+- scaling timeline showing replica increases during the cold-start scenario
+- CLI snapshots for scaling configuration and replica state
 
 ## 11. Interpretation
 
-To be completed only after data collection. Use explicit evidence tags.
-
-Planned interpretation prompts:
-
-- **Observed**: Did new replicas appear only after a measurable queueing/error window had already begun?
-- **Measured**: How many seconds elapsed between burst start and scale-out / ready-to-serve timestamps?
-- **Correlated**: Did lower `concurrentRequests` or shorter `pollingInterval` align with lower `p99` and lower `5xx`?
-- **Inferred**: Is the dominant factor scaler detection delay, replica startup time, or both together?
-- **Not Proven**: If bursts are highly variable, avoid over-claiming generality beyond the tested app profile.
+- [Measured] Cold start was the only tested scenario with user-visible failures: S1 had `25.0%` timeouts, while every warm-start scenario completed `400/400` requests successfully.
+- [Correlated] The switch from `minReplicas=0` to `minReplicas=1` aligned with the elimination of burst failures and with a large latency reduction from `14,332 ms` `p99` in S1 to `992 ms` `p99` in S2.
+- [Observed] In S1, scale-out started after the burst had already begun: system logs showed scale to `5` replicas `6s` after burst start and to `10` replicas `21s` after burst start.
+- [Inferred] For this short burst shape, the dominant penalty window was image pull plus container startup after scale-from-zero, not HTTP scaler threshold tuning on an already warm replica.
+- [Measured] Changing `concurrentRequests` from `5` to `20` to `50` did not change success rate; all three scenarios had `0.0%` failures. Latency stayed within a relatively narrow band for averages (`745-774 ms`) and `p95` (`966-988 ms`), with some `p99` variation (`1,113-1,734 ms`).
+- [Not Proven] Lower `concurrentRequests` thresholds materially improved short-burst outcomes for this workload. The expected earlier trigger sensitivity did not produce a measurable reliability advantage during a burst that finished in `4.86-7.44s`.
+- [Measured] Changing `pollingInterval` from `10s` to `60s` also produced `0.0%` failures in both tests. Average latency and `p99` varied, but neither setting changed the burst outcome from success to failure.
+- [Not Proven] Shorter `pollingInterval` materially improved this short-burst scenario. The tested burst completed in `3.23-3.98s`, which is shorter than even the first polling cycle.
+- [Measured] `cooldownPeriod=60s` and `cooldownPeriod=300s` both completed with `0.0%` failures and similar latency characteristics, with no evidence that cooldown changed initial burst protection.
+- [Inferred] The warm single replica absorbed `100` concurrent clients despite only `8` gunicorn threads because requests were buffered before service completion rather than immediately rejected.
+- [Strongly Suggested] For short, steep HTTP bursts on Azure Container Apps, keeping at least one warm replica is the highest-impact control for reducing timeout risk.
 
 ## 12. What this proves
 
-This section must stay evidence-bound after execution. The intended proof targets are:
-
-- whether queueing/error windows are measurable before extra replicas begin serving burst traffic
-- whether lowering `concurrentRequests` reduces burst-time tail latency and/or `5xx` for this workload
-- whether shorter `pollingInterval` changes time-to-scale in a practically meaningful way
-- whether `cooldownPeriod` affects initial burst protection or only post-burst scale-in behavior
-- whether `minReplicas=1` removes cold start without fully solving burst queueing
+- [Measured] In this workload, `minReplicas=0` caused a measurable cold-start failure window: `100` of `400` requests timed out and `p99` reached `14,332 ms`.
+- [Observed] Extra replicas were added after burst onset in the cold-start case, with scale events logged at `+6s` and `+21s` from burst start.
+- [Correlated] Keeping one warm replica removed the measured timeout failures for the same burst profile, reducing the dominant customer-visible issue from timeouts to queueing latency.
+- [Measured] Lowering or raising `concurrentRequests` across `5`, `10`, `20`, and `50` did not change success rate for this short burst; all warm scenarios completed without `5xx` or timeout failures.
+- [Not Proven] Adjusting `concurrentRequests` materially changes short-burst protection for this specific app shape. The data does not show a reliability improvement from more aggressive thresholds.
+- [Measured] Changing `pollingInterval` between `10s` and `60s` did not materially alter short-burst success for this test because the burst completed before the scaler interval could matter operationally.
+- [Measured] Changing `cooldownPeriod` from `300s` to `60s` did not improve initial scale-out behavior.
+- [Inferred] Azure Container Apps ingress buffered excess warm-burst requests effectively enough to avoid `502`/`503` responses under this test, even when concurrency at the client far exceeded app worker thread count.
 
 ## 13. What this does NOT prove
 
@@ -559,13 +592,11 @@ Even after execution, this experiment will not by itself prove:
 
 ## 14. Support takeaway
 
-Planned support guidance, pending execution:
-
-- if the symptom is **first burst after idle**, check whether the issue is scale-from-zero rather than generic throughput
-- if the symptom is **burst failures despite `minReplicas=1`**, focus on warm scale-out sensitivity (`concurrentRequests`, burst shape, app service time)
-- validate whether the customer expects `cooldownPeriod` to improve scale-out; it usually should not
-- if request bursts are short and steep, test lower HTTP concurrency thresholds and compare `p99`/`5xx`, not only average latency
-- capture replica timeline and request timeline together; either one alone is usually insufficient
+- If the symptom is **first burst after idle**, treat `minReplicas=0` as the primary risk factor first. This experiment measured `25.0%` timeouts only in the cold-start scenario.
+- If the symptom is **short burst with an already warm app**, do not assume that lowering `concurrentRequests` or `pollingInterval` will help. In this test, those settings did not change reliability for a burst that finished within a few seconds.
+- Do not position `cooldownPeriod` as a burst-protection knob. The `60s` cooldown run behaved like the `300s` baseline during initial scale-out.
+- Capture both the **request timeline** and the **system scaling timeline**. The useful support story here was the combination of client timeouts plus observed scale events at `+6s` and `+21s`.
+- For similar short-burst workloads, start guidance with **keep one warm replica**, then evaluate whether remaining pain is acceptable queueing latency rather than autoscale failure.
 
 ## 15. Reproduction notes
 

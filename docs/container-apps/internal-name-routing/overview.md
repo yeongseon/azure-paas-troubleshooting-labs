@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-04-12"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,8 +15,8 @@ validation:
 
 # Internal Name vs FQDN Routing in Azure Container Apps
 
-!!! info "Status: Draft - Awaiting Execution"
-    This experiment design is complete, but it has **not** been executed yet. The **Results**, **Interpretation**, and **What this proves** sections are pre-registered placeholders for future execution and must not be treated as measured evidence.
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-04-12.
 
 ## 1. Question
 
@@ -53,6 +53,7 @@ That distinction matters for support because the symptom can look like random ap
 | Runtime | Python 3.11 custom containers |
 | OS | Linux |
 | Date designed | 2026-04-12 |
+| Date executed | 2026-04-12 |
 | Topology | One caller app, one callee app |
 | Load tool | `hey` |
 
@@ -566,32 +567,59 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-Not executed yet.
+### Pre-flight validation
 
-When executed, record:
+- [Measured] Both `/healthz` endpoints returned HTTP 200.
+- [Measured] `internal-http` single request succeeded with HTTP 200 in 20.11 ms.
+- [Measured] `fqdn-https` single request succeeded with HTTP 200 in 22.99 ms.
+- [Measured] `internal-tcp` single request failed with `TimeoutError` after 5007.52 ms, showing that the internal name did not route raw TCP to the non-ingress port.
 
-1. A side-by-side table for low, moderate, and high load.
-2. Exact `hey` summaries for internal-name HTTP and FQDN HTTPS.
-3. Representative caller error samples (`Connection refused`, timeout, 502 wrapper, etc.).
-4. Callee logs showing whether failed requests ever reached the destination.
-5. Replica-count and response-time metrics around the failure window.
+### Summary results
+
+| Scenario | Mode | Offered Load | Total Requests | Success | Failures | Failure Rate | Avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) | Dominant Error |
+|----------|------|--------------|----------------|---------|----------|--------------|----------|----------|----------|----------|----------------|
+| S1: Low | internal-http | 50 reqs, 5c | 50 | 50 | 0 | 0% | 207.9 | 173.1 | 503.6 | — | none |
+| S1: Low | fqdn-https | 50 reqs, 5c | 50 | 50 | 0 | 0% | 212.6 | 175.7 | 552.9 | — | none |
+| S2: Moderate | internal-http | 60s, 20c, 5q | 5,690 | 5,690 | 0 | 0% | 208.6 | 206.1 | 248.5 | 280.1 | none |
+| S2: Moderate | fqdn-https | 60s, 20c, 5q | 5,948 | 5,948 | 0 | 0% | 189.0 | 184.6 | 236.3 | 257.7 | none |
+| S3: High | internal-http | 60s, 50c, 10q | 16,092 | 16,092 | 0 | 0% | 186.4 | 169.2 | 263.0 | 299.1 | none |
+| S3: High | fqdn-https | 60s, 50c, 10q | 10,790 | 10,790 | 0 | 0% | 278.5 | 175.1 | 534.6 | 574.0 | none |
+| S4: TCP | internal-tcp | 20 probes | 20 | 0 | 20 | 100% | 5,007.5 | — | — | — | TimeoutError |
+| S4: HTTP | internal-http | 20 probes | 20 | 20 | 0 | 0% | — | — | — | — | none |
+
+### Scenario detail
+
+- [Measured] Scenario 1 low load: both paths completed 50 of 50 requests with 0 failures. Internal HTTP averaged 207.9 ms and FQDN HTTPS averaged 212.6 ms.
+- [Measured] Scenario 2 moderate load: internal HTTP completed 5,690 of 5,690 requests at 94.46 req/s with p99 280.1 ms. FQDN HTTPS completed 5,948 of 5,948 requests at 98.79 req/s with p99 257.7 ms.
+- [Measured] Scenario 3 high load: internal HTTP completed 16,092 of 16,092 requests at 267.24 req/s with average 186.4 ms and p99 299.1 ms. FQDN HTTPS completed 10,790 of 10,790 requests at 178.26 req/s with average 278.5 ms and p99 574.0 ms.
+- [Measured] Scenario 3 FQDN HTTPS showed a bimodal latency distribution: 6,924 requests were under 202 ms and 3,245 requests fell between 439 ms and 558 ms.
+- [Measured] Scenario 4 TCP vs HTTP comparison: internal TCP failed 20 of 20 probes with `TimeoutError ("timed out")`, while internal HTTP succeeded 20 of 20 probes.
+
+### Platform signals
+
+- [Measured] Azure Metrics showed the callee scaling from 1 to 3 replicas at 14:25 UTC and the caller scaling from 1 to 3 replicas at 14:26 UTC.
+- [Measured] Both apps reached the configured maximum of 3 replicas during Scenarios 2 and 3.
+- [Observed] System logs included `SuccessfulRescale` for `callee-app` at 14:25 and `caller-app` at 14:26, plus `RevisionReady` for `caller-app--p72r2pg` at 14:24.
+- [Observed] No error events, `Connection refused`, or container crashes were recorded in the system-log highlights during the measured runs.
 
 ## 11. Interpretation
 
-Pending execution.
-
-Planned interpretation rules:
-
-- If internal-name HTTP fails materially more often than FQDN HTTPS under the same offered load, that is **Measured** evidence of path sensitivity.
-- If caller errors occur without matching callee request logs, that **Strongly Suggests** failure before the destination container processes the request.
-- If the difference appears only under concurrency and not under single-request validation, that is **Correlated** with routing-path stress rather than simple configuration error.
-- If TCP does not reproduce the same pattern, protocol-specific handling remains **Unknown** until further targeted testing.
+- [Not Proven] The main hypothesis was not confirmed. Internal-name HTTP did not show a higher failure rate than FQDN HTTPS under low, moderate, or high load; both paths stayed at 0% failure in all HTTP scenarios.
+- [Measured] Under high load, internal-name HTTP was materially faster than FQDN HTTPS, with lower average latency (186.4 ms vs 278.5 ms), lower p95 (263.0 ms vs 534.6 ms), and lower p99 (299.1 ms vs 574.0 ms).
+- [Correlated] The higher tail latency appeared on the FQDN HTTPS path, not on the internal-name HTTP path, even though both apps were scaling at the same time and both reached 3 replicas.
+- [Inferred] The bimodal FQDN HTTPS latency distribution suggests extra overhead on the HTTPS ingress path, such as TLS handshake cost and/or queueing in the external ingress Envoy layer, because the slower cluster was concentrated in the 439-558 ms range while internal HTTP remained tighter.
+- [Measured] Internal-name routing in this environment handled HTTP reliably but did not route raw TCP to the non-ingress port; the protocol split was absolute in Scenario 4 with 20 of 20 HTTP successes and 20 of 20 TCP timeouts.
+- [Observed] The absence of `Connection refused`, crash signals, or error events in system logs indicates that the GitHub issue's reported failure mode did not surface in this run.
+- [Unknown] This result does not establish why GitHub issue #1315 reproduced elsewhere. Possible missing conditions include VNet involvement, mTLS, platform-stamp differences, or another environment-specific trigger that was not present in this Consumption test.
 
 ## 12. What this proves
 
-Pending execution.
-
-This section should be updated only with evidence-backed conclusions from section 10.
+- [Measured] In this Consumption environment test, internal-name HTTP routing was stable across all executed HTTP load levels, with 0 failures across 21,832 measured HTTP requests.
+- [Measured] FQDN HTTPS routing was also stable across all executed HTTP load levels, with 0 failures across 16,788 measured HTTP requests.
+- [Not Proven] This experiment does not support the assumption that internal app-name routing is inherently less stable than FQDN routing under load.
+- [Measured] At the highest tested load, internal-name HTTP outperformed FQDN HTTPS on both throughput and tail latency.
+- [Measured] Internal-name routing did not forward raw TCP traffic to the tested non-ingress port; all 20 sequential TCP probes timed out.
+- [Inferred] For this specific setup, internal-name HTTP avoided some latency cost present on the FQDN HTTPS path at scale.
 
 ## 13. What this does NOT prove
 
@@ -608,11 +636,11 @@ Even after execution, this experiment will not by itself prove:
 If a customer reports that `http://<app-name>:80` intermittently fails while `https://<app-fqdn>` works:
 
 1. Reproduce both addressing methods under the same load, not just with one-off curls.
-2. Ask whether the failure is specific to internal app name routing.
-3. Collect caller-side connect errors and verify whether matching requests appear in callee logs.
-4. Recommend FQDN-based routing as a mitigation if it is measurably more stable.
-5. Reference the known issue and Microsoft confirmation that internal-name and FQDN routing paths differ.
-6. Escalate with evidence that isolates the problem to routing path rather than app health.
+2. Do not assume internal-name HTTP is the weaker path; in this run it was equally reliable and faster than FQDN HTTPS at high load.
+3. Separate HTTP findings from raw TCP findings. Internal-name HTTP worked reliably here, while raw TCP to the non-ingress port timed out 100% of the time.
+4. Collect caller latency distributions, replica-scale metrics, and system-log events before recommending FQDN as a mitigation.
+5. If the customer cites GitHub issue #1315, treat it as a workload- or environment-specific pattern that still requires proof in the current stamp and configuration.
+6. Escalate only after showing a measured path-specific difference, and include whether VNet, mTLS, or other environmental factors could explain why the older failure pattern was not reproduced.
 
 ## 15. Reproduction notes
 
