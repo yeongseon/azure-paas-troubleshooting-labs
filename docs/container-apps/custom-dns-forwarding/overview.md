@@ -406,11 +406,11 @@ search k8se-apps.svc.cluster.local svc.cluster.local cluster.local
 
 ```mermaid
 flowchart LR
-    A[Container App<br>/etc/resolv.conf<br>127.0.0.11] --> B[Docker Embedded<br>DNS Proxy]
-    B --> C{VNet DNS<br>configured?}
-    C -- No --> D[Azure Default DNS<br>168.63.129.16]
-    C -- Yes --> E[Custom DNS Server<br>e.g. 10.70.2.250]
-    E -- Unreachable --> F[❌ Timeout /<br>Name Resolution Failure]
+    A[Container App<br>/etc/resolv.conf<br/>127.0.0.11] --> B[Docker Embedded<br/>DNS Proxy]
+    B --> C{VNet DNS<br/>configured?}
+    C -- No --> D[Azure Default DNS<br/>168.63.129.16]
+    C -- Yes --> E[Custom DNS Server<br/>e.g. 10.70.2.250]
+    E -- Unreachable --> F[❌ Timeout /<br/>Name Resolution Failure]
     E -- Reachable --> G[✅ DNS Response]
     D --> G
 

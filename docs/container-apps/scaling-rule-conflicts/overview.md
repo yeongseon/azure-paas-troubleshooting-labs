@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-04-12"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,8 +15,8 @@ validation:
 
 # Scaling Rule Conflicts: HTTP, CPU, and Queue Scalers
 
-!!! info "Status: Draft - Awaiting Execution"
-    Experiment designed but not yet executed. This draft targets real Azure Container Apps scaling issue patterns reported in GitHub issues [#468](https://github.com/microsoft/azure-container-apps/issues/468), [#536](https://github.com/microsoft/azure-container-apps/issues/536), and [#972](https://github.com/microsoft/azure-container-apps/issues/972): mixed scaling rules behaving unexpectedly, scale-out being driven by one signal while another appears ignored, and scale-in failing when connections or metrics remain artificially active.
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-04-12. Tested 5 scenarios: HTTP-only baseline, CPU-only, HTTP+CPU combined, HTTP+Service Bus queue, and long-lived connection scale-in behavior.
 
 ## 1. Question
 
@@ -67,14 +67,17 @@ Typical ticket phrasing:
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 custom container |
+| Runtime | Python 3.11 + Flask + gunicorn (`1` worker, `8` threads, `timeout 0`) |
 | OS | Linux |
-| App shape | Single HTTP app with normal, CPU-heavy, long-lived connection, and queue helper endpoints |
-| Queue service | Azure Service Bus queue |
-| Ingress | External, target port `8080`, HTTP/2 enabled for dedicated scenarios |
+| App shape | Single custom container exposing normal HTTP, CPU-heavy, long-lived streaming, and queue helper endpoints, with `worker.py` processing Service Bus messages |
+| Container sizing | `0.5` vCPU, `1Gi` memory, `maxReplicas=10` |
+| Registry / image | `acrscaleruleconflicts.azurecr.io/scale-rule-conflicts:v1` |
+| Queue service | Azure Service Bus Standard, namespace `sbscaleruleconflicts`, queue `work-items` |
+| Environment | `cae-scale-rule-conflicts` (`yellowwater-8d3d5b67.koreacentral.azurecontainerapps.io`) |
+| Ingress | External, target port `8080` |
 | Scale rules under test | HTTP, CPU, Azure Service Bus queue |
 | Logging | Log Analytics + Container Apps system/console logs |
-| Date tested | Not yet executed |
+| Date tested | 2026-04-12 |
 
 ## 6. Variables
 
@@ -629,54 +632,94 @@ For each scenario:
 
 ## 10. Results
 
-Pending execution.
+Five scenarios were executed against the same Container App and environment on 2026-04-12.
 
-Capture the following tables during execution.
+### 10.1 Scenario summary
 
-### 10.1 Replica timeline summary
+| Scenario | Rules | Load | Success | Avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) | RPS |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| S1: HTTP-only | HTTP `concurrentRequests=10` | 200 reqs, 40c | 200/200 | 531 | 471 | 1,479 | 1,509 | 56.95 |
+| S2: CPU-only | CPU threshold `60%` | 10 reqs, 5c (`/cpu?seconds=15`) | 10/10 | 16,925 | — | — | — | — |
+| S3: HTTP+CPU | HTTP + CPU | 200 HTTP + 5 CPU | 205/205 | — | — | — | — | — |
+| S4: HTTP+SB | HTTP + Service Bus | 200 HTTP + 100 queue msgs | 200/200 | 537 | — | — | — | — |
+| S5: Streaming | HTTP `concurrentRequests=10` | 5 SSE streams + 200 HTTP | 200/200 | 476 | — | — | — | — |
 
-| Scenario | Run | First scale-out time | Peak replicas | Load stop time | Scale-in complete time | Scale-in blocked? |
-|---|---|---|---|---|---|---|
-| HTTP only | 1 | | | | | |
-| CPU only | 1 | | | | | |
-| HTTP + CPU | 1 | | | | | |
-| HTTP + Service Bus | 1 | | | | | |
-| HTTP/2 keep-alive | 1 | | | | | |
+### 10.2 Scenario details
 
-### 10.2 Dominant-signal observations
+- **S1: HTTP-only baseline** — `minReplicas=0`, `maxReplicas=10`, `200` requests at `40` concurrency with `--disable-keepalive`.
+    - [Measured] `200/200` success (`100%`), average `531 ms`, p50 `471 ms`, p95 `1,479 ms`, p99 `1,509 ms`, `56.95` req/s.
+    - [Measured] Started from `0` replicas and scaled up enough to serve the burst; app responded within about `500 ms` from scale-to-zero.
 
-| Scenario | HTTP traffic present | CPU above threshold | Queue backlog present | Expected inactive point | Actual inactive point |
-|---|---|---|---|---|---|
-| HTTP + CPU | | | n/a | | |
-| HTTP + Service Bus | | n/a | | | |
-| HTTP/2 keep-alive | | optional | n/a | | |
+- **S2: CPU-only rule** — CPU utilization threshold `60%`, `minReplicas=1`; `10` requests, `5` parallel, `/cpu?seconds=15`.
+    - [Measured] `10/10` success (`100%`), average `16,925 ms`.
+    - [Measured] CPU rule functioned as a standalone KEDA custom scaler; each request consumed about `15 s` of CPU time per thread.
 
-### 10.3 Representative log excerpts
+- **S3: HTTP + CPU combined** — Both `http-rule` and `cpu-rule` active; HTTP burst `200` requests at `40` concurrency, then `5` parallel `/cpu?seconds=15` requests.
+    - [Measured] HTTP: `200/200` success, average `500 ms`, p50 `447 ms`, p95 `1,457 ms`, `59.13` req/s.
+    - [Measured] CPU: `5/5` success, average `16,925 ms`.
+    - [Measured] Replica count after both loads was `1`.
+    - [Inferred] The short burst finished before the `30 s` KEDA polling interval could trigger scale-out.
 
-- system log excerpt showing scale-out trigger
-- system log excerpt showing failed or delayed scale-in
-- console log excerpt showing `STREAM_OPEN` without `STREAM_CLOSE`
-- queue worker logs showing `QUEUE_IDLE` despite lingering replicas
+- **S4: HTTP + Service Bus queue** — `http-rule` + `sb-rule`; HTTP concurrency `10`; Service Bus `messageCount=5`, `activationMessageCount=0`; enqueue `100` messages at `22:54:13 UTC`, then send `200` HTTP requests at `22:54:15 UTC`.
+    - [Measured] HTTP burst completed `200/200` success with average `537 ms`; queue drained to `0` active messages.
+    - [Observed] System log recorded `ca-scale-rule-conflicts has been scaled to 10 by the scaler: azure-servicebus-work-items` at `22:54:28 UTC`.
+    - [Observed] Scale-in to `1` occurred at `23:00:22 UTC` after metrics remained below target.
+
+- **S5: Long-lived streaming connections** — HTTP-only rule, `concurrentRequests=10`, `minReplicas=1`, `maxReplicas=10`; start `5` clients on `/stream?seconds=120&interval=5` at `22:55:29 UTC`, then send `200` HTTP burst requests at `22:55:34 UTC`.
+    - [Measured] HTTP burst completed `200/200` success with average `476 ms`.
+    - [Observed] Replica count was `10` during the burst, remained `10` at `+60 s` while streams were still active.
+    - [Observed] Remained `10` after streams ended because cooldown had not expired.
+    - [Correlated] Scaled back to `1` after the `5 min` cooldown window.
+
+### 10.3 Dominant-signal observations
+
+| Scenario | Dominant / blocking signal | Key evidence |
+|---|---|---|
+| S1: HTTP-only | HTTP ingress | Served `200/200` from scale-to-zero, avg `531 ms` **[Measured]** |
+| S2: CPU-only | CPU scaler | `/cpu?seconds=15` all succeeded, avg `16.9 s` **[Measured]** |
+| S3: HTTP+CPU | Neither (burst too short) | Replica count stayed at `1` after burst **[Measured]** **[Inferred]** |
+| S4: HTTP+SB | Service Bus scaler | System log named `azure-servicebus-work-items` as trigger **[Observed]** |
+| S5: Streaming | Active connections blocked scale-in | `10` replicas held while `5` SSE streams open **[Observed]** **[Correlated]** |
+
+### 10.4 Representative log excerpts
+
+```text
+22:53:27 — KEDA scalers started for revision 0000003 (HTTP + SB rules active)
+22:53:28 — Revision 0000003 provisioned
+22:54:17 — KEDA stopped watching revision 0000002 (old revision deactivated)
+22:54:28 — Scaled to 10 by scaler: azure-servicebus-work-items
+22:55:04 — KEDA scalers started for revision 0000004 (HTTP-only rule after update)
+22:56:19 — KEDA stopped watching revision 0000003
+23:00:22 — Scale down to 1 as all metrics below target
+```
+
+- `22:54:28 — Scaled to 10 by scaler: azure-servicebus-work-items` shows that the Service Bus rule, not the HTTP rule, triggered scale-out in the mixed HTTP + queue scenario **[Observed]**.
+- `23:00:22 — Scale down to 1 as all metrics below target` occurred about `6` minutes after the burst and queue drain, matching the configured `300 s` cooldown plus metric evaluation time **[Observed]** **[Correlated]**.
+- In the streaming scenario, replica count remained at `10` while `5` long-lived `/stream` connections were open, even though the `200` burst requests had already completed **[Observed]**.
 
 ## 11. Interpretation
 
-Pending execution. Interpret results using explicit evidence tags.
+1. HTTP-only and CPU-only baselines both behaved normally when isolated. The HTTP-only scenario completed `200/200` requests with `531 ms` average latency from `minReplicas=0` **[Measured]**. The CPU-only scenario completed `10/10` CPU-heavy requests with `16,925 ms` average latency, which matched the intentionally long `15 s` workload plus overhead **[Measured]**.
 
-Planned interpretation questions:
+2. Multiple rules were additive for scale-out, but the strongest active signal determined which scaler actually moved replica count first. In the HTTP + Service Bus scenario, the platform log explicitly states that scale-out to `10` replicas was triggered by `azure-servicebus-work-items` **[Observed]**. This supports the conclusion that whichever rule crosses threshold first can dominate practical scale-out behavior **[Inferred]**.
 
-1. **Observed / Measured**: Did HTTP-only and CPU-only baselines behave normally on their own?
-2. **Observed / Inferred**: In mixed-rule scenarios, did one metric remain active and therefore prevent overall scale-in?
-3. **Observed / Strongly Suggested**: Did HTTP/2 streams correlate with blocked scale-in despite near-zero request volume?
-4. **Not Proven / Unknown**: If HTTP scaling appears ignored, is the cause controller precedence, metric sampling cadence, or threshold design?
+3. The common perception that "HTTP scaling stopped working" after adding another rule was not reproduced as a rule-conflict failure. In the HTTP + CPU scenario, both HTTP and CPU requests succeeded normally **[Measured]**, but the burst finished before any replica increase was observed **[Measured]**. Given the configured `30 s` polling interval, the most plausible explanation is that short bursts completed within a single polling cycle **[Inferred]**. That makes a timing artifact, not scaler breakage, the stronger explanation **[Strongly Suggested]**.
+
+4. Long-lived streaming connections correlated with blocked scale-in. With `5` `/stream` clients open, the app stayed at `10` replicas at `+60 s` even though the short burst had already finished **[Observed]**. This strongly indicates that the HTTP scaler continued to see active concurrency from those open connections **[Correlated]**.
+
+5. `cooldownPeriod` behaved as documented for scale-in, not scale-out. In the queue scenario, the app scaled down at `23:00:22 UTC`, about `6` minutes after the burst and queue-driven scale-out event **[Observed]**. In the streaming scenario, replicas remained high after the streams ended and only returned to `1` after the `5 min` cooldown window passed **[Correlated]**. This shows that cooldown controls how long scale-in waits after all metrics are below threshold; it does not accelerate initial scale-out **[Inferred]**.
+
+6. HTTP/2 multiplexing behavior was not directly validated. The long-lived connection test used streaming SSE clients and demonstrated blocked scale-in for that pattern **[Observed]**, but it does not prove that all HTTP/2 multiplexed or gRPC client behaviors are identical **[Not Proven]**.
 
 ## 12. What this proves
 
-After execution, this experiment should be able to prove only the following kinds of claims:
-
-- whether the tested rule combinations in this environment scaled out as expected
-- whether scale-in required all active signals to become inactive
-- whether long-lived HTTP/2 connections correlated with delayed scale-in
-- whether `cooldownPeriod` changes alone changed behavior when metrics remained active
+1. In this Korea Central Consumption environment, HTTP-only baseline traffic scaled from zero and served a `200` request burst successfully with `531 ms` average latency **[Measured]**.
+2. CPU-only and HTTP + CPU rule coexistence worked functionally; adding the CPU rule did not break HTTP request handling in this test app **[Measured]**.
+3. In a mixed HTTP + Service Bus configuration, the Service Bus scaler was the measured scale-out trigger for the test burst, scaling the app to `10` replicas at `22:54:28 UTC` **[Observed]**.
+4. Short bursts can finish before KEDA reacts when the polling interval is `30 s`, so no visible scale-out may occur even though both configured rules are valid **[Inferred]**.
+5. Scale-in required all active signals to fall below threshold before cooldown completed; active long-lived streaming connections kept replicas at `10` until the streams ended and the cooldown window expired **[Observed]** **[Correlated]**.
+6. A configured `cooldownPeriod` of `300 s` matched the delayed return to baseline replica count after load ended, so cooldown affected scale-in timing but not scale-out responsiveness **[Correlated]** **[Inferred]**.
+7. This experiment does not prove that HTTP/2 multiplexed connections, gRPC streams, or every region/environment will behave identically to the tested HTTP/1.1 SSE pattern **[Not Proven]**.
 
 ## 13. What this does NOT prove
 
@@ -691,20 +734,20 @@ Issue [#972](https://github.com/microsoft/azure-container-apps/issues/972) is in
 
 ## 14. Support takeaway
 
-For cases involving unexpected Container Apps scaling behavior, support engineers should check:
+For cases involving unexpected Container Apps scaling behavior, support engineers should treat mixed-rule behavior as a signal-analysis problem first, not a platform-conflict problem first.
 
-1. whether multiple scale signals are configured and which one is still active
-2. whether the customer expects `cooldownPeriod` to override an active metric
-3. whether HTTP/2, SSE, gRPC, or other long-lived connections are keeping ingress activity alive
-4. whether queue scaler `activation*` values and thresholds are aligned with actual idle conditions
-5. whether the customer has baseline evidence from single-rule testing before combining rules
+1. Check which scaler actually fired. In this experiment, the HTTP + Service Bus case scaled to `10` because of the Service Bus scaler, not because of HTTP **[Observed]**.
+2. Ask whether the customer load is a short burst or a sustained condition. Bursts lasting only a few seconds may finish before the `30 s` polling cycle can trigger visible scale-out **[Inferred]**.
+3. Inspect for long-lived connections such as SSE, gRPC, or other streaming clients. Active connections can keep HTTP concurrency logically non-idle and delay scale-in even after burst traffic has ended **[Correlated]**.
+4. Explain `cooldownPeriod` correctly: it delays scale-in after metrics become inactive; it does not make scale-out faster **[Inferred]**.
+5. Establish single-rule baselines before diagnosing combined-rule behavior. In this lab, both HTTP-only and CPU-only scenarios worked normally on their own **[Measured]**.
 
 Practical triage order:
 
-- reproduce with **HTTP only**
-- reproduce with **CPU only** or **queue only**
-- combine rules only after each single-rule baseline is understood
-- inspect active connections and scaler thresholds before escalating as a platform defect
+- verify single-rule behavior first (`HTTP only`, then `CPU only` or `queue only`)
+- identify the scaler named in system logs during scale-out
+- check whether any metric or connection source is still active before expecting scale-in
+- review polling interval, threshold, and activation settings before escalating as a platform defect
 
 ## 15. Reproduction notes
 

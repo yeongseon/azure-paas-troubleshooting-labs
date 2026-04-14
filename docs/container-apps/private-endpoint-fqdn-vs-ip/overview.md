@@ -476,24 +476,24 @@ $ curl -H "Host: ca-pe-fqdn-vs-ip.politemoss-5ce30cfa..." http://10.80.0.23/heal
 ```mermaid
 flowchart TD
     A[Client in VNet] --> B{Access method?}
-    B -- "FQDN<br>(Private DNS Zone)" --> C[DNS resolves to<br>10.80.0.23]
-    C --> D[TLS ClientHello<br>with SNI = FQDN]
-    D --> E[✅ Envoy accepts SNI<br>wildcard cert match]
-    E --> F[HTTP request<br>Host: FQDN]
-    F --> G[✅ Route to app<br>200 OK]
+    B -- "FQDN<br/>(Private DNS Zone)" --> C[DNS resolves to<br/>10.80.0.23]
+    C --> D[TLS ClientHello<br/>with SNI = FQDN]
+    D --> E[✅ Envoy accepts SNI<br/>wildcard cert match]
+    E --> F[HTTP request<br/>Host: FQDN]
+    F --> G[✅ Route to app<br/>200 OK]
 
-    B -- "Direct IP<br>(https://10.80.0.23)" --> H[TLS ClientHello<br>SNI = ❌ empty]
-    H --> I[❌ Envoy resets<br>connection — no SNI]
+    B -- "Direct IP<br/>(https://10.80.0.23)" --> H[TLS ClientHello<br/>SNI = ❌ empty]
+    H --> I[❌ Envoy resets<br/>connection — no SNI]
 
-    B -- "IP + curl --resolve" --> J[TLS ClientHello<br>SNI = FQDN via --resolve]
+    B -- "IP + curl --resolve" --> J[TLS ClientHello<br/>SNI = FQDN via --resolve]
     J --> E
 
-    B -- "IP + -H Host:<br>(HTTPS)" --> K[TLS ClientHello<br>SNI = ❌ still empty]
+    B -- "IP + -H Host:<br/>(HTTPS)" --> K[TLS ClientHello<br/>SNI = ❌ still empty]
     K --> I
 
-    B -- "IP + -H Host:<br>(HTTP port 80)" --> L{Host header<br>present?}
+    B -- "IP + -H Host:<br/>(HTTP port 80)" --> L{Host header<br/>present?}
     L -- No --> M[404 Not Found]
-    L -- Yes --> N[301 Redirect<br>to HTTPS]
+    L -- Yes --> N[301 Redirect<br/>to HTTPS]
 
     style G fill:#efe,stroke:#0a0,color:#060
     style I fill:#fee,stroke:#c00,color:#900

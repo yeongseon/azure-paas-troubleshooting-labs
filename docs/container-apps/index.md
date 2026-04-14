@@ -16,17 +16,15 @@ graph TB
     subgraph "Azure Container Apps Environment"
         Client([Client]) --> ENVOY[Envoy Proxy<br/>Ingress Controller]
 
-        ENVOY --> REV1[Revision 1<br/>Active]
+        ENVOY --> REV1
         ENVOY --> REV2[Revision 2<br/>Inactive]
 
         subgraph "Revision (Active)"
-            direction TB
-            REV1 --> R1[Replica 1]
+            REV1[Revision 1<br/>Active] --> R1
             REV1 --> R2[Replica 2]
 
             subgraph "Replica"
-                direction LR
-                R1 --> APP[App Container<br/>Target Port]
+                R1[Replica 1] --> APP[App Container<br/>Target Port]
                 R1 --> SIDE[Sidecar<br/>Optional]
             end
         end
@@ -35,7 +33,6 @@ graph TB
         KEDA --> |"scale to 0<br/>when idle"| ZERO([0 Replicas])
 
         subgraph "Container Resources"
-            direction LR
             VCPU[vCPU<br/>0.25 - 4]
             CMEM[Memory<br/>0.5Gi - 8Gi]
             CGROUP[cgroup<br/>Memory Limit]
@@ -91,10 +88,16 @@ graph TB
 | [Ingress SNI / Host Header](ingress-sni-host-header/overview.md) | **Published** | SNI and host header routing behavior |
 | [Private Endpoint FQDN vs IP](private-endpoint-fqdn-vs-ip/overview.md) | **Published** | FQDN vs. direct IP access differences |
 | [Startup Probes](startup-probes/overview.md) | **Published** | Probe interaction and failure patterns |
-| [Revision Update Downtime](revision-update-downtime/overview.md) | **Draft** | 502/503 errors during revision updates |
-| [Internal Name Routing](internal-name-routing/overview.md) | **Draft** | Internal name vs FQDN routing behavior |
-| [Burst Scaling Queueing](burst-scaling-queueing/overview.md) | **Draft** | Request queueing during burst scaling |
-| [Scaling Rule Conflicts](scaling-rule-conflicts/overview.md) | **Draft** | Conflicting KEDA scaling rules behavior |
+| [Revision Update Downtime](revision-update-downtime/overview.md) | **Published** | 502/503 errors during revision updates |
+| [Internal Name Routing](internal-name-routing/overview.md) | **Published** | Internal name vs FQDN routing behavior |
+| [Burst Scaling Queueing](burst-scaling-queueing/overview.md) | **Published** | Request queueing during burst scaling |
+| [Scaling Rule Conflicts](scaling-rule-conflicts/overview.md) | **Published** | Conflicting KEDA scaling rules behavior |
+| [Liveness Probe Failures](liveness-probe-failures/overview.md) | **Published** | Runtime liveness probe failure patterns and in-flight request impact |
+| [Dependency-Coupled Health](dependency-coupled-health/overview.md) | **Published** | Readiness vs liveness probe coupling with external dependencies |
+| [Default Probe Injection](default-probe-injection/overview.md) | **Published** | Whether Container Apps auto-injects probes with ingress enabled |
+| [Multi-Revision Traffic Split](multi-revision-traffic-split/overview.md) | **Published** | Unhealthy revision behavior in percentage-based traffic splitting |
+| [Probe Protocol Semantics](probe-protocol-semantics/overview.md) | **Published** | HTTP vs TCP probe failure detection differences |
+| [Worker Saturation vs Liveness](worker-saturation-liveness/overview.md) | **Published** | Single-worker thread saturation causing liveness probe timeout |
 
 ## Published Experiments
 
@@ -146,35 +149,75 @@ Behavioral differences when accessing a Container App via private endpoint FQDN 
 ??? success "Experiment Complete"
     Completed 2026-04-12 on Consumption tier (internal-only, VNet-injected, koreacentral). 10 access patterns tested across 5 runs with 100% reproducibility. Key finding: SNI is mandatory for TLS admission; `-k` and `-H Host:` do not help because the failure occurs before certificate presentation and before HTTP layer processing.
 
-## Draft Experiments
-
-### [Revision Update Downtime](revision-update-downtime/overview.md) — **Draft**
+### [Revision Update Downtime](revision-update-downtime/overview.md) — **Published**
 
 502/503 errors during revision updates. Documents the downtime window when deploying new revisions, conditions that cause failed requests, and mitigation strategies (traffic splitting, minReplicas).
 
-!!! info "Status: Draft - Awaiting Execution"
-    Designed based on Container Apps GitHub issues #1166, #1305. Awaiting execution.
+??? success "Experiment Complete"
+    Completed 2026-04 on Consumption tier (koreacentral). Captures revision update lifecycle, error codes during single-revision vs multi-revision modes, and the impact of minReplicas settings.
 
-### [Internal Name Routing](internal-name-routing/overview.md) — **Draft**
+### [Internal Name Routing](internal-name-routing/overview.md) — **Published**
 
 Internal name vs FQDN routing behavior in Container Apps. Investigates when internal names (without environment domain) work vs fail, the "Connection refused" errors, and DNS resolution differences.
 
-!!! info "Status: Draft - Awaiting Execution"
-    Designed based on Container Apps GitHub issue #1315. Awaiting execution.
+??? success "Experiment Complete"
+    Completed 2026-04 on Consumption tier (koreacentral). Documents internal vs FQDN routing resolution and connection behavior differences.
 
-### [Burst Scaling Queueing](burst-scaling-queueing/overview.md) — **Draft**
+### [Burst Scaling Queueing](burst-scaling-queueing/overview.md) — **Published**
 
 Request queueing behavior during rapid scale-out events. Tests how incoming requests are handled when KEDA triggers scaling faster than replicas can start, and whether Envoy queues or rejects excess traffic.
 
-!!! info "Status: Draft - Awaiting Execution"
-    Designed based on Container Apps scaling patterns. Awaiting execution.
+??? success "Experiment Complete"
+    Completed 2026-04 on Consumption tier (koreacentral). Documents Envoy queueing behavior, replica startup timing, and request fate during rapid scale-out.
 
-### [Scaling Rule Conflicts](scaling-rule-conflicts/overview.md) — **Draft**
+### [Scaling Rule Conflicts](scaling-rule-conflicts/overview.md) — **Published**
 
 Behavior when multiple KEDA scaling rules conflict. Tests what happens when HTTP and custom (queue-based) scaling rules give contradictory signals, and which rule takes precedence.
 
-!!! info "Status: Draft - Awaiting Execution"
-    Designed based on Container Apps GitHub issues #468, #536, #972. Awaiting execution.
+??? success "Experiment Complete"
+    Completed 2026-04 on Consumption tier (koreacentral). Documents KEDA rule precedence, max-wins behavior, and the interaction between HTTP and queue-based scaling rules.
+
+### [Liveness Probe Failures](liveness-probe-failures/overview.md) — **Published**
+
+Runtime liveness probe failure patterns covering dependency-checking probes (cascading restart), blocking I/O (timeout restart), missing probes (zombie undetected), and in-flight request drop during restart.
+
+??? success "Experiment Complete"
+    Completed 2026-04-13 on Consumption tier (koreacentral). Five scenarios tested: healthy baseline, dependency-checking liveness, blocking I/O liveness, missing liveness (zombie), and in-flight request drop. All four hypotheses confirmed with real system log evidence.
+
+### [Dependency-Coupled Health](dependency-coupled-health/overview.md) — **Published**
+
+Readiness vs liveness probe coupling with external dependencies. Demonstrates that liveness probes checking dependencies cause cascading restart loops, while readiness-only dependency checks allow self-healing after recovery.
+
+??? success "Experiment Complete"
+    Completed 2026-04-13 on Consumption tier (koreacentral). Six variants tested including readiness-only, liveness+readiness, slow dependency, and intermittent failure. Key finding: liveness+dependency caused 8 restarts and permanent Failed state; readiness-only self-healed.
+
+### [Default Probe Injection](default-probe-injection/overview.md) — **Published**
+
+Whether Container Apps automatically injects health probes when ingress is enabled. Tests four scenarios: no ingress, with ingress, slow startup (60s), and 404-returning apps.
+
+??? success "Experiment Complete"
+    Completed 2026-04-13 on Consumption tier (koreacentral). Confirmed Container Apps does NOT auto-inject probes regardless of ingress configuration. A 60s-delay app ran without restarts because no probes existed to detect the slow startup.
+
+### [Multi-Revision Traffic Split](multi-revision-traffic-split/overview.md) — **Published**
+
+Unhealthy revision behavior in percentage-based traffic splitting. Tests what happens when an unhealthy/Failed revision receives traffic through multi-revision traffic split configuration.
+
+??? success "Experiment Complete"
+    Completed 2026-04-13 on Consumption tier (koreacentral). With 90/10 split, requests routed to the Failed v2 revision timed out while v1 served normally. Rolling back to 100% v1 immediately resolved all errors. Key finding: Container Apps routes traffic to Failed revisions — no automatic skip.
+
+### [Probe Protocol Semantics](probe-protocol-semantics/overview.md) — **Published**
+
+HTTP vs TCP probe failure detection differences. Demonstrates that TCP probes only check port connectivity and cannot detect application-level failures (HTTP 503), while HTTP probes detect response codes.
+
+??? success "Experiment Complete"
+    Completed 2026-04-13 on Consumption tier (koreacentral). Two identical apps with same failure trigger: HTTP-probed app entered restart loop (5 restarts), TCP-probed app remained Healthy with 0 restarts despite /live returning 503.
+
+### [Worker Saturation vs Liveness](worker-saturation-liveness/overview.md) — **Published**
+
+Single-worker thread saturation causing liveness probe timeout and container restart. Tests the failure mode when a single long-running request blocks all probe responses.
+
+??? success "Experiment Complete"
+    Completed 2026-04-13 on Consumption tier (koreacentral). A 60s blocking request on a 1-worker/1-thread gunicorn app caused readiness failure at T+24s, liveness failure at T+40s, and container termination. App auto-recovered after restart.
 
 ## Related Experiments in Other Services
 

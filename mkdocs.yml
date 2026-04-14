@@ -77,6 +77,8 @@ nav:
           - Overview: container-apps/burst-scaling-queueing/overview.md
       - Scaling Rule Conflicts:
           - Overview: container-apps/scaling-rule-conflicts/overview.md
+      - Liveness Probe Failures:
+          - Overview: container-apps/liveness-probe-failures/overview.md
   - Cross-cutting:
       - Overview: cross-cutting/index.md
       - MI RBAC Propagation:
@@ -95,6 +97,15 @@ nav:
           - Overview: container-apps/private-endpoint-fqdn-vs-ip/overview.md
       - Startup Probes:
           - Overview: container-apps/startup-probes/overview.md
+      - Dependency-Coupled Health:
+          - Overview: container-apps/dependency-coupled-health/overview.md
+      - Default Probe Injection: container-apps/default-probe-injection/overview.md
+      - Multi-Revision Traffic Split:
+          - Overview: container-apps/multi-revision-traffic-split/overview.md
+      - Probe Protocol Semantics:
+          - Overview: container-apps/probe-protocol-semantics/overview.md
+      - Worker Saturation vs Liveness:
+          - Overview: container-apps/worker-saturation-liveness/overview.md
   - Patterns:
       - Symptom to Hypothesis: patterns/symptom-to-hypothesis.md
       - False Positives: patterns/false-positives.md
@@ -111,6 +122,9 @@ markdown_extensions:
   - tables
   - pymdownx.superfences:
       custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
         - name: vegalite
           class: vegalite
           format: !!python/name:mkdocs_charts_plugin.fences.fence_vegalite
