@@ -16,17 +16,15 @@ graph TB
     subgraph "Azure Container Apps Environment"
         Client([Client]) --> ENVOY[Envoy Proxy<br/>Ingress Controller]
 
-        ENVOY --> REV1[Revision 1<br/>Active]
+        ENVOY --> REV1
         ENVOY --> REV2[Revision 2<br/>Inactive]
 
         subgraph "Revision (Active)"
-            direction TB
-            REV1 --> R1[Replica 1]
+            REV1[Revision 1<br/>Active] --> R1
             REV1 --> R2[Replica 2]
 
             subgraph "Replica"
-                direction LR
-                R1 --> APP[App Container<br/>Target Port]
+                R1[Replica 1] --> APP[App Container<br/>Target Port]
                 R1 --> SIDE[Sidecar<br/>Optional]
             end
         end
@@ -35,7 +33,6 @@ graph TB
         KEDA --> |"scale to 0<br/>when idle"| ZERO([0 Replicas])
 
         subgraph "Container Resources"
-            direction LR
             VCPU[vCPU<br/>0.25 - 4]
             CMEM[Memory<br/>0.5Gi - 8Gi]
             CGROUP[cgroup<br/>Memory Limit]
