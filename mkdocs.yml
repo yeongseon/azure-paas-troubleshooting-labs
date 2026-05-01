@@ -47,6 +47,16 @@ nav:
           - Overview: app-service/access-restrictions-scm/overview.md
       - VNet Integration IP Exhaustion:
           - Overview: app-service/vnet-integration-ip-exhaustion/overview.md
+      - ZIP Deploy SCM Restart:
+          - Overview: app-service/zip-deploy-scm-restart/overview.md
+      - Private Endpoint DNS Misconfiguration:
+          - Overview: app-service/private-endpoint-dns-misconfiguration/overview.md
+      - Key Vault Certificate Binding:
+          - Overview: app-service/keyvault-cert-binding/overview.md
+      - ARR Affinity Behavior:
+          - Overview: app-service/arr-affinity-behavior/overview.md
+      - App Insights vs OpenTelemetry Gap:
+          - Overview: app-service/appinsights-opentelemetry-gap/overview.md
   - Functions:
       - Overview: functions/index.md
       - Flex Router Queueing:
@@ -108,6 +118,18 @@ nav:
           - Overview: container-apps/probe-protocol-semantics/overview.md
       - Worker Saturation vs Liveness:
           - Overview: container-apps/worker-saturation-liveness/overview.md
+      - Dapr Sidecar Failures:
+          - Overview: container-apps/dapr-sidecar-failures/overview.md
+      - Storage Mount Failures:
+          - Overview: container-apps/storage-mount-failures/overview.md
+      - Init Container Startup Order:
+          - Overview: container-apps/init-container-startup-order/overview.md
+      - Secret Rotation and Revision:
+          - Overview: container-apps/secret-rotation-revision/overview.md
+      - Workload Profile Behavior:
+          - Overview: container-apps/workload-profile-behavior/overview.md
+      - Log Analytics Ingestion Gap:
+          - Overview: container-apps/log-analytics-gap/overview.md
   - Patterns:
       - Symptom to Hypothesis: patterns/symptom-to-hypothesis.md
       - False Positives: patterns/false-positives.md
