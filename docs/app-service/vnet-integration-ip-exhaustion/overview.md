@@ -16,11 +16,11 @@ validation:
 
 # VNet Integration Subnet IP Exhaustion During SKU Change
 
-!!! info "Status: Published — Partial Reproduction"
-    Initial experiment (2026-05-01, Korea Central) produced an explicit `Insufficient address space` Conflict error on Config A (/28 + 6 workers, P1v3→P2v3).
-    Subsequent replay runs (G, H) on identical fresh environments did **not** reproduce the Conflict — both reached 6 instances successfully.
-    The Conflict error is **Observed** as a one-time event. The causal link to subnet IP count alone is **not confirmed** — transient platform/stamp state is the leading alternative explanation.
-    Positive controls (Config B, C) and replay runs added as supplementary evidence.
+!!! info "Status: Published — Non-Reproducible"
+    Initial experiment (2026-05-01) produced an explicit `Insufficient address space` Conflict error on Config A (/28 + 6 workers, P1v3→P2v3).
+    Four subsequent replay runs (G, H, I, L) on identical environments — including an exact sequence replay — did **not** reproduce the error.
+    The Conflict error is **Observed** as a one-time platform event. The trigger condition is **not identified**.
+    The `→ 1 worker` post-SKU-change behavior is consistent and confirmed across all 7 runs.
 
 ## 1. Question
 
@@ -556,21 +556,39 @@ No Conflict error. Instances reached 6 within ~1 minute.
 
 No Conflict error. Instances reached 6 within ~90 seconds.
 
-**Finding**: Neither replay reproduced the `Conflict` error from Config A. ARM reported `Succeeded` in all scale operations; actual instances reached 6 asynchronously in both runs **[Observed]**. The Config A Conflict was a **one-time event that did not recur on identical fresh environments** **[Observed]**.
+**Run I** (/28 + P1v3→P2v3, VNet Integration stabilized 15 min before SKU change):
+
+| Operation | Time (UTC) | ARM result | Actual instances |
+|-----------|-----------|------------|-----------------|
+| SKU change | 07:41:04Z–07:41:03Z | Succeeded, workers → 1 | — |
+| Scale-out 1→6 (immediate) | 07:41Z | Succeeded, capacity=6 | 6 |
+
+No Conflict error.
+
+**Run L** (/28, Config A sequence replay: 1w → VNet → scale-out 6 → stabilize 10min → SKU change → scale-out 6):
+
+| Operation | Time (UTC) | ARM result | Actual instances |
+|-----------|-----------|------------|-----------------|
+| SKU change (after 10min stable at 6w) | 07:55:30Z–07:55:32Z | Succeeded, workers → 1 | — |
+| Scale-out 1→6 (immediate) | 07:55:40Z–07:55:42Z | Succeeded, capacity=6 | 2 → 6 (async ~90s) |
+
+No Conflict error. This run replicated the original Config A sequence most closely (1 worker deploy → VNet Integration → scale-out → stabilize → SKU change → scale-out).
+
+**Finding**: Four replay runs (G, H, I, L) across different timing strategies and deployment sequences all succeeded without error **[Observed]**. The Config A Conflict remains a **single non-reproducible observation** after 4 attempts on identical configurations.
 
 !!! warning "Reproducibility caveat"
-    Config A's `Insufficient address space` error occurred once on 2026-05-01 and was not reproduced in two subsequent identical runs (G, H). The error is confirmed as observed but its cause — subnet IP count vs. transient platform/stamp state — is **not resolved**.
+    Config A's `Insufficient address space` error occurred once on 2026-05-01 and was not reproduced in four subsequent runs (G, H, I, L) including an exact sequence replay. The error is confirmed as a real platform error but its trigger condition is **not identified**.
 
 ## 11. Interpretation
 
-**H1 — Transient IP surge: NOT CONFIRMED [Observed, cause unresolved]**
-Config A produced an explicit `"Insufficient address space remaining in VNet(s)"` Conflict on scale-out **[Observed]**. However, two replay runs (G, H) on identical /28 + 6-worker environments succeeded without error **[Observed]**. The ARM `ipConfigurations` field is absent for Regional VNet Integration subnets, making per-worker IP consumption unverifiable from outside **[Observed]**. Whether the Config A failure was caused by subnet IP exhaustion, transient platform/stamp state, or stale lease retention from the prior SKU change is **not determined** **[Unknown]**.
+**H1 — Transient IP surge: NOT CONFIRMED [Observed once, not reproducible]**
+Config A produced an explicit `"Insufficient address space remaining in VNet(s)"` Conflict on scale-out **[Observed]**. Four replay runs (G, H, I, L) on identical /28 + 6-worker environments — including an exact Config A sequence replay — succeeded without error **[Observed]**. The ARM `ipConfigurations` field is absent for Regional VNet Integration subnets, making per-worker IP consumption unverifiable **[Observed]**. The Config A failure is most consistent with a **transient platform/stamp state** rather than a deterministic subnet IP exhaustion condition **[Strongly Suggested]**.
 
-**H2 — Tight subnet causes transition degradation: PARTIALLY OBSERVED [Observed, not confirmed causal]**
-Config A: The SKU change succeeded at the ARM level but the worker count silently dropped from 6 to 1, and the subsequent scale-out failed explicitly with a subnet exhaustion error **[Observed]**. Config B (same /28 subnet, target workers 4) and Config C (/26 + 6 workers) both succeeded **[Observed]**. Replay runs G and H (/28 + 6 workers) also succeeded **[Observed]**. The causal link between /28 subnet size and the Config A failure is **not confirmed** — the positive controls (B, C) and replays (G, H) show the same configuration can succeed **[Inferred]**.
+**H2 — Tight subnet causes transition degradation: NOT CONFIRMED [Observed once, not reproducible]**
+Config A: The SKU change succeeded at the ARM level but the worker count silently dropped from 6 to 1, and the subsequent scale-out failed with a subnet error **[Observed]**. All subsequent runs — Config B, C, G, H, I, L — succeeded on /28 or smaller subnets **[Observed]**. The /28 subnet size alone does not appear to be the deterministic cause of the Config A failure **[Strongly Suggested]**.
 
 **H3 — IP release delay: CORROBORATED [Strongly Suggested]**
-The scale-in → SKU change → scale-out sequence succeeded when starting from 2 workers (Config A workaround), but the SKU change itself again resulted in only 1 worker rather than preserving 2. All tested configs (A, B, C, G, H) showed the same → 1 post-SKU-change result **[Observed]**. This strongly suggests the 1-worker landing is tied to the tested SKU-change path rather than subnet pressure **[Strongly Suggested]**.
+The scale-in → SKU change → scale-out sequence succeeded when starting from 2 workers (Config A workaround), but the SKU change itself again resulted in only 1 worker rather than preserving 2. All tested configs (A, B, C, G, H, I, L) showed the same → 1 post-SKU-change result **[Observed]**. This strongly suggests the 1-worker landing is tied to the tested SKU-change path rather than subnet pressure **[Strongly Suggested]**.
 
 **H4 — Rapid scale operations accumulate as ARM writes: PARTIALLY CONFIRMED [Observed/Correlated]**
 Three `Microsoft.Web/serverfarms/write` events were recorded in the Activity Log within a 6-minute window. The 40/hour rate limit was not triggered in this run. Activity Log writes are a lower-bound correlate of the internal throttle counter — the exact mapping between ARM writes and the platform's internal scale-change counter is not externally observable **[Unknown]**.
@@ -593,15 +611,15 @@ Two replay runs (G, H) with identical /28 + P1v3→P2v3 + 6-worker configuration
 
 ## 12. What this proves
 
-!!! success "Evidence: Five configs + two replay runs, Korea Central, P1v3→P2v3"
+!!! success "Evidence: 5 configs + 4 replay runs, Korea Central, P1v3→P2v3"
 
 1. **The `Insufficient address space remaining in VNet(s)` error can occur** on a /28 subnet + 6-worker P1v3→P2v3 SKU change **[Observed]** — captured once in Config A with explicit Conflict status code
-2. **The same configuration can also succeed** — Runs G and H on identical fresh /28 + 6-worker environments completed without error **[Observed]**; the failure in Config A is not reliably reproducible
-3. **ARM operation success status is not sufficient to validate actual instance count** **[Observed]** — both SKU change (workers → 1) and scale-out (async provisioning) returned `Succeeded` before actual state stabilized
-4. **In all tested runs, the SKU change completed with 1 worker** **[Observed]** — strongly suggests the 1-worker landing is part of the SKU-change path, not an IP-exhaustion artifact **[Strongly Suggested]**
+2. **The same configuration did not reproduce the error across 4 additional runs** (G, H, I, L) — including an exact Config A sequence replay **[Observed]**; the failure is most consistent with transient platform state rather than deterministic subnet IP math **[Strongly Suggested]**
+3. **ARM operation success status is not sufficient to validate actual instance count** **[Observed]** — both SKU change (workers → 1) and scale-out (async provisioning) returned `Succeeded` before actual state stabilized; `az webapp list-instances` is the reliable check
+4. **In all tested runs, the SKU change completed with 1 worker** **[Observed]** — consistent across all 7 configs (A, B, C, G, H, I, L); strongly suggests 1-worker landing is part of the SKU-change path, not an IP-exhaustion artifact **[Strongly Suggested]**
 5. **The explicit subnet error surfaces on scale-out, not the SKU change itself** **[Observed]** — based on the single Config A occurrence
-6. **`availableIPAddressCount` is not available via ARM for Regional VNet Integration subnets** **[Observed]** — per-worker IP state is not externally observable
-7. **Pre-scaling in provides headroom for a subsequent SKU change and scale-out** **[Observed]** — the 6→2 scale-in → SKU change → 1→6 scale-out sequence succeeded in Config A workaround
+6. **`availableIPAddressCount` is not available via ARM for Regional VNet Integration subnets** **[Observed]** — `ipConfigurations: 0` on all tested subnets; per-worker IP state not externally observable
+7. **Pre-scaling in provides headroom for a subsequent SKU change and scale-out** **[Observed]** — the Config A workaround (6→2 scale-in → SKU change → 1→6 scale-out) succeeded
 
 ## 13. What this does NOT prove
 
