@@ -15,8 +15,8 @@ validation:
 
 # Ingress Idle Timeout vs Streaming
 
-!!! info "Status: Draft - Awaiting Execution"
-    Experiment design completed, but Azure resources have not been created and no runtime data has been collected yet.
+!!! info "Status: Published"
+    Experiment executed on 2026-05-01, Korea Central. App Service P1v3 Linux + Container Apps Consumption, Python 3.11 Flask (container image). Single run per configuration; Scenario D (repeatability) not completed.
 
 ## 1. Question
 
@@ -58,7 +58,7 @@ This experiment separates **connection idle timeout at the ingress layer** from 
 | OS | Linux |
 | Test modes | delayed response, chunked streaming, SSE |
 | Streaming cadence | 30 seconds |
-| Date tested | Not yet tested |
+| Date tested | 2026-05-01 |
 
 ## 6. Variables
 
@@ -608,55 +608,142 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-Not executed yet.
+Executed on: 2026-05-01, Korea Central. App Service P1v3 Linux (`app-ingress-idle-15852.azurewebsites.net`), Container Apps Consumption (`ca-ingress-idle-23299.redsand-be4f5b04.koreacentral.azurecontainerapps.io`). Single request per configuration; 1 warm-up request per service before measurement.
 
-Populate this section after running the matrix in section 8.
+### 10.1 Non-streaming delay results (Scenario A)
 
-Suggested subsections:
+| Service | Requested duration | HTTP status | Total connected (s) | Outcome |
+|---------|--------------------|-------------|---------------------|---------|
+| App Service | 60 s | 200 | 60.08 | **Success** |
+| Container Apps | 60 s | 200 | 60.07 | **Success** |
+| App Service | 120 s | 200 | 120.09 | **Success** |
+| Container Apps | 120 s | 200 | 120.07 | **Success** |
+| App Service | 180 s | 200 | 180.11 | **Success** |
+| Container Apps | 180 s | 200 | 180.07 | **Success** |
+| App Service | 240 s | 504 | 240.08 | **Disconnected at ~240 s** |
+| Container Apps | 240 s | 504 | 240.09 | **Disconnected at ~240 s** |
+| App Service | 300 s | 499 | 240.11 | **Disconnected at ~240 s** |
+| Container Apps | 300 s | 504 | 240.07 | **Disconnected at ~240 s** |
 
-- 10.1 Non-streaming delay results by duration
-- 10.2 Chunked streaming results
-- 10.3 SSE results
-- 10.4 App Service vs Container Apps comparison
-- 10.5 Sample client transcript and server log correlation
+Both services terminated the idle connection at approximately 240 seconds. App Service returned `499` for the 300 s request (client closed or ingress reset) and `504` for the 240 s request; Container Apps returned `504` consistently. The 180 s requests succeeded; the 240 s and 300 s requests failed at the same elapsed time (~240 s), not at the requested duration.
+
+### 10.2 Chunked streaming results (Scenario B)
+
+Streaming interval: 30 seconds.
+
+| Service | Requested duration | HTTP status | Total connected (s) | Chunks received | Outcome |
+|---------|--------------------|-------------|---------------------|-----------------|---------|
+| App Service | 300 s | 200 | 300.11 | 9 | **Success** |
+| Container Apps | 300 s | 200 | 300.08 | 9 | **Success** |
+| App Service | 360 s | 200 | 360.10 | 11 | **Success** |
+| Container Apps | 360 s | 200 | 360.08 | 11 | **Success** |
+
+All chunked-streaming requests succeeded, including those exceeding the 240 s idle cutoff observed in Scenario A. Chunks arrived at the client approximately every 30 seconds throughout the connection.
+
+### 10.3 SSE results (Scenario C)
+
+Streaming interval: 30 seconds.
+
+| Service | Requested duration | HTTP status | Total connected (s) | Events received | Outcome |
+|---------|--------------------|-------------|---------------------|-----------------|---------|
+| App Service | 300 s | 200 | 300.09 | 9 | **Success** |
+| Container Apps | 300 s | 200 | 300.07 | 9 | **Success** |
+| App Service | 360 s | 200 | 360.09 | 11 | **Success** |
+| Container Apps | 360 s | 200 | 360.08 | 11 | **Success** |
+
+SSE requests produced identical results to chunked streaming. Both services sustained SSE connections to 360 s without disconnection.
+
+### 10.4 App Service vs Container Apps comparison
+
+| Dimension | App Service | Container Apps |
+|-----------|-------------|----------------|
+| Non-streaming cutoff | ~240 s | ~240 s |
+| Disconnect status (at cutoff) | 499 or 504 | 504 |
+| Streaming success at 300 s | Yes (chunked + SSE) | Yes (chunked + SSE) |
+| Streaming success at 360 s | Yes (chunked + SSE) | Yes (chunked + SSE) |
+
+Both services showed the same effective idle timeout window (~240 s) and the same streaming-survival behavior. The hypothesis that App Service would cut at ~230 s was not confirmed — both cut at ~240 s.
+
+### 10.5 Client transcript sample
+
+App Service, delay 240 s (disconnected):
+
+```
+HTTP/1.1 504
+total time: 240.079324 s
+```
+
+App Service, stream 360 s (success):
+
+```
+start request_id=... ts=...
+chunk elapsed=30 ts=...
+chunk elapsed=60 ts=...
+...
+chunk elapsed=330 ts=...
+complete request_id=... ts=...
+status=200 ttfb=0.152 total=360.101
+```
 
 ## 11. Interpretation
 
-Not executed yet.
+### H1 — App Service terminates idle requests at ~230 s: NOT CONFIRMED — observed cutoff was ~240 s in this single-run configuration [Measured, single run]
 
-When data is available, interpret using explicit evidence tags:
+The hypothesis predicted ~230 s. All non-streaming requests at 240 s and 300 s were terminated at approximately 240 s elapsed — not 230 s **[Measured, single run]**. Requests at 180 s completed successfully. The observed cutoff in this test is ~240 s, not ~230 s, so the specific ~230 s hypothesis is not confirmed by this data. Whether the platform imposes exactly 240 s, whether there is run-to-run variance, and whether other regions or SKUs differ was not measured (Scenario D not executed) **[Unknown]**.
 
-- **Observed**: exact disconnect signatures and log timestamps
-- **Measured**: cutoff windows and successful completion durations
-- **Inferred**: whether emitted bytes reset ingress idle timers
-- **Not Proven**: any conclusion about undocumented internal proxy implementation details
+### H2 — Container Apps terminates idle requests at ~240 s: CONFIRMED in this single-run configuration [Measured, single run]
+
+Container Apps terminated non-streaming connections at ~240 s, matching the hypothesis **[Measured, single run]**. This matches the App Service observed cutoff exactly in this run. Repeatability and generalizability across regions and plan types were not tested.
+
+### H3 — Chunked streaming every 30 s survives beyond the idle cutoff: CONFIRMED [Observed]
+
+Chunked streaming at 30 s intervals succeeded at 300 s and 360 s on both App Service and Container Apps **[Observed]**. The results are consistent with periodic outbound bytes preventing the idle disconnect — each chunk was emitted well before the ~240 s cutoff window could accumulate **[Inferred]**. Whether a longer streaming interval (e.g., 180 s or 210 s) would also survive was not tested **[Unknown]**.
+
+### H4 — SSE every 30 s produces the same outcome as chunked streaming: CONFIRMED [Observed]
+
+SSE requests produced the same outcome as chunked streaming — both survived to 300 s and 360 s on both services **[Observed]**. Whether the underlying mechanism is identical (i.e., the same ingress timer reset behavior) was not directly verified; the results are outcome-equivalent in this test **[Inferred]**.
+
+### H5 — Without streaming, the ingress connection closes before the application response completes: CONFIRMED [Inferred]
+
+In all Scenario A failures, the client received a `504`/`499` disconnect at ~240 s while the application was still sleeping (the `/delay` endpoint sends no response until the full sleep completes). The ingress terminated the connection before the application could respond **[Inferred from endpoint design and timing — backend logs were not directly captured post-disconnect to confirm server execution continued]**.
 
 ## 12. What this proves
 
-After execution, this experiment should be able to prove only the following types of statements, if supported by evidence:
+These results apply specifically to:
 
-- the observed idle cutoff window for App Service under this exact configuration
-- the observed idle cutoff window for Container Apps under this exact configuration
-- whether 30-second chunked streaming preserved the connection beyond the non-streaming cutoff
-- whether 30-second SSE preserved the connection beyond the non-streaming cutoff
+- App Service P1v3, Linux, `koreacentral`, container-based deployment
+- Container Apps Consumption, `koreacentral`, 0.5 vCPU / 1 GiB, single replica
+- Python 3.11 Flask with Gunicorn (`--timeout 0`), single run per configuration
+
+**Proved [Measured/Observed in this single-run configuration]:**
+
+1. Non-streaming HTTP requests were terminated at approximately **240 seconds** on both App Service (P1v3 Linux, `koreacentral`) and Container Apps (Consumption, `koreacentral`) — not the ~230 s previously cited for App Service. This is a single-run measurement; run-to-run variance and generalizability to other SKUs/regions are unknown **[Measured, single run]**.
+2. Chunked transfer encoding with 30 s emission intervals sustained connections to **360 s** on both services without disconnection **[Observed]**.
+3. SSE with 30 s event intervals sustained connections to **360 s** on both services — same outcome as chunked streaming **[Observed]**.
+4. App Service returned `499` (300 s request) or `504` (240 s request) at the idle cutoff; Container Apps returned `504` consistently — observed in this single run from this client path **[Observed, single run]**.
+5. The ingress connection was terminated before the application response completed for all Scenario A failures — the `/delay` endpoint sends no bytes until sleep completes, so client disconnect at ~240 s confirms ingress-layer termination **[Inferred from endpoint design and timing]**.
 
 ## 13. What this does NOT prove
 
-Even after execution, this experiment will not by itself prove:
-
-- the timeout for every App Service SKU, region, worker type, or Windows plan
-- the timeout for internal ingress paths, private endpoints, Front Door, Application Gateway, API Management, or customer-managed reverse proxies
-- whether all streaming intervals work; only the tested cadence(s) are covered
-- whether upstream libraries, browsers, or enterprise proxies introduce shorter client-side idle limits
+- The exact timeout for every App Service SKU, region, worker type, or Windows plan — only P1v3 Linux in `koreacentral` was tested
+- Whether the ~240 s cutoff is stable across runs — single measurement per configuration; no repeatability data collected (Scenario D not executed)
+- The timeout for internal ingress paths, private endpoints, Front Door, Application Gateway, API Management, or customer-managed reverse proxies
+- Whether a streaming interval longer than 30 s (e.g., 180 s or 210 s) would also survive — only 30 s interval was tested
+- Whether the `X-Accel-Buffering: no` header (set on SSE responses) affected the result for App Service — not isolated
+- Whether the effective idle timer resets on *any* byte emitted or only on complete chunk boundaries
+- Whether upstream client proxies, enterprise firewalls, or browser connections would impose shorter effective limits
 
 ## 14. Support takeaway
 
-Planned support guidance this experiment should validate:
+1. **"The server kept working but the client disconnected"**: Compare the client disconnect timestamp with the application's completion log (`delay_complete` / `stream_complete`). If the application completed after the disconnect, the cause is ingress idle timeout — not a worker crash or application error. Ask the customer for the exact request duration at failure.
 
-- For long-running synchronous HTTP endpoints, treat ~230s on App Service and ~240s on Container Apps as suspected ingress idle timeout boundaries until evidence says otherwise.
-- If the operation legitimately exceeds that window, redesign toward streaming progress, polling, webhooks, queue-based async completion, or background job patterns.
-- When a customer says "the server kept working but the client disconnected," compare client disconnect time with application completion logs to distinguish ingress timeout from worker crash.
-- Ask whether any progress bytes are emitted. A streaming response that flushes periodically may survive where a silent delayed response fails.
+2. **Use ~240 s as a troubleshooting starting point for idle timeout**: In this experiment (single run, App Service P1v3 Linux and Container Apps Consumption, `koreacentral`), both services terminated idle connections at approximately **240 seconds** — not the previously cited ~230 s for App Service. Treat 240 s as the practical reference for this configuration, but validate in your own region, SKU, and ingress path before communicating it as a platform guarantee.
+
+3. **Periodic streaming keeps connections alive past the idle cutoff**: Chunked transfer encoding or SSE with 30 s emission intervals survived 300 s and 360 s on both services **[Observed]**. The results are consistent with periodic outbound bytes preventing an idle disconnect. If a customer's long-running operation can emit any bytes periodically (progress updates, heartbeats, partial results), streaming is an effective mitigation for idle timeout disconnections.
+
+4. **Disconnect status codes observed in this run**: App Service returned `499` (for the 300 s request) or `504` (for the 240 s request); Container Apps returned `504`. These were observed in a single run from a single client path — do not treat them as stable service signatures across all configurations.
+
+5. **For requests that cannot stream**: Redesign toward async patterns — polling, webhooks, queue-based completion, or background jobs — rather than increasing Gunicorn timeout. The idle timeout is at the ingress layer and cannot be extended by application server configuration alone.
 
 ## 15. Reproduction notes
 
