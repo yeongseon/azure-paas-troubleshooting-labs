@@ -15,8 +15,8 @@ validation:
 
 # Access Restrictions: Main Site vs SCM / Kudu Reachability
 
-!!! info "Status: Draft - Awaiting Execution"
-    This experiment design is complete and ready for lab execution. No Azure resources were created and no live measurements are recorded on this page yet.
+!!! success "Status: Published"
+    Experiment executed on 2026-05-01. Korea Central, Linux P1v3, Python 3.11. Scenarios S1, S2, S3, S5, S6 completed on real Azure infrastructure. S4 (private endpoint + access restrictions combined) not executed — VNet-internal client not available in this lab environment.
 
 ## 1. Question
 
@@ -561,57 +561,138 @@ az group delete --name "$RG" --yes --no-wait
 
 ## 10. Results
 
-Awaiting execution.
+!!! info "Environment: Korea Central, Linux P1v3, Python 3.11, 2026-05-01"
 
-Populate this section with:
+### Baseline (no restrictions, no private endpoint)
 
-1. Completed scenario matrix from section 8.12
-2. Sample request/response transcripts for each distinct outcome (`200`, `401`, `403`, timeout, DNS failure)
-3. DNS resolution results for app and SCM hostnames from public and VNet-connected clients
-4. Access restriction rule dumps per scenario
-5. Health check log evidence and any instance-state changes
-6. zipdeploy and deployment-history outputs under each SCM restriction mode
+| Endpoint | HTTP status | Notes |
+|----------|-------------|-------|
+| Main `/` | 200 | Public access, public IP |
+| Main `/healthz` | 200 | |
+| SCM `/api/settings` | 200 | Basic auth enabled |
+| SCM `/api/deployments` | 200 | |
+| DNS: `app.azurewebsites.net` | `20.41.66.225` | Public IP |
+| DNS: `app.scm.azurewebsites.net` | `20.41.66.225` | Same public IP |
+| SCM `scmIpSecurityRestrictionsUseMain` | `false` | Default — SCM rules independent |
+
+### Scenario S1: Main restricted (bogus IP only), SCM unrestricted (`scmUsesMain=false`)
+
+| Endpoint | HTTP status | Notes |
+|----------|-------------|-------|
+| Main `/` | **403** | Our workstation IP denied by main rules |
+| Main `/healthz` | **403** | Same — all main paths blocked |
+| SCM `/api/settings` | **200** | SCM rules independent, no SCM restriction |
+| SCM `/api/deployments` | **200** | |
+
+**Key observation**: Main site blocked, SCM/Kudu fully reachable — independent control planes confirmed **[Observed]**.
+
+### Scenario S2: Main allows workstation IP; SCM allows only bogus IP (`scmUsesMain=false`)
+
+| Endpoint | HTTP status | Notes |
+|----------|-------------|-------|
+| Main `/` | **200** | Workstation IP in main allow list |
+| SCM `/api/settings` | **403** | Workstation IP not in SCM allow list |
+| SCM `/api/deployments` | **403** | |
+
+**Key observation**: Main and SCM can be independently allowed/denied by different source IP rules — they are truly separate rule sets **[Observed]**.
+
+### Scenario S3: Private endpoint added, no access restrictions
+
+| Endpoint | HTTP status | DNS resolution |
+|----------|-------------|----------------|
+| Main `/` | **403** | `20.41.66.225` (public IP — unchanged) |
+| Main `/healthz` | **403** | |
+| SCM `/api/settings` | **403** | |
+| SCM `/api/deployments` | **403** | |
+
+**Key observation**: Private endpoint addition alone — without any access restriction rules — caused `403` on **both** main site and SCM from the public internet **[Observed]**. DNS still resolved to the public IP; the block is enforced at the App Service layer, not via DNS. SCM/Kudu followed the same behavior as the main site when the private endpoint was the only change **[Observed]**.
+
+### Scenario S5: Main restricted (all IPs denied), health check configured on `/healthz`
+
+| Time | Instance state | Main `/healthz` from workstation |
+|------|---------------|----------------------------------|
+| T=0  | READY | 403 |
+| T=3min | **READY** | 403 |
+| T=5min | **READY** | 403 |
+
+**Key observation**: Instance remained `READY` throughout — health check probe continued to succeed even though all external IPs (including our workstation) were blocked **[Observed]**. The platform health check probe bypasses access restrictions; it does not originate from a routable external IP that would be subject to the IP allow/deny rules **[Strongly Suggested]**.
+
+### Scenario S6: Main site open, SCM restricted (bogus IP only)
+
+| Operation | Result | Error |
+|-----------|--------|-------|
+| Main `/` | **200** | — |
+| SCM `/api/settings` | **403** | Access restriction |
+| SCM `/api/deployments` | **403** | Access restriction |
+| `curl` zipdeploy via SCM API | **403** | Access restriction |
+| `az webapp deploy` (zip) | **Failed** | `Status Code: 403` — Kudu warmup and deploy both blocked |
+
+**Key observation**: SCM restriction blocked `zipdeploy`, Kudu API access, and `az webapp deploy` while the main site remained fully accessible **[Observed]**. The deployment CLI route goes through `*.scm.azurewebsites.net` — SCM reachability is a prerequisite for all zip-based deployments **[Observed]**.
 
 ## 11. Interpretation
 
-Awaiting execution. Use evidence tags when filling this section.
+**H1 — Main and SCM restrictions are independently configurable: CONFIRMED [Observed]**
+S1 and S2 both demonstrated that `ipSecurityRestrictions` (main) and `scmIpSecurityRestrictions` (SCM) are evaluated independently when `scmIpSecurityRestrictionsUseMain=false`. A source IP blocked on main can reach SCM, and vice versa **[Observed]**.
 
-Suggested interpretation structure:
+**H2 — Private endpoint causes public 403 on both main and SCM: CONFIRMED [Observed]**
+S3 showed that adding a private endpoint alone — without any explicit access restriction rules — produced `403` on both `*.azurewebsites.net` and `*.scm.azurewebsites.net` from the public internet **[Observed]**. DNS continued to resolve to the public IP; the block is not DNS-based **[Observed]**. SCM did not maintain a separate public path after the private endpoint was added in this test **[Observed]**. The underlying mechanism (whether the PE triggers an internal public-network-access block or routes differently) was not directly verified **[Unknown]**.
 
-- **Observed**: which endpoint classes were reachable or blocked under each rule combination
-- **Measured**: counts of successful vs failed probes and deployments per scenario
-- **Correlated**: health degradation or deployment failure coinciding with a specific rule set
-- **Inferred**: which control plane applies to each endpoint type
-- **Not Proven / Unknown**: any unresolved SCM behavior under private endpoint or inherited-rule edge cases
+**H3 — Platform-originated health/warmup traffic still reached the app despite external 403: CORROBORATED [Strongly Suggested]**
+S5 showed that instance state remained `READY` for at least 5 minutes after all external IPs were denied on the main site **[Observed]**. The warmup probe succeeded at the platform layer even though the same `/healthz` path returned `403` from the external workstation **[Observed]**. This is consistent with platform-originated probe traffic not traversing the IP-based restriction layer — but the probe source IP and internal routing path were not directly captured **[Strongly Suggested]**.
+
+**H4 — SCM restrictions block zipdeploy and deployment CLI: CONFIRMED [Observed]**
+S6 confirmed that SCM restriction `403` propagates to `curl /api/zipdeploy` and `az webapp deploy --type zip` **[Observed]**. The main site was unaffected — `200` throughout — while all SCM-routed operations failed **[Observed]**.
+
+### Key discovery: Private endpoint caused public 403 on both main and SCM — VNet-internal access not verified
+
+Adding a private endpoint (no access restriction rules set) produced `403` on both main and SCM endpoints from the public internet. DNS still resolved to the public IP — the block is not DNS-based **[Observed]**. Customers who add a private endpoint expecting only the main site to be restricted will find SCM/Kudu also becomes inaccessible from public clients **[Observed]**. This experiment did not verify access from inside the VNet (S4 not executed); whether VNet-internal clients can reach both main and SCM via the private endpoint is not confirmed **[Unknown]**.
+
+### Key discovery: Platform warmup/health traffic reached the app despite external 403 — probe mechanism not directly observed
+
+Instance state remained `READY` while all external IPs were denied. Platform-originated warmup traffic succeeded even though the same `/healthz` endpoint returned `403` from outside **[Observed]**. This is consistent with the probe not traversing the IP-restriction layer, but the probe source IP was not captured **[Strongly Suggested]**.
+
+### Key discovery: SCM rules are independent by default (`scmUsesMain=false`)
+
+When `scmIpSecurityRestrictionsUseMain=false` (default), main and SCM rules are evaluated completely independently — confirmed in S1 and S2. The behavior of `scmUsesMain=true` was not tested in this experiment; its effect is noted as a known risk but is not characterized here **[Unknown]**.
 
 ## 12. What this proves
 
-Awaiting execution. After running the experiment, this section should state only the supported conclusions, for example:
+!!! success "Evidence: S1–S3, S5–S6. Korea Central, Linux P1v3, Python 3.11, 2026-05-01"
 
-- whether main-site and SCM restrictions were truly independent in practice
-- whether zipdeploy followed SCM reachability exactly
-- whether health check failed when the effective probe source was blocked
-- whether private endpoint changed only the main-site path or also affected SCM in the tested configuration
+1. **Main and SCM access restrictions are independently enforced when `scmUsesMain=false`** **[Observed]** — different source IPs can be allowed/denied on each independently; confirmed in S1 and S2
+2. **A private endpoint alone caused `403` on both main and SCM from the public internet in this test** **[Observed]** — no access restriction rule was needed; DNS still resolved to the public IP; VNet-internal access was not verified (S4 not executed)
+3. **DNS is not changed by private endpoint** **[Observed]** — `*.azurewebsites.net` and `*.scm.azurewebsites.net` continued to resolve to the public IP after PE addition
+4. **Platform warmup/probe traffic reached the app while all external IPs were denied** **[Observed]** — instance remained healthy for ≥5 minutes; the probe source did not traverse the IP restriction layer **[Strongly Suggested]**
+5. **SCM restriction blocks Kudu-based deployment paths** **[Observed]** — `curl /api/zipdeploy` and `az webapp deploy --type zip` both returned `403`; main site `200` was unaffected
+6. **`az webapp deploy --type zip` uses the SCM endpoint** **[Observed]** — it is not a privileged ARM-level channel; SCM restriction applies equally to the CLI and direct curl
 
 ## 13. What this does NOT prove
 
-Even after execution, this experiment will not by itself prove:
-
-- behavior across all App Service SKUs, regions, or Windows plans
-- behavior for ASE, ILB ASE, or App Service Environment-specific networking
-- behavior for every diagnostics surface in the Azure portal
-- all possible health check probe source identities outside the tested region and platform generation
-- behavior for deployment methods not tested here (for example, GitHub Actions task internals, MSDeploy, or custom CI runners)
+- **Behavior with `scmUsesMain=true`**: This toggle was not directly tested; whether it produces the expected main-rule inheritance on SCM under all conditions (including private endpoint) is not characterized here **[Unknown]**
+- **VNet-internal access after private endpoint**: S4 was not executed — whether both main and SCM are accessible from inside the VNet via the private endpoint is not confirmed **[Unknown]**
+- **Behavior for Windows plans or Windows Containers**: Results are for Linux P1v3 only
+- **Behavior for ASE or ILB ASE**: Different network model; access restriction semantics may differ
+- **Health check probe source IP**: The probe source was not captured; the bypass is inferred from instance state remaining healthy, not from direct traffic observation **[Strongly Suggested, not directly observed]**
+- **Deployment methods beyond Kudu/zipdeploy**: GitHub Actions (internal task), MSDeploy, FTP, and local git were not tested — only `az webapp deploy --type zip` and direct `curl /api/zipdeploy`
+- **Whether PE mechanism is public-network-access toggle or routing change**: The exact platform mechanism that produces the 403 after PE addition was not verified
 
 ## 14. Support takeaway
 
-Planned support guidance after execution:
+!!! abstract "For support engineers"
 
-1. Check whether the failing operation targets the **main site** or the **SCM site**.
-2. If deployment, Kudu, or log-stream access fails, inspect **SCM restrictions first**, not only main-site restrictions.
-3. If private endpoint is involved, verify DNS resolution and test from both public and VNet-connected paths.
-4. If health check starts failing after a network change, validate whether the effective rules still allow the probe source.
-5. Treat **Use main site rules for SCM** as a deliberate design choice, not a harmless simplification.
+    **When a customer reports unexpected 403 or deployment failures after a network configuration change:**
+
+    1. **Identify which endpoint is failing first**: Main site (`*.azurewebsites.net`) or SCM/Kudu (`*.scm.azurewebsites.net`)? These are independently controlled. A `403` on deployment does not mean the app itself is blocked, and vice versa.
+
+    2. **Check `scmIpSecurityRestrictionsUseMain`**: If `true`, SCM inherits main-site rules — restricting the main site will also restrict deployment and Kudu access. This is often set intentionally but surprises customers when deployment pipelines break after a main-site lockdown.
+
+    3. **Private endpoint caused both main and SCM to return 403 from the public internet in this test**: Customers who add a private endpoint often expect only the main site to become private. In this experiment, `*.scm.azurewebsites.net` also returned `403` from public clients after PE addition — even without any explicit access restriction rules. If Kudu or deployment access is needed from public CI/CD after PE is added, a VNet-connected runner, jump host, or self-hosted agent in the VNet is likely required. Note: VNet-internal access was not verified in this experiment.
+
+    4. **Platform warmup/health traffic appears to bypass IP-based access restrictions**: Instance state remained `READY` while all external IPs were denied. If instances are going unhealthy after a network hardening change, the restriction rules are unlikely to be the cause — look at the application health endpoint itself (startup failure, dependency, misconfigured path) rather than the IP rules. Note: the probe source was not directly captured; this is inferred from instance state.
+
+    5. **Deployment failures after SCM restriction show as `403`, not `401`**: `401` means credentials were rejected; `403` means the request was rejected by the access restriction layer before credentials were evaluated. These must be distinguished — the fix for `403` is a rule change, not a credential rotation.
+
+    6. **`az webapp deploy --type zip` goes through SCM — it is not a privileged channel**: This CLI command uses `*.scm.azurewebsites.net` and is subject to the same SCM access restrictions as a direct `curl /api/zipdeploy`. If SCM is restricted, all Kudu/zip-based deployment methods will fail. Other deployment methods (GitHub Actions internal task, MSDeploy, FTP) were not tested in this experiment.
 
 ## 15. Reproduction notes
 
