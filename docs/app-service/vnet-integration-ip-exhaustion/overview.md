@@ -608,11 +608,11 @@ b7d60ac7-a318-4088-bb6c-52603e95e761_subnet-asp.
 
 ## 11. Interpretation
 
-**H1 — Transient IP surge: CONFIRMED [Observed, trigger condition identified]**
-Config A produced an explicit `"Insufficient address space remaining in VNet(s)"` Conflict on scale-out **[Observed]**. Run M reproduced the identical error on SKU change when two plans shared the same /28 subnet, totaling 10 workers with only 1 free IP **[Observed]**. Single-plan runs (G, H, I, L) on /28 + 6 workers succeeded — confirming the trigger requires near-full subnet occupancy across all plans sharing the subnet, not just within a single plan **[Strongly Suggested]**. The ARM `ipConfigurations` field remains absent for Regional VNet Integration subnets **[Observed]**.
+**H1 — Near-exhausted shared-subnet occupancy as the failure trigger: CONFIRMED [Observed/Strongly Suggested]**
+Config A produced an explicit `"Insufficient address space remaining in VNet(s)"` Conflict on scale-out **[Observed]**. Run M produced the same Conflict error message on SKU change when two plans shared the same /28 subnet, totaling 10 workers with only 1 free IP **[Observed]**. Single-plan runs (G, H, I, L) on /28 + 6 workers succeeded — strongly suggesting the trigger is associated with total shared-subnet occupancy approaching the usable IP limit, not worker count within a single plan alone **[Strongly Suggested]**. The internal mechanism (transient surge, simultaneous provisioning, or allocation hold) is not directly observable **[Unknown]**. The ARM `ipConfigurations` field remains absent for Regional VNet Integration subnets **[Observed]**.
 
 **H2 — Tight subnet causes transition degradation: CONFIRMED [Observed]**
-Config A: SKU change Succeeded, workers → 1 silently, subsequent scale-out failed with Conflict **[Observed]**. Run M: SKU change itself failed with Conflict immediately when subnet had 1 free IP across two plans **[Observed]**. Single-plan /28 + 6-worker runs succeeded — the failure is triggered by **total IP occupancy across all plans on the shared subnet**, not by a single plan's worker count alone **[Strongly Suggested]**.
+Config A: SKU change Succeeded, workers → 1 silently, subsequent scale-out failed with Conflict **[Observed]**. Run M: SKU change itself failed with Conflict immediately when only 1 IP was free across two plans **[Observed]**. In this experiment, failure aligned more closely with total shared-subnet occupancy than with worker count in a single plan **[Strongly Suggested]**.
 
 **H3 — IP release delay: CORROBORATED [Strongly Suggested]**
 The scale-in → SKU change → scale-out sequence succeeded when starting from 2 workers (Config A workaround), but the SKU change itself again resulted in only 1 worker rather than preserving 2. All tested configs (A, B, C, G, H, I, L) showed the same → 1 post-SKU-change result **[Observed]**. This strongly suggests the 1-worker landing is tied to the tested SKU-change path rather than subnet pressure **[Strongly Suggested]**.
@@ -624,9 +624,9 @@ Three `Microsoft.Web/serverfarms/write` events were recorded in the Activity Log
 
 In all tested configs (A, B, C, G, H, I, L), the SKU change completed with 1 worker **[Observed]**. This strongly suggests the 1-worker landing is tied to the tested SKU-change path, not an IP-exhaustion artifact **[Strongly Suggested]**. Run M (which failed on SKU change itself) confirms that IP exhaustion blocks the transition before workers can even be adjusted.
 
-### Key discovery: IP exhaustion triggers on total subnet occupancy, not per-plan worker count
+### Key discovery: Failure aligned with total shared-subnet occupancy, not per-plan worker count alone
 
-Single-plan /28 + 6-worker runs (G, H, I, L) succeeded; two-plan /28 + 10-worker run (M) failed immediately **[Observed]**. The platform counts IP consumption across **all App Service Plans sharing the subnet**, not just the plan being scaled. A subnet that appears to have headroom for one plan may be exhausted when shared plans are factored in **[Strongly Suggested]**.
+Single-plan /28 + 6-worker runs (G, H, I, L) succeeded; two-plan /28 + 10-worker run (M) failed immediately **[Observed]**. In this experiment, failure aligned more closely with total shared-subnet occupancy across all plans than with worker count in a single plan **[Strongly Suggested]**. Whether per-plan worker count is a completely independent factor is not determinable from these runs alone **[Unknown]**.
 
 ### Key discovery: `availableIPAddressCount` is not exposed for Regional VNet Integration
 
@@ -640,8 +640,8 @@ The SKU change returned HTTP 200 / `Succeeded` while silently reducing workers f
 
 !!! success "Evidence: 5 configs + 4 replay runs + Run M, Korea Central, P1v3→P2v3"
 
-1. **The `Insufficient address space remaining in VNet(s)` error is reproducible** — Config A (single plan, once) and Run M (two plans sharing /28, immediately) both produced the identical Conflict error **[Observed]**
-2. **The trigger is total subnet IP occupancy across all plans, not per-plan worker count** — single-plan /28 + 6-worker runs (G, H, I, L) succeeded; two-plan /28 + 10-worker run failed immediately **[Observed]**; subnet headroom must be evaluated across all plans sharing the subnet **[Strongly Suggested]**
+1. **The `Insufficient address space remaining in VNet(s)` error is reproducible** — Config A (single plan, once) and Run M (two plans sharing /28, immediately) both produced the same Conflict error message **[Observed]**
+2. **Failure aligned more closely with total shared-subnet occupancy than with worker count in a single plan** — single-plan /28 + 6-worker runs (G, H, I, L) succeeded; two-plan /28 + 10-worker run failed immediately **[Observed]**; subnet headroom should be evaluated across all plans sharing the subnet **[Strongly Suggested]**; whether per-plan worker count is an independent factor is not determinable from these runs **[Unknown]**
 3. **SKU change itself can fail** (not just the subsequent scale-out) — Run M failed on the SKU change operation when only 1 IP was free; Config A failed on the scale-out after the SKU change landed at 1 worker **[Observed]**; the failure point depends on how close to exhaustion the subnet is at the moment of the operation
 4. **In all tested runs where SKU change succeeded, it landed at 1 worker** **[Observed]** — consistent across all configs; strongly suggests 1-worker landing is part of the SKU-change path **[Strongly Suggested]**
 5. **ARM `Succeeded` does not guarantee actual instance state** **[Observed]** — SKU change (workers → 1) and scale-out (async provisioning) both returned `Succeeded` before actual state stabilized; `az webapp list-instances` is the reliable check
