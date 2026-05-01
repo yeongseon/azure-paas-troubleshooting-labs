@@ -16,12 +16,11 @@ graph TB
     subgraph "Azure App Service Platform"
         Client([Client]) --> FE[Frontend<br/>ARR / Load Balancer]
 
-        FE --> W1[Worker Instance 1]
+        FE --> W1
         FE --> W2[Worker Instance 2]
 
-        subgraph "Worker Instance"
-            direction TB
-            W1 --> SC[Site Container<br/>Application Code]
+        subgraph "Worker Instance 1"
+            W1[Worker 1] --> SC[Site Container<br/>Application Code]
             SC --> HOME["/home<br/>CIFS Mount<br/>(Persistent)"]
             SC --> TMP["/tmp<br/>Writable Layer<br/>(Ephemeral)"]
         end
@@ -33,7 +32,6 @@ graph TB
         HC --> W2
 
         subgraph "App Service Plan"
-            direction LR
             CPU[Shared CPU]
             MEM[Shared Memory]
             SWAP[Swap Space]

@@ -310,12 +310,12 @@ subjectAltName: host "nonexistent.orangewave-..." matched cert's "*.orangewave-.
 flowchart TD
     A[Client TLS ClientHello] --> B{SNI present?}
     B -- No --> C[❌ Connection Reset]
-    B -- Yes --> D{SNI matches<br>environment wildcard?}
+    B -- Yes --> D{SNI matches<br/>environment wildcard?}
     D -- No --> C
-    D -- Yes --> E[✅ TLS terminates<br>with wildcard cert]
-    E --> F{Host header matches<br>a configured app?}
+    D -- Yes --> E[✅ TLS terminates<br/>with wildcard cert]
+    E --> F{Host header matches<br/>a configured app?}
     F -- No / Empty --> G[404 Not Found]
-    F -- Yes --> H[✅ Route to app<br>matching Host header]
+    F -- Yes --> H[✅ Route to app<br/>matching Host header]
 
     style C fill:#fee,stroke:#c00,color:#900
     style G fill:#ffd,stroke:#aa0,color:#660

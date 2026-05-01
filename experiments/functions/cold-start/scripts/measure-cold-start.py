@@ -1,22 +1,26 @@
 """Measure Azure Functions cold-start latency.
 
 Triggers cold starts by waiting for idle timeout, then measures response time.
+Supports the cold-start phase-breakdown experiment by collecting per-invocation
+timing from the HTTP response and correlating with Application Insights traces.
 
 Usage:
-    python measure-cold-start.py --function-url https://<func-app>.azurewebsites.net/api/ping
-    python measure-cold-start.py --function-url https://<func-app>.azurewebsites.net/api/ping \
-        --rounds 5 --idle-wait 600
+    python measure-cold-start.py \
+        --function-url https://<func-app>.azurewebsites.net/api/coldstart
+    python measure-cold-start.py \
+        --function-url https://<func-app>.azurewebsites.net/api/coldstart \
+        --rounds 10 --idle-wait 900
 """
 
 import argparse
 import json
 import time
-from datetime import datetime
-from urllib.request import urlopen, Request
+from datetime import datetime, timezone
 from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 
-def measure_single_request(url: str, timeout: int = 30) -> dict:
+def measure_single_request(url: str, timeout: int = 60) -> dict:
     start = time.monotonic()
     try:
         req = Request(url)
@@ -25,7 +29,7 @@ def measure_single_request(url: str, timeout: int = 30) -> dict:
             status = resp.status
     except URLError as e:
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "latency_ms": (time.monotonic() - start) * 1000,
             "status": 0,
             "error": str(e),
@@ -33,11 +37,14 @@ def measure_single_request(url: str, timeout: int = 30) -> dict:
 
     latency_ms = (time.monotonic() - start) * 1000
     return {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "latency_ms": latency_ms,
         "status": status,
         "uptime_seconds": body.get("uptime_seconds"),
         "init_delay": body.get("init_delay"),
+        "dependency_profile": body.get("dependency_profile"),
+        "init_profile": body.get("init_profile"),
+        "plan_type": body.get("plan_type"),
     }
 
 
@@ -83,17 +90,20 @@ def main():
         "--function-url", required=True, help="Function HTTP trigger URL"
     )
     parser.add_argument(
-        "--rounds", type=int, default=3, help="Number of cold-start rounds (default: 3)"
+        "--rounds",
+        type=int,
+        default=10,
+        help="Number of cold-start rounds (default: 10)",
     )
     parser.add_argument(
         "--idle-wait",
         type=int,
-        default=600,
-        help="Seconds to wait for idle timeout (default: 600)",
+        default=900,
+        help="Seconds to wait for idle timeout (default: 900)",
     )
     args = parser.parse_args()
 
-    print(f"=== Cold Start Measurement ===")
+    print("=== Cold Start Measurement ===")
     print(f"URL:       {args.function_url}")
     print(f"Rounds:    {args.rounds}")
     print(f"Idle wait: {args.idle_wait}s")
@@ -119,7 +129,13 @@ def main():
     if cold_latencies:
         print(f"Cold avg:  {sum(cold_latencies) / len(cold_latencies):.1f} ms")
         print(f"Cold p50:  {sorted(cold_latencies)[len(cold_latencies) // 2]:.1f} ms")
+        print(
+            f"Cold p95:  {sorted(cold_latencies)[int(len(cold_latencies) * 0.95)]:.1f} ms"
+        )
         print(f"Cold max:  {max(cold_latencies):.1f} ms")
+
+        confirmed_cold = [r for r in cold_results if r.get("likely_cold_start") is True]
+        print(f"Confirmed cold starts: {len(confirmed_cold)}/{len(cold_results)}")
     if warm_latencies and cold_latencies:
         ratio = (sum(cold_latencies) / len(cold_latencies)) / (
             sum(warm_latencies) / len(warm_latencies)

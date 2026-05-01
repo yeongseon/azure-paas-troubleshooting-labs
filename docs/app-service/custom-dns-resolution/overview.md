@@ -320,15 +320,15 @@ gantt
     title DNS Resolution IP Over Time
     dateFormat HH:mm
     axisFormat %H:%M
-    section Phase 1<br>Baseline
+    section Phase 1<br/>Baseline
     Private IP 10.70.2.4 (10 probes)     :done, p1, 14:08, 14:09
-    section Phase 2<br>Unlink
+    section Phase 2<br/>Unlink
     az network private-dns link delete     :crit, unlink, 14:11, 14:12
     Public IP 20.150.4.36 (30 probes)     :active, p2, 14:12, 14:17
-    section Phase 3<br>Re-link
+    section Phase 3<br/>Re-link
     az network private-dns link create     :crit, relink, 14:17, 14:18
     Private IP 10.70.2.4 (30 probes)      :done, p3, 14:18, 14:23
-    section Phase 4<br>Toggle
+    section Phase 4<br/>Toggle
     Unlink + 5 probes (public)            :active, p4a, 14:23, 14:24
     Re-link + 5 probes (private)           :done, p4b, 14:24, 14:25
 ```
@@ -357,12 +357,12 @@ gantt
 
 ```mermaid
 flowchart LR
-    A[App Service Instance] --> B{VNet-integrated<br>DNS resolver}
-    B --> C{Private DNS Zone<br>linked to VNet?}
-    C -- Yes --> D[Private DNS Zone<br>resolves A record]
-    D --> E[10.70.2.4<br>Private Endpoint]
+    A[App Service Instance] --> B{VNet-integrated<br/>DNS resolver}
+    B --> C{Private DNS Zone<br/>linked to VNet?}
+    C -- Yes --> D[Private DNS Zone<br/>resolves A record]
+    D --> E[10.70.2.4<br/>Private Endpoint]
     C -- No --> F[Azure Public DNS]
-    F --> G[20.150.4.36<br>Public Storage IP]
+    F --> G[20.150.4.36<br/>Public Storage IP]
 
     style E fill:#efe,stroke:#0a0,color:#060
     style G fill:#fee,stroke:#c00,color:#900

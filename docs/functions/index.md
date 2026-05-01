@@ -16,12 +16,11 @@ graph TB
     subgraph "Azure Functions Platform"
         TRIGGER([Event Source<br/>HTTP / Queue / Timer]) --> SCALE[Scale Controller]
 
-        SCALE --> |"allocate instance"| INST1[Instance 1]
+        SCALE --> |"allocate instance"| INST1
         SCALE --> |"allocate instance"| INST2[Instance 2]
 
         subgraph "Function Instance"
-            direction TB
-            INST1 --> HOST[Functions Host<br/>Language Worker]
+            INST1[Instance 1] --> HOST[Functions Host<br/>Language Worker]
             HOST --> FUNC1[Function A]
             HOST --> FUNC2[Function B]
             HOST --> AI[Application Insights<br/>SDK]
@@ -30,7 +29,6 @@ graph TB
         INST1 --> STORAGE[Azure Storage<br/>Leases / Queues / Blobs]
 
         subgraph "Hosting Plans"
-            direction LR
             CONS[Consumption<br/>Scale-to-zero<br/>Cold start]
             FLEX[Flex Consumption<br/>Per-function scaling<br/>VNet support]
             PREM[Premium<br/>Pre-warmed instances<br/>No cold start]
@@ -39,7 +37,6 @@ graph TB
     end
 
     subgraph "Cold Start Phases"
-        direction LR
         P1[Platform<br/>Allocation] --> P2[Host<br/>Startup] --> P3[Worker<br/>Init] --> P4[App Code<br/>Load]
     end
 
