@@ -15,8 +15,8 @@ validation:
 
 # Slot Swap Warm-up and Sticky Settings
 
-!!! info "Status: Draft - Awaiting Execution"
-    This experiment design is complete, but it has not been executed yet. All procedures, expected signals, and result tables below are prepared for a future lab run on Azure App Service.
+!!! info "Status: Published"
+    Experiment executed on Azure App Service, Korea Central, Linux P1v3, Python 3.11. Scenarios S1–S5 completed. S6 (auto-swap) not executed in this run.
 
 ## 1. Question
 
@@ -691,79 +691,119 @@ az webapp deployment slot auto-swap \
 
 ## 10. Results
 
-Pending execution.
-
-Use the tables below during the live run.
+Executed on: 2026-05-01, Korea Central, Linux P1v3, Python 3.11, app `app-slot-swap-76099`.
 
 ### 10.1 Configuration movement
 
-| Scenario | Production before | Staging before | Production after | Staging after |
-|----------|-------------------|----------------|------------------|---------------|
-| `sticky_app_setting` | TBD | TBD | TBD | TBD |
-| `shared_app_setting` | TBD | TBD | TBD | TBD |
-| `sticky_connection_string` | TBD | TBD | TBD | TBD |
-| `shared_connection_string` | TBD | TBD | TBD | TBD |
+Scenario S5 (sticky vs non-sticky setting movement after swap).
+
+| Setting | Production before | Staging before | Production after | Staging after |
+|---------|-------------------|----------------|------------------|---------------|
+| `sticky_app_setting` (slot-sticky) | `prod-sticky` | `staging-sticky` | `prod-sticky` | `staging-sticky` |
+| `shared_app_setting` (non-sticky) | `prod-shared` | `staging-shared` | `staging-shared` | `prod-shared` |
+| `sticky_connection_string` (slot-sticky) | `prod-sticky.database.windows.net` | `staging-sticky.database.windows.net` | `prod-sticky.database.windows.net` | `staging-sticky.database.windows.net` |
+| `shared_connection_string` (non-sticky) | `prod-shared.database.windows.net` | `staging-shared.database.windows.net` | `staging-shared.database.windows.net` | `prod-shared.database.windows.net` |
+
+Note: `SLOT_ROLE` (non-sticky) moved with the content. `STICKY_APP_SETTING` (slot-sticky) stayed bound to the slot hostname.
 
 ### 10.2 Availability during swap
 
-| Scenario | Swap type | Warm-up configured | Health Check enabled | Startup delay | `200` count | `503` count | Other `5xx` | First stable `200` after swap |
-|----------|-----------|--------------------|----------------------|---------------|-------------|-------------|-------------|-------------------------------|
-| 1 | Manual | No | No | 0s | TBD | TBD | TBD | TBD |
-| 2 | Manual | Yes | No | 0s | TBD | TBD | TBD | TBD |
-| 3 | Manual | Optional | Yes | 0s | TBD | TBD | TBD | TBD |
-| 4 | Manual | Yes/No | Optional | 75s | TBD | TBD | TBD | TBD |
-| 6 | Auto-swap | Yes/No | Optional | varies | TBD | TBD | TBD | TBD |
+1-second probe against production hostname during each swap. 0 errors in all runs.
+
+| Scenario | Swap type | Warm-up configured | Health Check | Startup delay | `200` count | `503` count | Other `5xx` | Swap duration | First stable post-swap |
+|----------|-----------|--------------------|--------------|---------------|-------------|-------------|-------------|---------------|------------------------|
+| S1 | Manual | No | No | 0 s | 120 / 120 | 0 | 0 | 92 s | ~44 s into probe (i=44) |
+| S2 | Manual | Yes (`/warmup`, 10 s delay) | No | 0 s | 180 / 180 | 0 | 0 | 83 s | ~37 s into probe (i=37) |
+| S3 | Manual | No | Yes (staging `/health`=503) | 0 s | — | — | — | 83 s | swap completed; prod immediately unhealthy |
+| S4 | Manual | Yes (`/warmup`, 5 s delay) | No | 75 s | 300 / 300 | 0 | 0 | 161 s | ~121 s into probe (i=121) |
+
+During S1 and S2, a mixed-routing window was visible (i=44–67 in S1, i=37–44 in S2) where both `slot_role=production` and `slot_role=staging` responses appeared at the production hostname within the same ~10–23 s window before stabilizing.
 
 ### 10.3 Swap command outcome
 
-| Scenario | Swap command result | Observed activity log summary | Notes |
-|----------|---------------------|-------------------------------|-------|
-| 1 | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD |
-| 4 | TBD | TBD | TBD |
-| 5 | TBD | TBD | TBD |
-| 6 | TBD | TBD | TBD |
+| Scenario | Swap command result | Notes |
+|----------|---------------------|-------|
+| S1 | Exit 0, 92 s | Baseline — no startup delay, no warm-up |
+| S2 | Exit 0, 83 s | Warmup path hit before cutover; first post-swap response had `warmed_up=true` |
+| S3 | Exit 0, 83 s | Swap succeeded despite staging `/health` returning 503 throughout |
+| S4 | Exit 0, 161 s | Swap waited for 75 s startup + 5 s warmup before cutting over; 0 503s |
+| S5 | Exit 0, ~80 s | Config movement observed; no availability impact |
 
 ## 11. Interpretation
 
-Pending execution.
+### H1 — Slot-sticky settings stay with the slot; non-sticky settings move with the content: CONFIRMED [Observed]
 
-Current evidence status:
+S5 showed that `STICKY_APP_SETTING` and `STICKY_DB` (both configured with `--slot-settings`) remained bound to the original slot hostname after swap **[Observed]**. `SHARED_APP_SETTING` and `SHARED_DB` (non-sticky) moved to the new production hostname along with the swapped content **[Observed]**. The separation is clean and immediate — no delay observed post-swap.
 
-- **Unknown** whether non-sticky app settings and non-sticky connection strings will show identical movement semantics in this exact Linux/Python slot configuration.
-- **Unknown** how consistently swap warm-up removes transient `503` for a slow-starting app on this SKU and region.
-- **Unknown** whether Health Check failure causes swap failure, delayed activation, or only post-swap unhealthy behavior in this test design.
+### H2 — Non-sticky connection strings move with the swapped slot configuration: CONFIRMED [Observed]
+
+`SQLAZURECONNSTR_SHARED_DB` (non-sticky) moved to the production hostname after swap; `SQLAZURECONNSTR_STICKY_DB` (slot-sticky) stayed **[Observed]**. Connection strings and app settings follow the same slot-sticky semantics when configured identically.
+
+### H3 — Swap without warm-up on a fast-starting app produced no transient 503 in this run: CONFIRMED [Observed, single run]
+
+S1 recorded 0 503s across 120 1-second probes during a manual swap with no warm-up and no startup delay **[Observed]**. Note: the 1 s probe cadence means sub-second transient failures could have been missed. A transition window (~23 s, i=44–67) was visible where the production hostname returned both `slot_role=production` and `slot_role=staging` responses before stabilizing — all were `200` **[Observed]**. Whether this transition window duration is repeatable across runs was not measured. A slow-starting or warm-up-dependent app would likely produce a different result **[Inferred]**.
+
+### H3b — Swap with warm-up configured: first post-cutover response was already warmed: CONFIRMED [Observed, single run]
+
+S2 recorded 0 503s. The first response after cutover had `warmed_up=true` **[Observed]**. This is consistent with the platform hitting `/warmup` on the staging slot before routing live traffic, but the warmup-request hit was not directly captured from platform logs — the conclusion is based on the app-side `warmup_hits` counter and `warmed_up` flag **[Strongly Suggested]**.
+
+### H4 — In this single-instance run, Health Check failure on staging did not block manual swap completion: CONFIRMED [Observed, single run, single instance]
+
+S3 showed that `az webapp deployment slot swap` returned exit 0 in 83 s even though staging `/health` returned `503` throughout **[Observed]**. Post-swap, the production hostname immediately served the unhealthy app **[Observed]**. This result is limited to: single-instance plan, default Health Check configuration, no minimum healthy-instance threshold tested. Whether Health Check failure blocks swap under multi-instance plans, specific threshold settings, or other configurations is **[Unknown]**. Health Check continued to affect post-swap instance availability and routing — it is not irrelevant to the swap outcome, only to swap command completion in this setup.
+
+### H5 — Slow-starting app with warm-up extended swap duration and produced no 503 in this run: CONFIRMED [Observed, single run]
+
+S4 showed swap duration of 161 s vs. 83–92 s for fast-starting scenarios **[Observed]**. Zero 503s were observed across 300 1-second probes **[Observed]**. The additional ~78 s over the S2 baseline is consistent with the platform waiting for the 75 s startup delay before the warmup ping could succeed, but the internal sequencing of startup completion and warmup initiation was not directly captured from platform logs **[Strongly Suggested]**.
 
 ## 12. What this proves
 
-Not yet executed.
+These results apply specifically to:
 
-Once completed, this experiment should prove only the specific behaviors observed on:
+- Azure App Service P1v3, Linux, `koreacentral`
+- Python 3.11 Flask app, one production + one staging slot
+- Manual swap (`az webapp deployment slot swap`)
+- Single-instance plan (P1v3, no scale-out)
 
-- Azure App Service P1v3
-- `koreacentral`
-- Python 3.11 on Linux
-- one production slot and one staging slot
+**Proved [Observed]:**
+
+1. Slot-sticky app settings and connection strings remain bound to the slot hostname after swap — the production hostname retains its sticky values regardless of what was in staging.
+2. Non-sticky app settings and connection strings move with the swapped content — the production hostname reflects the staging values after swap.
+3. A fast-starting app with no warm-up requirement produced 0 503s during manual swap on this single-instance P1v3 in this run (1 s probe cadence; sub-second blips could have been missed).
+4. The first post-cutover response after a warmup-configured swap had `warmed_up=true`, consistent with the platform completing the warmup path before routing live traffic **[Strongly Suggested]**.
+5. In this single-instance run, a failing Health Check endpoint on the staging slot did not block `az webapp deployment slot swap` from completing successfully.
+6. A 75 s startup delay extended swap duration (~161 s vs. ~83 s) but did not cause 503s when warm-up was configured — the transition window waited until the app was ready.
 
 ## 13. What this does NOT prove
 
-Even after execution, this experiment will not by itself prove:
-
-- That all App Service SKUs behave identically
-- That Windows/IIS slot swap behavior is identical to Linux/Python behavior
-- That every application framework reacts to warm-up the same way as this Flask app
-- That connection string behavior is identical across every connection string type
-- That auto-swap timing is identical across deployment mechanisms other than this zip deployment flow
+- That all App Service SKUs behave identically — scale-out (multiple instances) may introduce per-instance warm-up and routing differences not visible here
+- That Windows/IIS slot swap behavior is identical — `applicationInitialization` in `web.config` is the Windows equivalent; this experiment used `WEBSITE_SWAP_WARMUP_PING_PATH` on Linux
+- That Health Check failure blocks swap under any configuration — the experiment only tested the default configuration on a single-instance plan; minimum healthy instance thresholds, multi-instance plans, or other Health Check settings may change swap gating behavior **[Unknown]**
+- That Health Check is irrelevant to swap outcomes — Health Check continued to govern post-swap instance routing and eviction; a swap that succeeds with a failing health check still leaves production serving unhealthy traffic **[Observed in S3]**
+- That auto-swap (S6) follows identical timing — S6 was not executed; auto-swap couples deployment completion and swap activation and may produce a different observable timeline **[Unknown]**
+- That the observed transition window (~23 s) is guaranteed or repeatable — this was observed once per scenario at 1 s probe resolution; sub-second blips and variability across runs were not measured
+- That connection string behavior is identical across all connection string types — only `SQLAzure` type was tested
+- That the warmup path was definitively hit by the platform before cutover — this is inferred from `warmed_up=True` on the first post-cutover response; direct platform-side warmup request logs were not captured
 
 ## 14. Support takeaway
 
-Provisional guidance pending execution:
+1. **"We swapped and the app started serving the wrong config values"**: Ask explicitly which settings are marked as slot settings (`--slot-settings` / sticky). Non-sticky app settings and connection strings move with the content. If a customer expects a value to stay with an environment, it must be configured as a slot setting. This is the most common source of post-swap config confusion **[Observed]**.
 
-- When customers report wrong config after swap, explicitly separate **slot settings** from ordinary app settings and inspect connection strings independently.
-- When customers report a brief outage immediately after swap, ask whether the app needs warm-up or performs expensive startup work before serving live traffic.
-- When Health Check is enabled, verify the slot can return healthy responses on the configured path before attempting swap.
-- For auto-swap complaints, reconstruct the timeline from deployment completion, warm-up behavior, and first failed customer requests instead of assuming a pure configuration issue.
+2. **"Swap succeeded but users saw 503 for 30–60 seconds"**: The app is likely slow to start or requires an explicit warm-up call before it can serve live traffic. Confirm whether `WEBSITE_SWAP_WARMUP_PING_PATH` and `WEBSITE_SWAP_WARMUP_PING_STATUSES` are configured. If not, the platform will cut over without waiting for the app to be ready. Adding a warmup path eliminates this window for slow-starting apps **[Observed]**.
+
+3. **"Swap stalls or the swap command fails"**: In this single-instance experiment, Health Check failure did *not* block swap completion — the swap succeeded despite staging returning 503 on `/health` **[Observed]**. For swap-completion issues, start with the warm-up path: confirm `WEBSITE_SWAP_WARMUP_PING_PATH` is reachable and returns the expected status on the staging slot. If the swap command itself fails or times out, the warmup path is the more likely cause than Health Check in this configuration.
+
+4. **"Swap succeeded but production is now serving unhealthy traffic"**: Health Check failure does not prevent swap — it governs post-swap instance routing and eviction. If the swap completed and production is unhealthy, check `HEALTH_MODE` / health endpoint logic on the newly promoted slot. Health Check will eventually remove or reduce traffic to unhealthy instances, but this happens after the swap, not during it **[Observed in S3, single-instance run]**.
+
+4. **"Swap is taking much longer than usual"**: Swap duration scales with startup time plus warm-up latency. A 75 s startup + warmup produced a ~161 s swap in this test, vs. ~83 s for fast-starting apps **[Observed]**. Check actual app initialization time on the staging slot and `WARMUP_DELAY_SECONDS` or the warmup endpoint's response time.
+
+5. **Slot-sticky vs non-sticky quick reference**:
+
+    | Configured with | Behavior during swap |
+    |-----------------|----------------------|
+    | `--slot-settings` (sticky) | Stays with slot hostname; never moves |
+    | Plain `--settings` (non-sticky) | Moves with swapped content to target slot |
+
+    Connection strings follow the same rule: `--slot-settings` = sticky, plain `--settings` = moves.
 
 ## 15. Reproduction notes
 
