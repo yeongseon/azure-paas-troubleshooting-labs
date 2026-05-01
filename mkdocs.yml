@@ -45,6 +45,8 @@ nav:
           - Overview: app-service/slot-swap-warmup/overview.md
       - Access Restrictions SCM:
           - Overview: app-service/access-restrictions-scm/overview.md
+      - VNet Integration IP Exhaustion:
+          - Overview: app-service/vnet-integration-ip-exhaustion/overview.md
   - Functions:
       - Overview: functions/index.md
       - Flex Router Queueing:
