@@ -57,6 +57,18 @@ nav:
           - Overview: app-service/arr-affinity-behavior/overview.md
       - App Insights vs OpenTelemetry Gap:
           - Overview: app-service/appinsights-opentelemetry-gap/overview.md
+      - Managed Identity Token Acquisition Failures:
+          - Overview: app-service/managed-identity-token-acquisition-failures/overview.md
+      - TLS Binding Edge Cases:
+          - Overview: app-service/tls-binding-edge-cases/overview.md
+      - Always On Ping Interplay:
+          - Overview: app-service/always-on-ping-interplay/overview.md
+      - Hybrid Connections vs VNet Integration:
+          - Overview: app-service/hybrid-vnet-differences/overview.md
+      - Scale-Out Timing:
+          - Overview: app-service/scale-out-timing/overview.md
+      - Slot Swap Edge Cases:
+          - Overview: app-service/slot-swap-edge-cases/overview.md
   - Functions:
       - Overview: functions/index.md
       - Flex Router Queueing:
@@ -130,6 +142,20 @@ nav:
           - Overview: container-apps/workload-profile-behavior/overview.md
       - Log Analytics Ingestion Gap:
           - Overview: container-apps/log-analytics-gap/overview.md
+      - Managed Identity IMDS:
+          - Overview: container-apps/managed-identity-imds/overview.md
+      - Registry Pull Failures:
+          - Overview: container-apps/registry-pull-failures/overview.md
+      - Job Execution Failures:
+          - Overview: container-apps/job-execution-failures/overview.md
+      - Subnet Exhaustion:
+          - Overview: container-apps/subnet-exhaustion/overview.md
+      - KEDA Scaler Misconfiguration:
+          - Overview: container-apps/keda-scaler-misconfiguration/overview.md
+      - Sidecar Resource Contention:
+          - Overview: container-apps/sidecar-resource-contention/overview.md
+      - Egress IP and SNAT Exhaustion:
+          - Overview: container-apps/egress-ip-snat-exhaustion/overview.md
   - Patterns:
       - Symptom to Hypothesis: patterns/symptom-to-hypothesis.md
       - False Positives: patterns/false-positives.md
