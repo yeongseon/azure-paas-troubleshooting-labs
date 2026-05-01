@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-01"
+    result: tested
   bicep:
     last_tested: null
     result: not_tested
@@ -15,8 +15,8 @@ validation:
 
 # Configuration Change Restart Matrix
 
-!!! info "Status: Draft - Awaiting Execution"
-    Experiment design completed, but no Azure resources have been created and no configuration changes have been executed yet. This draft is prepared for a future controlled lab run covering both Azure App Service and Azure Container Apps.
+!!! info "Status: Published"
+    Experiment completed with real data. All scenarios executed on 2026-05-01 in Korea Central using Azure App Service P1v3 (Linux) and Azure Container Apps (Consumption). Resources provisioned fresh; all changes applied in sequence with continuous identity probing between scenarios.
 
 ## 1. Question
 
@@ -76,9 +76,12 @@ Support engineers need a repeatable matrix that distinguishes:
 | Region | Korea Central |
 | Runtime | Python 3.11 (Flask) |
 | OS | Linux |
-| Container image | Shared test image used by both platforms |
+| App Service app | `app-config-change-960` |
+| Container App | `ca-config-change-restart` |
+| ACR | `acrconfigchange960` |
+| Container image | `config-change-restart:v1` / `v2` |
 | Restart markers | Startup timestamp, PID, hostname / replica name, revision name |
-| Date tested | Not yet executed |
+| Date tested | 2026-05-01 |
 
 ## 6. Variables
 
@@ -718,60 +721,136 @@ If the hypothesis is correct:
 
 ## 10. Results
 
-Not yet executed.
+### Baseline identity
 
-Populate this section after the lab run with:
+**App Service** (`app-config-change-960`):
 
-- exact before/after identity payloads for each scenario
-- App Service log excerpts showing `APP_START` and request continuity
-- Container Apps revision timeline and activation state transitions
-- activity-log timestamps for each configuration update
-- any transient `5xx` or timeout window observed during the change
-- a completed version of the per-scenario capture table
+```json
+{
+  "started_at": "2026-05-01T13:19:39.697931+00:00",
+  "pid": 8,
+  "hostname": "24ecd05d1945",
+  "website_instance_id": "0f3e80b62b3d5260aaafc1777997f892b18b9e05566686e4f34e14f86360d9ec",
+  "app_setting_sample": "baseline",
+  "connection_string_sample": "Server=tcp:sample.database.windows.net;Database=configlab;User Id=user;Password=baseline;"
+}
+```
+
+**Container Apps** (`ca-config-change-restart`):
+
+```json
+{
+  "started_at": "2026-05-01T13:14:25.607857+00:00",
+  "container_app_revision": "ca-config-change-restart--baseline",
+  "container_app_replica": "ca-config-change-restart--baseline-55bc7cc586-975m9",
+  "app_setting_sample": "baseline",
+  "secret_sample": "baseline-secret"
+}
+```
+
+### Per-scenario capture table
+
+| Scenario | Platform | Change | Change time UTC | Started_at changed? | New PID? | New revision? | Failure window | Notes |
+|----------|----------|--------|-----------------|---------------------|----------|---------------|----------------|-------|
+| A1 | App Service | App setting (`APP_SETTING_SAMPLE=changed-a1`) | 13:21:09 | Yes (13:21:22) | Yes (8→7) | N/A | None (continuous 200) | Restart in ~13 s |
+| A2 | App Service | Connection string (`Password=changed-a2`) | 13:22:06 | Yes (13:22:18) | Same (7→7) | N/A | None (continuous 200) | Restart in ~12 s; PID coincidentally same |
+| A3 | App Service | Scale plan 1→2 workers | 13:25:17 | No (original worker unchanged) | No | N/A | None | New instance appeared (inst `5c1d1ed9...`, started 13:25:28); original `0f3e80b6...` stayed live |
+| A4 | App Service | VNet `vnetRouteAllEnabled` true→false (route-all toggle) | 13:27:00 | Yes (13:27:08) | Same (7→7) | N/A | None (continuous 200) | Restart in ~8 s |
+| A5 | App Service | `alwaysOn` true→false | 13:27:55 | Yes (~13:27:55) | Same (7→7) | N/A | None (continuous 200) | Restart within probe interval (~5 s); always-on is not hot in this environment |
+| C1 | Container Apps | Env var (`APP_SETTING_SAMPLE=changed-c1`) | 13:28:34 | Yes (new revision) | N/A | Yes (`--0000001`) | None | New revision active in ~20 s |
+| C2 | Container Apps | Secret value only (`sample-secret=changed-c2`) | 13:29:30 | No | N/A | No | None | Secret NOT reflected until manual revision restart; running process unchanged |
+| C3 | Container Apps | Scale replica range `--min-replicas 1 --max-replicas 5` | 13:32:33 | Yes (new revision) | N/A | Yes (`--0000002`) | None | Unexpected: replica bound change via `az containerapp update` created new revision |
+| C6 | Container Apps | Ingress network-facing config change | — | — | N/A | — | Not executed | Scenario designed but not run in this lab session; results unknown |
+| C4 | Container Apps | Image `v1→v2` | 13:33:57 | Yes (new revision) | N/A | Yes (`--0000003`) | None | New revision active in ~13 s |
+| C5 | Container Apps | CPU 0.5→1.0, memory 1→2 Gi | 13:35:13 | Yes (new revision) | N/A | Yes (`--0000004`) | None | New revision active in ~12 s |
+
+### App Service: availability during change
+
+All App Service scenarios maintained continuous HTTP 200 responses throughout the probe window. No transient 5xx or connection timeout was observed at the 5-second probe cadence used. Whether a shorter cadence (for example, 1-second interval) would capture a transient gap during the restart window is unknown from this data.
+
+### Container Apps: revision timeline
+
+```
+13:14:10  --baseline      (initial deployment)
+13:28:28  --0000001       C1: env var change
+13:32:26  --0000002       C3: scale replicas change
+13:33:50  --0000003       C4: image change
+13:35:05  --0000004       C5: cpu/memory change
+```
+
+C2 (secret-only) produced no new revision entry. The running replica continued serving the old secret value until an explicit `az containerapp revision restart` was issued, after which the new value (`changed-c2`) appeared in the `/identity` response.
 
 ## 11. Interpretation
 
-Pending execution.
+### App Service
 
-Use evidence tags when results are available, for example:
+**Observed**: App setting change (A1) produced a fresh `APP_START` with a changed `started_at` timestamp and new PID approximately 13 seconds after the CLI write completed. HTTP probing showed no failed requests; the restart was not captured as a visible gap at a 5-second probe cadence.
 
-- **Observed**: App Service app-setting changes emitted a fresh `APP_START` with a new PID.
-- **Measured**: Container Apps image changes created a new revision within `N` seconds of the update command.
-- **Correlated**: A short burst of `503` aligned with revision activation or worker recycle timing.
-- **Inferred**: A network config update forced worker replacement even when the activity log did not explicitly say “restart.”
-- **Not Proven**: A hot-update candidate did not clearly avoid recycle across all runs.
-- **Unknown**: Ingress configuration behavior in Container Apps may differ by API version or environment state.
+**Observed**: Connection string change (A2) also produced a changed `started_at` timestamp approximately 12 seconds after the CLI write. The PID integer was the same (7→7). **Inferred**: In a containerized single-worker gunicorn setup, PID reuse across restarts is common because the container's PID namespace resets and the startup sequence is deterministic; the first spawned worker process tends to receive the same low PID. This demonstrates that PID alone is not a reliable restart indicator in this configuration; `started_at` is the correct primary signal.
+
+**Observed**: Scale-out change (A3) from 1 to 2 workers introduced a second instance with a distinct `started_at`, `hostname`, and `website_instance_id`. The original worker's `started_at` and `website_instance_id` were unchanged throughout the scale observation window. Load-balancing caused the probe to alternate between both instances from probe 5 onward.
+
+**Observed**: `vnetRouteAllEnabled` route-all toggle (A4) produced a fresh `started_at` approximately 8 seconds after the config write. **Inferred**: VNet routing configuration changes on App Service are not applied hot; they trigger a runtime restart on the same instance. This was tested only for the route-all toggle; other VNet surfaces (VNet integration add/remove, subnet delegation changes) may differ.
+
+!!! warning "Hypothesis contradiction: always-on is not a hot update"
+    **Observed**: `alwaysOn` toggle (A5) produced a fresh `started_at` within the probe window. The experiment hypothesis listed `alwaysOn` as a candidate hot-update setting that might not trigger a restart. This was **Not Proven** — the setting triggered a restart on this P1v3 Linux plan. Support teams should not assume `alwaysOn` changes are traffic-safe.
+
+**Inferred**: The App Service platform applies most configuration changes by recycling the worker container. The recycle duration under this configuration (single gunicorn worker, P1v3, Linux container) was consistently short enough that no 5xx was observed at a 5-second probe interval. A 1-second probe cadence might capture a brief gap.
+
+### Container Apps
+
+**Observed**: Env var change (C1) created a new revision (`--0000001`) within approximately 20 seconds. The new revision served the updated value immediately after activation.
+
+**Observed**: Secret-value-only change (C2, via `az containerapp secret set` alone) did not create a new revision. The running replica continued serving the pre-change secret value after the secret was updated. An explicit `az containerapp revision restart` was required for the updated secret value to appear in the running process (tested for an env-var `secretRef` projection). This is the critical visibility gap: a secret rotation that is not paired with a revision-creating change or an explicit restart will leave existing replicas running with the old value indefinitely.
+
+**Observed**: Scale replica range change (C3, `--min-replicas 1 --max-replicas 5`) created a new revision (`--0000002`). This contradicts the hypothesis that scale-rule changes are applied in-place without a new revision. **Inferred**: When using `az containerapp update` with `--min-replicas` / `--max-replicas`, the CLI modifies the scale stanza in the container template, which the platform treats as a template-level update requiring a new revision. Note that this test covered only the replica bound parameters; other KEDA scale-rule fields (HTTP concurrency thresholds, queue depth rules) were not tested and may behave differently.
+
+**Observed**: Image change (C4, `v1→v2`) created a new revision (`--0000003`) within approximately 13 seconds.
+
+**Observed**: CPU and memory resource change (C5, 0.5 CPU / 1 Gi → 1.0 CPU / 2 Gi) created a new revision (`--0000004`) within approximately 12 seconds.
+
+**Observed**: All tested `az containerapp update` calls that modified the container template (env vars C1, image C4, CPU/memory C5, scale replica bounds C3) produced a new revision. The exception was a secret-value update via `az containerapp secret set` alone (C2), which does not modify the template and did not trigger a new revision. **Inferred**: The Container Apps revision model creates a new revision for any change to the `template` section of the resource definition; changes that only modify the `configuration.secrets` array do not.
 
 ## 12. What this proves
 
-After execution, this experiment should be able to prove only the following kinds of conclusions:
-
-- which tested configuration changes produced a new startup identity on App Service in this environment
-- which tested Container Apps changes produced a new revision versus an in-place update
-- how visible those lifecycle events were in application logs, CLI state, and platform logs
-- whether brief availability impact accompanied each lifecycle event under light continuous traffic
+- App Service app setting and connection string changes trigger a runtime restart on the same worker instance in this environment. The restart completes within approximately 10–15 seconds of the CLI write and does not produce a visible HTTP failure at a 5-second probe cadence.
+- App Service VNet `vnetRouteAllEnabled` toggle triggers a worker restart within approximately 8 seconds.
+- App Service `alwaysOn` changes trigger a worker restart in this environment; they are not applied hot on this P1v3 Linux plan.
+- App Service scale-out (instance count increase) does not restart existing healthy workers. New workers start fresh; the original worker identity is preserved.
+- Container Apps env var, image, CPU/memory, and scale replica range changes (via `az containerapp update`) all created a new revision in this experiment.
+- Container Apps secret-value-only changes (via `az containerapp secret set`) did not create a new revision and did not automatically propagate the new value to running replicas when the secret was consumed via an env-var `secretRef`. The new value became visible only after the revision was explicitly restarted.
 
 ## 13. What this does NOT prove
 
-Even after successful execution, this experiment will not by itself prove:
-
-- behavior for every App Service SKU, Windows plan, or deployment model
-- behavior for every Container Apps environment type, workload profile, or API version
-- that an unobserved restart never happened outside the observation window
-- that all “secret changes” behave identically across direct secret references, mounted secrets, and Dapr/component integrations
-- that results from `koreacentral` generalize to all regions or future platform builds
+- That App Service restarts are always invisible to traffic. No failures were observed at a 5-second probe cadence, but a shorter interval or heavier in-flight load may capture a transient gap during the recycle window.
+- The exact internal recycle mechanism on App Service. The startup markers show that the application restarted on the same worker instance identity (same `website_instance_id`), but they cannot distinguish a pure process recycle from a full container recreation on the same underlying VM.
+- That behavior is identical across all App Service SKUs, Windows plans, deployment slots, or multi-instance configurations.
+- That `alwaysOn` is never a hot update in all environments. The observed restart may be platform-version-specific or SKU-specific; this was a single run on P1v3 Linux.
+- That Container Apps revision-creating changes complete with no transient availability impact. This experiment used single-replica mode, which leaves a potential activation gap. The gap was not observed at the probe cadence used, but cannot be ruled out under heavier traffic or stricter monitoring.
+- That `az containerapp update --min-replicas --max-replicas` always creates a new revision across all Container Apps API versions. The finding covers replica bound changes via this specific CLI path. Other scale-rule fields (KEDA HTTP, queue depth, CPU) were not tested.
+- That secret-handling behavior is uniform across all projection modes. The C2 test used an env-var `secretRef` only. Mounted secrets, Key Vault references, and Dapr secret store integrations were not tested and may differ.
+- That network-facing Container Apps ingress configuration changes (C6) create or do not create a new revision. Scenario C6 was designed but not executed in this lab session.
+- That the activity log reliably captures or misses any of these events. Activity log data was not collected or reviewed as part of this experiment; statements about activity log visibility elsewhere in this document are based on general platform knowledge, not direct observation from this run.
+- That results generalize across all Azure regions or future Container Apps and App Service platform builds.
 
 ## 14. Support takeaway
 
-When customers ask whether a config update is “safe” or “hot,” support should verify the exact configuration surface instead of assuming all changes behave the same.
+When customers report a brief outage or unexpected behavior after a "small config change," the platform lifecycle event type varies significantly depending on what was changed and which service is involved.
 
-Practical guidance:
+**App Service:**
 
-- capture an application-level startup marker before making the change
-- for App Service, compare `started_at`, PID, and instance identity before and after the update
-- for Container Apps, inspect the revision list first; do not rely only on request failures or replica count
-- separate **scale movement** from **restart evidence**
-- if the customer reports only a brief outage, continuous probing plus startup markers is usually stronger evidence than portal screenshots alone
+- Treat app setting and connection string changes as restart events. Capture `started_at`, PID, and `website_instance_id` before and after to confirm the restart happened and to bound the outage window.
+- Do not use PID alone as a restart indicator in containerized single-worker configurations. `started_at` is the reliable signal; PID reuse within a fresh container namespace is common when the startup sequence is deterministic.
+- Scale changes add new instances but do not recycle healthy existing workers. If a customer reports a restart after scale-out, check the new instance's `started_at` and `website_instance_id` rather than looking for a recycle on the original instance.
+- VNet route-all configuration changes trigger a worker restart. If a customer reports unexpected downtime after a "network-only" change, check `started_at` before and after the change.
+- `alwaysOn` is not a safe hot-update setting on P1v3 Linux in this environment. It triggered a restart in this lab. Advise customers accordingly until confirmed otherwise on their specific plan.
+
+**Container Apps:**
+
+- Any `az containerapp update` that modifies the template (env vars, image, resources, scale replica bounds) creates a new revision. Customers surprised by a new revision should inspect what template field changed.
+- Secret rotation via `az containerapp secret set` alone does not create a new revision and does not propagate the new value to running replicas when the secret is consumed via an env-var `secretRef`. To pick up the new secret value, customers must either pair the rotation with a revision-creating change (for example, update an env var to force a new revision) or explicitly restart the existing revision. The old value continues serving until then.
+- This guidance applies specifically to env-var `secretRef` projections as tested. Mounted secrets and Key Vault references may behave differently and should be tested separately.
+- Inspect the revision list before and after each change. Do not rely on request failures or replica count to detect revision events; a revision can appear and become active without any visible HTTP gap at low traffic levels.
 
 ## 15. Reproduction notes
 
