@@ -69,6 +69,56 @@ nav:
           - Overview: app-service/scale-out-timing/overview.md
       - Slot Swap Edge Cases:
           - Overview: app-service/slot-swap-edge-cases/overview.md
+      - Easy Auth Token Mismatch:
+          - Overview: app-service/easy-auth-token-mismatch/overview.md
+      - Easy Auth Redirect Loop:
+          - Overview: app-service/easy-auth-redirect-loop/overview.md
+      - Key Vault Reference Resolution:
+          - Overview: app-service/keyvault-reference-resolution/overview.md
+      - Run From Package SAS Expiry:
+          - Overview: app-service/run-from-package-sas-expiry/overview.md
+      - Oryx Build Detection:
+          - Overview: app-service/oryx-build-detection/overview.md
+      - Auto Heal Misconfiguration:
+          - Overview: app-service/auto-heal-misconfiguration/overview.md
+      - WebSocket Idle Disconnect:
+          - Overview: app-service/websocket-idle-disconnect/overview.md
+      - Temp Storage Exhaustion:
+          - Overview: app-service/temp-storage-exhaustion/overview.md
+      - Azure Files Mount Failure:
+          - Overview: app-service/azure-files-mount-failure/overview.md
+      - gRPC HTTP2 Mismatch:
+          - Overview: app-service/grpc-http2-mismatch/overview.md
+      - Traffic Manager Health Probe:
+          - Overview: app-service/traffic-manager-health-probe/overview.md
+      - Backup Restore Failure:
+          - Overview: app-service/backup-restore-failure/overview.md
+      - CPU Throttling Baseline:
+          - Overview: app-service/cpu-throttling-baseline/overview.md
+      - Thread Pool Exhaustion:
+          - Overview: app-service/thread-pool-exhaustion/overview.md
+      - App Setting Precedence:
+          - Overview: app-service/app-setting-precedence/overview.md
+      - Deployment Credential Disabled:
+          - Overview: app-service/deployment-credential-disabled/overview.md
+      - Linux Windows Timezone:
+          - Overview: app-service/linux-windows-timezone/overview.md
+      - Certificate Store Mismatch:
+          - Overview: app-service/certificate-store-mismatch/overview.md
+      - Worker Bitness Mismatch:
+          - Overview: app-service/worker-bitness-mismatch/overview.md
+      - NSG Outbound Block:
+          - Overview: app-service/nsg-outbound-block/overview.md
+      - IP Restriction XFF:
+          - Overview: app-service/ip-restriction-xff/overview.md
+      - Multi-Instance Session State:
+          - Overview: app-service/multi-instance-session-state/overview.md
+      - App Gateway Rewrite:
+          - Overview: app-service/app-gateway-rewrite/overview.md
+      - Connection String Slot Override:
+          - Overview: app-service/connection-string-slot-override/overview.md
+      - Deployment Slots Traffic Split:
+          - Overview: app-service/deployment-slots-traffic-split/overview.md
   - Functions:
       - Overview: functions/index.md
       - Flex Router Queueing:
@@ -156,6 +206,56 @@ nav:
           - Overview: container-apps/sidecar-resource-contention/overview.md
       - Egress IP and SNAT Exhaustion:
           - Overview: container-apps/egress-ip-snat-exhaustion/overview.md
+      - Secret Ref Provisioning Failure:
+          - Overview: container-apps/secret-ref-provisioning-failure/overview.md
+      - KEDA Secret Scaler Rotation:
+          - Overview: container-apps/keda-secret-scaler-rotation/overview.md
+      - Azure Policy Revision Block:
+          - Overview: container-apps/azure-policy-revision-block/overview.md
+      - VNet Peer DNS Zone:
+          - Overview: container-apps/vnet-peer-dns-zone/overview.md
+      - HTTP Ingress Timeout:
+          - Overview: container-apps/http-ingress-timeout/overview.md
+      - TCP Ingress Non-HTTP:
+          - Overview: container-apps/tcp-ingress-non-http/overview.md
+      - Replica Zero Floor:
+          - Overview: container-apps/replica-zero-floor/overview.md
+      - ACR Geo-Replication Lag:
+          - Overview: container-apps/acr-geo-replication-lag/overview.md
+      - CPU Limit Burst:
+          - Overview: container-apps/cpu-limit-burst/overview.md
+      - Envoy Retry Storm:
+          - Overview: container-apps/envoy-retry-storm/overview.md
+      - Cron Job Timezone:
+          - Overview: container-apps/cron-job-timezone/overview.md
+      - Azure Files ACA Mount:
+          - Overview: container-apps/azure-files-aca-mount/overview.md
+      - Service Bus DLQ Trigger:
+          - Overview: container-apps/service-bus-dlq-trigger/overview.md
+      - Long Polling Ingress:
+          - Overview: container-apps/long-polling-ingress/overview.md
+      - Revision Label Collision:
+          - Overview: container-apps/revision-label-collision/overview.md
+      - Managed Certificate Renewal:
+          - Overview: container-apps/managed-certificate-renewal/overview.md
+      - Java JVM Heap OOM:
+          - Overview: container-apps/java-jvm-heap-oom/overview.md
+      - UDR Asymmetric Routing:
+          - Overview: container-apps/udr-asymmetric-routing/overview.md
+      - CORS Ingress Preflight:
+          - Overview: container-apps/cors-ingress-preflight/overview.md
+      - OpenTelemetry Gap:
+          - Overview: container-apps/open-telemetry-gap/overview.md
+      - Bicep Property Drift:
+          - Overview: container-apps/bicep-property-drift/overview.md
+      - gRPC ACA End-to-End:
+          - Overview: container-apps/grpc-aca-end-to-end/overview.md
+      - Volume Mount Read-Only:
+          - Overview: container-apps/volume-mount-readonly/overview.md
+      - Health Check gRPC Probe:
+          - Overview: container-apps/health-check-grpc-probe/overview.md
+      - Env Variable Injection Order:
+          - Overview: container-apps/env-variable-injection-order/overview.md
   - Patterns:
       - Symptom to Hypothesis: patterns/symptom-to-hypothesis.md
       - False Positives: patterns/false-positives.md
