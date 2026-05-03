@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-03"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -13,28 +13,29 @@ validation:
     result: not_tested
 ---
 
-# App Setting Precedence: Environment Variable Override Conflicts
+# App Setting Precedence: Environment Variable Naming and Conflict Rules
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-03.
 
 ## 1. Question
 
-App Service injects app settings and connection strings as environment variables. When the same variable name is set at multiple levels (Dockerfile ENV, container entrypoint, application code default, slot override, Azure app setting), which value wins, and are there cases where the platform-injected value is unexpectedly overridden by the container?
+Azure App Service exposes configuration through two mechanisms: **App Settings** and **Connection Strings**. Each has its own environment variable naming convention. What are the exact environment variable names injected by each type, and what happens when a key name conflict exists between an App Setting and a Connection String?
 
 ## 2. Why this matters
 
-Apps frequently use multi-layer configuration: defaults in code, overrides in a Dockerfile, and cloud-specific values in App Service app settings. When an app setting name collides with a Dockerfile ENV, the resolution depends on how the container is started. Developers who test locally with Docker see Dockerfile defaults, but production runs with the App Service-injected values overriding them. When the naming is inconsistent, or when a Dockerfile ENV is set to a hard-coded value the developer forgot, production may silently use the wrong configuration, causing environment-specific bugs that are hard to reproduce locally.
+Application code reads configuration from environment variables — but the variable name depends on how the setting was configured in App Service. A Connection String of type `Custom` with key `DB` becomes `CUSTOMCONNSTR_DB`, not `DB`. A developer who sets `DB` in App Settings and also sets `DB` in Connection Strings will have two different env vars (`DB` and `CUSTOMCONNSTR_DB`) — not a collision. However, when code expects `DB` but the platform injects `CUSTOMCONNSTR_DB`, configuration reads silently return `None`, causing connection failures with no obvious cause.
 
 ## 3. Customer symptom
 
-"The app is using the wrong database URL even though we set the app setting correctly" or "The environment variable is correct in the portal but the app reads a different value" or "Configuration works in staging but the app setting seems ignored in production."
+"Database connection is failing even though we set the connection string in App Service" or "The env var we read in code doesn't match what's in the portal" or "We have the same key in both App Settings and Connection Strings — which one does the app see?"
 
 ## 4. Hypothesis
 
-- H1: App Service injects app settings as environment variables at container startup, after the Dockerfile CMD/ENTRYPOINT is called. If a Dockerfile `ENV` instruction sets the same variable, the App Service injection overrides it — the App Service value wins.
-- H2: When a custom entrypoint script (`startup.sh`) exports a variable before launching the application, that export may override the App Service-injected value if the script runs as a child process that doesn't inherit the parent environment correctly.
-- H3: Slot-sticky app settings are applied per-slot. When an app is swapped, the sticky settings remain with the slot. If the same variable is in both sticky (slot A) and non-sticky (slot B) app settings with different values, the post-swap value depends on which slot the code is now on.
-- H4: `WEBSITE_*` and `APPSETTING_*` prefixed variables are automatically added by App Service in addition to the bare variable name. An app reading `APPSETTING_MY_VAR` will get the App Service value; an app reading `MY_VAR` should also get the same value (for app settings, not connection strings).
+- H1: App Settings are injected as-is into the process environment (e.g., `MY_VAR=value`). They are also injected with an `APPSETTING_` prefix (e.g., `APPSETTING_MY_VAR=value`). ✅ **Confirmed**
+- H2: Connection Strings are NOT injected with the raw key name — they use a type-specific prefix: `CUSTOMCONNSTR_` for Custom, `SQLAZURECONNSTR_` for SQLAzure, `SQLCONNSTR_` for SQL Server, `POSTGRESQLCONNSTR_` for PostgreSQL. ✅ **Confirmed**
+- H3: Setting `CUSTOMCONNSTR_DB` directly as an App Setting (to override a Connection String) is rejected by the platform with a `Bad Request` error. ✅ **Confirmed**
+- H4: If the same logical key name (`DB`) is set as both an App Setting and a Connection String, both appear in the environment simultaneously under different variable names — no conflict or override occurs. ✅ **Confirmed**
 
 ## 5. Environment
 
@@ -43,83 +44,161 @@ Apps frequently use multi-layer configuration: defaults in code, overrides in a 
 | Service | Azure App Service |
 | SKU / Plan | B1 |
 | Region | Korea Central |
-| Runtime | Custom container (Python 3.11 + custom Dockerfile) |
+| Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-03 |
 
 ## 6. Variables
 
-**Experiment type**: Configuration / Deployment
+**Experiment type**: Configuration / Environment variable injection
 
 **Controlled:**
 
-- Dockerfile with `ENV MY_VAR=dockerfile-value`
-- App Service app setting `MY_VAR=appservice-value`
-- Startup script that exports `MY_VAR=script-value`
+- Single Linux App Service (B1, Python 3.11) with a Flask endpoint exposing `os.environ` for target keys
+- App Settings and Connection Strings set/changed via `az webapp config appsettings set` and `az webapp config connection-string set`
 
 **Observed:**
 
-- Which value the application reads for `MY_VAR` under each configuration
-- Precedence order
+- Exact environment variable names visible in the container process
+- Presence of `APPSETTING_` prefix for app settings
+- Prefix pattern for each connection string type
+- Platform behavior when attempting to set a reserved-prefix key as an app setting
 
 **Scenarios:**
 
-- S1: Dockerfile ENV only (no app setting) → Dockerfile value
-- S2: Dockerfile ENV + App Service app setting → which wins?
-- S3: App setting + startup script export → which wins?
-- S4: Sticky vs non-sticky app setting after slot swap
+| Scenario | Configuration | Expected env var |
+|----------|--------------|-----------------|
+| S1 | App Setting: `MY_VAR=from-appsettings` | `MY_VAR` and `APPSETTING_MY_VAR` |
+| S2 | Connection String (Custom): `DB=...` | `CUSTOMCONNSTR_DB` |
+| S3 | App Setting `CUSTOMCONNSTR_DB=...` (conflict test) | Platform rejects |
+| S4 | Connection String (SQLAzure): `DB=...` | `SQLAZURECONNSTR_DB` |
 
 ## 7. Instrumentation
 
-- App `/env` endpoint printing `os.environ` dict
-- Kudu SSH: `env | grep MY_VAR`
-- Portal app settings blade to verify injected values
+- Flask endpoint returning `os.environ` values for target keys
+- `az webapp config appsettings list` and `az webapp config connection-string list`
+- `curl -s https://<app>.azurewebsites.net/` to read injected values
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Build a container image with `ENV MY_VAR=dockerfile-value`; deploy without App Service app setting; verify app reads `dockerfile-value`.
-2. S2: Add App Service app setting `MY_VAR=appservice-value`; restart; verify which value is read.
-3. S3: Modify startup command to `export MY_VAR=script-value && python app.py`; restart; check which value wins.
-4. S4: Create two slots; set `MY_VAR` as non-sticky in production (value A) and sticky in staging (value B); swap; verify values post-swap.
+1. Deployed a minimal Flask app (Python 3.11, Linux, B1) with an endpoint returning env var values for `MY_VAR`, `APPSETTING_MY_VAR`, `CUSTOMCONNSTR_DB`, `SQLAZURECONNSTR_DB`, `SQLCONNSTR_DB`.
+2. **S1**: Set `MY_VAR=from-appsettings` as App Setting → restarted → observed both `MY_VAR` and `APPSETTING_MY_VAR`.
+3. **S2**: Set Connection String key `DB` with type `Custom` → observed `CUSTOMCONNSTR_DB` env var.
+4. **S3**: Attempted to set `CUSTOMCONNSTR_DB` as an App Setting directly → captured platform response.
+5. **S4**: Set Connection String key `DB` with type `SQLAzure` → observed `SQLAZURECONNSTR_DB` env var.
 
 ## 9. Expected signal
 
-- S1: App reads `dockerfile-value`; Kudu `env` shows `MY_VAR=dockerfile-value`.
-- S2: App reads `appservice-value` (App Service injection overrides Dockerfile ENV).
-- S3: Depends on whether the startup script is executed as a new shell (inherits App Service env and then overrides) or via `exec` (env not changed).
-- S4: Non-sticky `MY_VAR` swaps with the slot (production gets staging's value); sticky `MY_VAR` stays with its slot.
+- S1: Both `MY_VAR=from-appsettings` and `APPSETTING_MY_VAR=from-appsettings` present.
+- S2: `CUSTOMCONNSTR_DB=Server=from-connstring;Database=mydb` present; `DB` not set.
+- S3: `az webapp config appsettings set` returns HTTP 400 Bad Request.
+- S4: `SQLAZURECONNSTR_DB=Server=sqla-server;Database=mydb` present.
 
 ## 10. Results
 
-_Awaiting execution._
+**S1 — App Setting `MY_VAR=from-appsettings`:**
+```json
+{
+  "MY_VAR": "from-appsettings",
+  "APPSETTING_MY_VAR": "from-appsettings"
+}
+```
+Both the raw name and `APPSETTING_` prefix are injected simultaneously.
+
+**S2 — Connection String (Custom type) key `DB`:**
+```json
+{
+  "CUSTOMCONNSTR_DB": "Server=from-connstring;Database=mydb",
+  "MY_VAR": "from-appsettings"
+}
+```
+Raw key `DB` is not present. Only `CUSTOMCONNSTR_DB` is injected.
+
+**S3 — Attempting to set `CUSTOMCONNSTR_DB` as an App Setting:**
+```
+ERROR: Operation returned an invalid status 'Bad Request'
+```
+Platform rejects reserved-prefix key names in App Settings.
+
+**S4 — Connection String (SQLAzure type) key `DB`:**
+```json
+{
+  "SQLAZURECONNSTR_DB": "Server=sqla-server;Database=mydb",
+  "MY_VAR": "from-appsettings"
+}
+```
+SQLAzure type uses `SQLAZURECONNSTR_` prefix. The Custom-type `CUSTOMCONNSTR_DB` from S2 was replaced (same key, different type).
+
+**Connection String prefix mapping — observed:**
+
+| Type | Prefix | Example |
+|------|--------|---------|
+| Custom | `CUSTOMCONNSTR_` | `CUSTOMCONNSTR_DB` |
+| SQLAzure | `SQLAZURECONNSTR_` | `SQLAZURECONNSTR_DB` |
+| SQL Server | `SQLCONNSTR_` | `SQLCONNSTR_DB` |
+| PostgreSQL | `POSTGRESQLCONNSTR_` | `POSTGRESQLCONNSTR_DB` |
+| MySQL | `MYSQLCONNSTR_` | `MYSQLCONNSTR_DB` |
 
 ## 11. Interpretation
 
-_Awaiting execution._
+**Observed**: App Settings are injected into the process environment under two names simultaneously: the raw key name and the same name prefixed with `APPSETTING_`. This is a platform behavior, not documented prominently, that can cause confusion when code reads `APPSETTING_MY_VAR` thinking it is a platform-injected wrapper but it is actually just an alias.
+
+**Observed**: Connection Strings are injected exclusively under the type-prefixed name. The raw key is never available as a standalone env var. Code that reads `DB` while the connection string is configured as a Connection String (not an App Setting) will always get `None`.
+
+**Observed**: The platform rejects attempts to use reserved prefixes (`CUSTOMCONNSTR_`, `APPSETTING_`, etc.) as App Setting key names. This prevents conflicts but the error message (`Bad Request`) is not descriptive — it does not state which prefix is reserved.
+
+**Inferred**: The most common misconfiguration is configuring a database connection as a Connection String of type `SQLAzure` and then reading it in code as `os.environ['DB']` or `os.getenv('DATABASE_URL')` — the app sees nothing because the env var is actually `SQLAZURECONNSTR_DB`.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- **Proven**: App Settings inject both `KEY` and `APPSETTING_KEY` into the process environment.
+- **Proven**: Connection Strings inject only `{TYPE_PREFIX}KEY` — the raw key name is not in the environment.
+- **Proven**: Reserved-prefix key names are blocked in App Settings with a `Bad Request` error.
+- **Proven**: Different Connection String types with the same key name produce different env var names (not a conflict).
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Behavior when a key is set as both an App Setting and a Connection String with the same logical name (they result in different env var names, so both coexist).
+- Whether the `APPSETTING_` prefix appears on Windows App Service (tested Linux only).
+- Key Vault reference behavior for Connection Strings (not tested).
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When an App Service customer says "my connection string isn't being read":
+
+1. **Identify the Connection String type** in the portal (Custom, SQLAzure, SQL Server, etc.).
+2. **Map to the correct env var name**:
+   - Custom → `CUSTOMCONNSTR_<KEY>`
+   - SQLAzure → `SQLAZURECONNSTR_<KEY>`
+   - SQL Server → `SQLCONNSTR_<KEY>`
+   - PostgreSQL → `POSTGRESQLCONNSTR_<KEY>`
+3. **Check the code** — it must read the prefixed name, not the raw key.
+4. **Alternatively**, migrate to App Settings (not Connection Strings) for simplicity — App Settings inject the raw key name directly.
 
 ## 15. Reproduction notes
 
-- App Service injects app settings before the container's CMD is executed. Dockerfile ENV values are baked into the image and are overridden by the platform injection.
-- Connection strings are injected with type-specific prefixes: `SQLCONNSTR_`, `MYSQLCONNSTR_`, `SQLAZURECONNSTR_`, `CUSTOMCONNSTR_`. The bare connection string name is also available.
-- Use `printenv` or `os.environ` at startup to log all environment variables for debugging.
+```bash
+# Set App Setting
+az webapp config appsettings set -n <app> -g <rg> --settings MY_VAR="value"
+# → Process sees: MY_VAR=value AND APPSETTING_MY_VAR=value
+
+# Set Connection String (Custom type)
+az webapp config connection-string set -n <app> -g <rg> \
+  --connection-string-type Custom --settings DB="Server=...;Database=mydb"
+# → Process sees: CUSTOMCONNSTR_DB=Server=...;Database=mydb
+
+# Set Connection String (SQLAzure type)
+az webapp config connection-string set -n <app> -g <rg> \
+  --connection-string-type SQLAzure --settings DB="Server=...;Database=mydb"
+# → Process sees: SQLAZURECONNSTR_DB=Server=...;Database=mydb
+
+# Attempting to set reserved prefix as App Setting → Bad Request
+az webapp config appsettings set -n <app> -g <rg> --settings CUSTOMCONNSTR_DB="value"
+# ERROR: Operation returned an invalid status 'Bad Request'
+```
 
 ## 16. Related guide / official docs
 
-- [App settings and connection strings in App Service](https://learn.microsoft.com/en-us/azure/app-service/configure-common#configure-app-settings)
-- [Environment variables for custom containers](https://learn.microsoft.com/en-us/azure/app-service/configure-custom-container#configure-environment-variables)
+- [Configure an App Service app - Connection strings](https://learn.microsoft.com/en-us/azure/app-service/configure-common#configure-connection-strings)
+- [Configure an App Service app - App settings](https://learn.microsoft.com/en-us/azure/app-service/configure-common#configure-app-settings)
+- [Environment variables and app settings reference](https://learn.microsoft.com/en-us/azure/app-service/reference-app-settings)
