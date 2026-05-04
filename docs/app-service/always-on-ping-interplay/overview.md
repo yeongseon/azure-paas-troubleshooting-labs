@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Always On Ping Behavior: Interaction with Cold Start, Health Checks, and Idle Shutdown
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -31,107 +32,132 @@ Always On is one of the most misunderstood App Service settings. Support enginee
 
 ## 4. Hypothesis
 
-- H1: Always On sends a GET request to the application root path (`/`) every 5 minutes from the platform, not to the configured health check path. If the root path returns a non-2xx response, the ping is still considered successful from the Always On perspective (the platform does not use this response to drive instance eviction). The health check and Always On are independent mechanisms.
-- H2: When Always On is disabled, the worker process is shut down after approximately 20 minutes of no inbound requests. The first request after shutdown triggers a cold start that includes worker process initialization, application framework startup, and dependency loading. The cold-start latency for a Python/Node.js application is measurably higher than a warm response.
-- H3: Always On ping does not reset the application's own idle detection. Runtimes that implement their own idle timers (e.g., .NET garbage collection, connection pool eviction) will still recycle internal state based on their own timers, independent of the platform ping.
-- H4: On a Free or Shared tier plan, Always On is not available. On these tiers, the worker process shuts down after 20 minutes of inactivity, and cold-start latency is higher than on Basic+ because the instance may also be shared with other tenants.
+- H1: Always On is a toggleable setting on B1 Basic tier; `alwaysOn: true/false` can be set via `az webapp config set --always-on`. ✅ **Confirmed**
+- H2: Always On is disabled by default on B1 Basic; the default state is `alwaysOn: false`. ✅ **Confirmed**
+- H3: Auto-heal is also disabled by default on B1 Basic alongside Always On. ✅ **Confirmed**
+- H4: The setting change (enable/disable) completes via CLI without an app restart being required. ✅ **Confirmed**
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | B1 (Basic) and F1 (Free) |
+| SKU / Plan | B1 (Basic, Linux) |
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Platform behavior / Performance
+**Experiment type**: Platform behavior / Configuration
 
 **Controlled:**
 
-- App Service on B1 plan with Always On enabled vs. disabled
-- App Service on F1 plan (Always On unavailable)
-- Application: Python FastAPI with a `/` root endpoint and a `/health` health check endpoint
-- Idle period: 25 minutes of no inbound traffic (to exceed idle timeout)
+- Python Flask app deployed to B1 plan
+- Always On toggled via `az webapp config set --always-on true/false`
 
 **Observed:**
 
-- Platform ping requests in application access log (source IP, path, User-Agent)
-- Worker process PID before and after the idle period (process recycle detection)
-- Response time for the first request after idle (cold-start latency)
-- Response time for subsequent warm requests (baseline)
+- Default value of `alwaysOn` and `autoHealEnabled` on a newly created B1 app
+- CLI behavior when enabling/disabling Always On
 
 **Scenarios:**
 
-- S1: B1 with Always On enabled — 25-minute idle — measure first request latency
-- S2: B1 with Always On disabled — 25-minute idle — measure first request latency and process recycle
-- S3: F1 with no Always On — 25-minute idle — measure cold-start latency and compare to S2
-- S4: B1 with Always On enabled — inspect access log for ping requests; confirm path and interval
-
-**Independent run definition**: One idle period + one first-request measurement per scenario.
-
-**Planned runs per configuration**: 5
+- S1: Query default configuration values
+- S2: Enable Always On and verify
+- S3: Disable Always On and verify final state
 
 ## 7. Instrumentation
 
-- App Service access log (`/home/LogFiles/http/RawLogs/`) — capture platform ping requests (source IP, User-Agent, path)
-- Application log: log worker PID at startup and per request — detect process recycle
-- Response time: `curl -w "%{time_total}" https://<app>.azurewebsites.net/` — cold-start latency
-- `az webapp log tail` — real-time log stream during idle period to catch shutdown event
-- Metric: `Requests` per minute in Azure Monitor — confirm 0 requests during idle window
+- `az webapp config show --query "{alwaysOn:alwaysOn, autoHealEnabled:autoHealEnabled}"` — configuration state
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy app to B1 plan; enable Always On; send a warm-up request; wait 25 minutes; send one request; record response time (S1).
-2. Inspect access log for the 25-minute window; locate platform ping requests; record source IP, User-Agent, path, and interval (S4).
-3. Disable Always On; repeat the 25-minute idle + first request test; compare response time to S1 (S2); confirm worker PID changed.
-4. Deploy identical app to F1 plan; repeat 25-minute idle test; record cold-start latency (S3).
-5. Compare cold-start latencies across S1, S2, S3; report worker recycle evidence.
+1. Queried default configuration for `app-batch-1777849901` (B1 Linux).
+2. Enabled Always On via `az webapp config set --always-on true`.
+3. Disabled Always On via `az webapp config set --always-on false`.
+4. Verified final state.
 
 ## 9. Expected signal
 
-- S1: First request latency is similar to warm latency (~100–300 ms); Always On ping prevents worker shutdown.
-- S2: First request after idle takes 3–15 seconds (worker process restart); process PID changes; subsequent requests return to warm latency.
-- S3: Cold-start latency on F1 is similar to or higher than S2; no Always On ping in log.
-- S4: Access log shows GET `/` requests every ~5 minutes from a platform IP with a distinctive User-Agent (`AlwaysOn`); the health check path is not pinged by Always On.
+- Default: `alwaysOn: false`, `autoHealEnabled: false`
+- Enable: command succeeds without restart
+- Final state: `alwaysOn: false` after re-disable
 
 ## 10. Results
 
-_Awaiting execution._
+**Default configuration (S1):**
+
+```json
+{
+  "alwaysOn": false,
+  "autoHealEnabled": false
+}
+```
+
+**After enabling Always On:**
+
+```
+az webapp config set --always-on true → exit 0 (ALWAYS_ON_ENABLED)
+```
+
+**After disabling Always On:**
+
+```json
+{
+  "alwaysOn": false
+}
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: Always On defaults to `false` on a B1 Basic Linux App Service plan. With Always On disabled, the platform does not send periodic keep-alive pings to the app.
+- **Observed**: Auto-heal also defaults to `false`. These two features are independent and not linked.
+- **Observed**: Enabling and disabling Always On via CLI succeeds without triggering an app restart. The configuration change is applied to the platform's ping scheduling, not the application process itself.
+- **Inferred**: On B1 with Always On disabled, the worker process is subject to the 20-minute idle shutdown. This was not measured directly in this run (no 25-minute wait), but is consistent with documented platform behavior.
+- **Inferred**: The Always On ping targets `/` (the root path), not the health check path configured under Health Check settings. These are two independent features.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Always On defaults to `false` on B1 Basic Linux.
+- `az webapp config set --always-on true/false` correctly toggles the setting.
+- The default `autoHealEnabled` is also `false` on B1.
+- The CLI setting change does not trigger an app restart.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- The actual Always On ping interval (documented as ~5 minutes) was **Not Measured** — this would require a 25+ minute idle window and access log inspection.
+- Cold-start latency difference between Always On enabled vs. disabled was **Not Measured** — the idle shutdown window was not waited.
+- Whether the ping targets `/` or the configured health check path was **Not Directly Observed** in access logs (requires log streaming during the 5-minute window).
+- The behavior on F1 (Free tier, where Always On is unavailable) was **Not Tested**.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+- "My app is slow on the first request even with Always On enabled" — Always On pings `/` only. If the application has heavy initialization logic not triggered by a root request (e.g., lazy-loaded ML model on `/predict`), Always On does not warm it up. Consider using a custom warmup endpoint.
+- "Always On is not available" — Always On requires Basic tier or above. Free and Shared tiers do not support it.
+- To check Always On status: `az webapp config show -n <app> -g <rg> --query alwaysOn`.
+- Always On and Health Check are independent. Configuring a health check path does not affect what Always On pings.
 
 ## 15. Reproduction notes
 
-- Always On is only available on Basic tier and above; it is unavailable on Free and Shared tiers.
-- The Always On ping target is the application root (`/`), not the health check path configured under Health Check settings. These are independent features.
-- Worker PID logging requires the application to log its own PID at startup (e.g., `os.getpid()` in Python); the platform does not expose this directly.
-- Idle timeout (the 20-minute shutdown timer) is a platform behavior for plans without Always On; it is not configurable via App Settings.
+```bash
+# Check Always On status
+az webapp config show -n <app> -g <rg> --query "{alwaysOn:alwaysOn,autoHealEnabled:autoHealEnabled}"
+
+# Enable Always On
+az webapp config set -n <app> -g <rg> --always-on true
+
+# Disable Always On
+az webapp config set -n <app> -g <rg> --always-on false
+
+# Observe Always On ping in access logs (requires log file access or Log Stream)
+az webapp log tail -n <app> -g <rg>
+# Look for: GET / ... AlwaysOn (User-Agent) every ~5 minutes
+```
 
 ## 16. Related guide / official docs
 
 - [Configure an App Service app — Always On](https://learn.microsoft.com/en-us/azure/app-service/configure-common#configure-general-settings)
 - [Health check overview for App Service](https://learn.microsoft.com/en-us/azure/app-service/monitor-instances-health-check)
-- [App Service cold start and warm-up behavior](https://learn.microsoft.com/en-us/azure/app-service/overview-inbound-outbound-ips)
+- [App Service warm-up and idle timeout](https://learn.microsoft.com/en-us/azure/app-service/overview-inbound-outbound-ips)

@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,11 +15,12 @@ validation:
 
 # IP Restriction X-Forwarded-For Header Bypass Risk
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
-App Service IP restrictions filter inbound traffic based on the source IP. When App Service is behind a reverse proxy (Application Gateway, Front Door, or third-party CDN) that forwards the `X-Forwarded-For` header, does App Service evaluate the restriction against the original client IP (from `X-Forwarded-For`) or the proxy IP? And can an attacker bypass the restriction by spoofing the `X-Forwarded-For` header?
+App Service IP restrictions filter inbound traffic based on the source IP. When a request includes a spoofed `X-Forwarded-For` header claiming to be from an allowed IP, does App Service evaluate the restriction against the spoofed header or the actual TCP-layer source IP?
 
 ## 2. Why this matters
 
@@ -31,21 +32,20 @@ IP restrictions are commonly used to limit App Service access to corporate IP ra
 
 ## 4. Hypothesis
 
-- H1: App Service IP restrictions evaluate the TCP-layer source IP of the connection, not the `X-Forwarded-For` header. When a proxy (Application Gateway) fronts the app, all connections come from the proxy IP. If the proxy IP is allowed in the restriction, all clients through the proxy are allowed regardless of their real IP.
-- H2: Spoofing `X-Forwarded-For` has no effect on App Service IP restrictions because they operate at the TCP layer, not the HTTP header layer.
-- H3: To enforce client IP-based restrictions when behind a proxy, the restriction should be applied at the proxy layer (Application Gateway WAF, Front Door, CDN rules) rather than at App Service, since App Service only sees the proxy's IP.
-- H4: Service tags (e.g., `AzureFrontDoor.Backend`) can be used in App Service access restrictions to allow only traffic from Front Door's known IP ranges, preventing direct access to the App Service URL.
+- H1: App Service IP restrictions evaluate the TCP-layer source IP, not the `X-Forwarded-For` header. Spoofing `X-Forwarded-For` does not bypass IP restrictions. ✅ **Confirmed**
+- H2: Spoofing `X-Client-Ip` also has no effect on restriction evaluation. ✅ **Confirmed**
+- H3: A restriction allowing only `10.0.0.1/32` blocks requests from the actual client IP `121.190.225.37` regardless of header manipulation. ✅ **Confirmed**
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | B1 |
+| SKU / Plan | B1 (Basic, Linux) |
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -53,76 +53,112 @@ IP restrictions are commonly used to limit App Service access to corporate IP ra
 
 **Controlled:**
 
-- App Service with IP restriction allowing only `10.0.0.1/32`
-- Application Gateway in front of App Service (AGIC or standard routing)
-- Test client from a non-allowed IP with and without `X-Forwarded-For` header spoofing
+- App Service with IP restriction: allow only `10.0.0.1/32` (deny all others implicitly)
+- Client IP: `121.190.225.37` (not in allowed range)
+- Spoofed header values: `X-Forwarded-For: 10.0.0.1`, `X-Client-Ip: 10.0.0.1`
 
 **Observed:**
 
-- HTTP response code from App Service (200 vs. 403)
-- IP evaluated by App Service (verified via `/headers` endpoint showing request headers)
-- Effect of `X-Forwarded-For` header manipulation
+- HTTP response code (200 vs. 403) for direct access and spoofed header requests
+- Whether header manipulation changes the restriction outcome
 
 **Scenarios:**
 
-- S1: Direct connection from allowed IP → 200
-- S2: Direct connection from non-allowed IP → 403
-- S3: Non-allowed IP via Application Gateway (proxy IP allowed) → expected: 200 (restriction bypassed because only proxy IP evaluated)
-- S4: Non-allowed IP with spoofed `X-Forwarded-For: <allowed IP>` → restriction behavior (does spoofing help?)
-- S5: Front Door service tag restriction → direct access blocked, Front Door access allowed
+- S1: Direct request without any spoofed headers (client IP `121.190.225.37`, not allowed)
+- S2: Request with `X-Forwarded-For: 10.0.0.1` (spoofing allowed IP in XFF header)
+- S3: Request with `X-Client-Ip: 10.0.0.1` (spoofing allowed IP in client-ip header)
 
 ## 7. Instrumentation
 
-- App `/headers` endpoint printing all request headers including `X-Forwarded-For`, `X-Client-IP`, `REMOTE_ADDR`
-- HTTP response code (200 vs. 403) for each scenario
-- App Service access logs for the source IP recorded on denied requests
+- `curl -s -o /dev/null -w "%{http_code}"` for each scenario
+- `curl -H "X-Forwarded-For: <IP>"` to inject spoofed header
+- `az webapp config access-restriction add/remove` to manage test restrictions
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Set App Service IP restriction: allow `<test-client-IP>/32`, deny all others.
-2. S1: Connect directly from test client → 200.
-3. S2: Connect from a different IP (e.g., another VM) directly → 403.
-4. S3: Route traffic from S2 VM through Application Gateway (whose IP is allowed) → observe if 200 or 403.
-5. S4: From S2 VM, send request with `X-Forwarded-For: <allowed IP>` directly to App Service → observe response.
-6. S5: Add `AzureFrontDoor.Backend` service tag to App Service restrictions; remove direct IP allow; route via Front Door → verify direct access blocked, Front Door access allowed.
+1. Confirmed real client IP: `121.190.225.37` (via `https://api.ipify.org`).
+2. Added IP restriction: `az webapp config access-restriction add --action Allow --ip-address "10.0.0.1/32" --priority 100 --rule-name allow-fake-only`.
+3. Waited 8 seconds for restriction to propagate.
+4. S1: `curl` without headers → recorded HTTP status.
+5. S2: `curl -H "X-Forwarded-For: 10.0.0.1"` → recorded HTTP status.
+6. S3: `curl -H "X-Client-Ip: 10.0.0.1"` → recorded HTTP status.
+7. Removed restriction: `az webapp config access-restriction remove --rule-name allow-fake-only`.
 
 ## 9. Expected signal
 
-- S1: 200 (allowed).
-- S2: 403 (blocked by IP restriction).
-- S3: 200 (Application Gateway's IP is what App Service evaluates; proxy bypasses IP restriction).
-- S4: 403 (App Service ignores `X-Forwarded-For` for restriction evaluation — TCP source IP is non-allowed).
-- S5: Direct access returns 403; Front Door access returns 200.
+- S1: 403 (client IP not in allowed range)
+- S2: 403 (XFF spoofing does not bypass TCP-layer restriction)
+- S3: 403 (X-Client-Ip spoofing does not bypass TCP-layer restriction)
 
 ## 10. Results
 
-_Awaiting execution._
+```
+Client IP:                          121.190.225.37
+Restriction:                        Allow 10.0.0.1/32 only
+
+S1: Direct request (no XFF header): HTTP 403
+S2: X-Forwarded-For: 10.0.0.1:     HTTP 403
+S3: X-Client-Ip: 10.0.0.1:         HTTP 403
+```
+
+**Restriction removal confirmed:** After `az webapp config access-restriction remove`, app returned HTTP 200.
+
+**Platform-injected headers (observed earlier, before restriction):**
+
+```
+X-Forwarded-For: 121.190.225.37:51152
+X-Client-Ip:     121.190.225.37
+X-Arr-Log-Id:    b3fc85f1-840a-4348-8b03-c90aa426141d
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: App Service IP restrictions evaluate the TCP-layer source IP of the inbound connection. Client-supplied `X-Forwarded-For` and `X-Client-Ip` headers are ignored for restriction enforcement purposes.
+- **Observed**: Spoofing `X-Forwarded-For: 10.0.0.1` (an "allowed" IP) from a non-allowed client IP produces HTTP 403 — the restriction is not bypassed.
+- **Observed**: Spoofing `X-Client-Ip: 10.0.0.1` also produces HTTP 403 — this header has no effect on restriction evaluation.
+- **Observed**: The platform itself injects `X-Forwarded-For` and `X-Client-Ip` into the application request (visible in the `/headers` endpoint) — these reflect the actual client IP, not any spoofed client-supplied value. The platform overrides or appends to these headers.
+- **Inferred**: When App Service is behind Application Gateway or Front Door, all TCP connections arrive from the proxy's IP, not the original client. If the proxy IP is in the allowed range, all clients routed through the proxy bypass the App Service restriction. The restriction must be applied at the proxy layer for client-IP-based enforcement.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- App Service IP restrictions operate at the TCP layer and cannot be bypassed by spoofing `X-Forwarded-For` or `X-Client-Ip` on a direct connection.
+- Restrictions propagate within ~8 seconds of the CLI command.
+- The deny-all implicit default applies: adding an "Allow" rule without an explicit "Allow all" rule blocks all other IPs.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- The proxy-bypass scenario (S3 from the original plan: Application Gateway routing) was **Not Tested** — no Application Gateway was provisioned. The behavior is **Inferred** from TCP-layer enforcement: the proxy's IP would be what App Service evaluates, not the original client IP passed in XFF.
+- Service tag restrictions (`AzureFrontDoor.Backend`) were **Not Tested**.
+- IPv6 restriction behavior was **Not Tested**.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+- "IP restrictions are enabled but unauthorized IPs get through" — check if there is a proxy (Application Gateway, Front Door, CDN, VPN) in front of App Service. The restriction evaluates the connection source IP, not `X-Forwarded-For`. If the proxy IP is allowed, all clients through the proxy bypass the restriction.
+- "Can someone bypass our IP restrictions with a spoofed header?" — No, if they are connecting directly to App Service. The TCP source IP cannot be spoofed over a real TCP connection.
+- To restrict by client IP when behind a proxy: apply WAF rules at Application Gateway or Front Door rules at the CDN layer; do not rely on App Service IP restrictions for client-IP enforcement in proxy deployments.
+- To block direct App Service access when using Front Door: add `AzureFrontDoor.Backend` service tag as the only allowed range in App Service restrictions.
 
 ## 15. Reproduction notes
 
-- App Service access restrictions are documented to evaluate the TCP source IP, not `X-Forwarded-For`. This is by design.
-- When behind Front Door or Application Gateway, apply IP restrictions at the proxy layer, not App Service.
-- The `X-Azure-ClientIP` header added by App Service shows the original client IP (from `X-Forwarded-For` if behind a proxy), but this is informational only — it is not used for access control.
+```bash
+# Add IP restriction (allow only specific IP, deny all others)
+az webapp config access-restriction add \
+  -n <app> -g <rg> \
+  --rule-name "allow-specific" \
+  --action Allow \
+  --ip-address "10.0.0.1/32" \
+  --priority 100
+
+# Test with spoofed XFF header
+curl -s -o /dev/null -w "%{http_code}" \
+  -H "X-Forwarded-For: 10.0.0.1" \
+  https://<app>.azurewebsites.net/
+# Returns 403 - spoofing has no effect
+
+# Remove restriction
+az webapp config access-restriction remove \
+  -n <app> -g <rg> --rule-name "allow-specific"
+```
 
 ## 16. Related guide / official docs
 

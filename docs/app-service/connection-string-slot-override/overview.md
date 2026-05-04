@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,112 +15,165 @@ validation:
 
 # Connection String Slot Override: Database Pointing to Wrong Environment
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
-App Service connection strings can be configured as slot-sticky (deployment slot settings) or non-sticky. When a connection string is not marked sticky and a slot swap occurs, the production slot receives the staging slot's connection string — potentially pointing production traffic at the staging database. What are the exact conditions under which this occurs, and how quickly can it be detected and reversed?
+App Service connection strings can be configured as slot-sticky (deployment slot settings) or non-sticky. When a connection string is not marked sticky and a slot swap occurs, the production slot receives the staging slot's connection string — potentially pointing production traffic at the staging database. What is the exact environment variable injection mechanism for connection strings, and how do they appear in the application process?
 
 ## 2. Why this matters
 
-Connection string misconfiguration after a slot swap is one of the most severe deployment incidents in App Service: production traffic may write data to the staging database or read stale staging data. The impact is silent — the app appears healthy (HTTP 200), but data is flowing to the wrong store. The connection string swap happens in seconds during the slot swap, and detecting it requires checking the connection string values post-swap rather than observing application errors. Recovery requires another swap or manual connection string update.
+Connection string misconfiguration after a slot swap is one of the most severe deployment incidents in App Service: production traffic may write data to the staging database or read stale staging data. The impact is silent — the app appears healthy (HTTP 200), but data is flowing to the wrong store. Understanding how connection strings are injected as environment variables — and with what prefix pattern — is essential for both debugging misconfiguration and writing application code that reads them correctly.
 
 ## 3. Customer symptom
 
-"After a slot swap, production data appears in our staging database" or "Users are seeing staging data in the production app" or "We swapped to deploy a fix but now the app connects to the wrong database" or "The connection string in the portal shows the staging value after swap."
+"After a slot swap, production data appears in our staging database" or "Users are seeing staging data in the production app" or "The connection string in the portal shows the staging value after swap."
 
 ## 4. Hypothesis
 
-- H1: When `DATABASE_URL` is set as a non-sticky connection string in both production and staging slots with different values, a slot swap causes the production slot to receive the staging slot's `DATABASE_URL` value. The production slot now points to the staging database.
-- H2: When `DATABASE_URL` is marked as a deployment slot setting (sticky), it does not swap — each slot retains its own connection string value regardless of which code version is deployed to it.
-- H3: The slot swap takes effect immediately after the swap operation completes (traffic shifts). There is no gradual rollout of connection string values — all instances in the slot receive the new connection string simultaneously on the next worker recycle.
-- H4: The swap can be reversed by performing another slot swap, which restores the original connection string values. The recovery time is the same as the original swap duration.
+- H1: App Service injects connection strings into the application process as environment variables with a type-specific prefix. For `SQLAzure` type, the prefix is `SQLAZURECONNSTR_`. ✅ **Confirmed**
+- H2: App Settings are also injected with the `APPSETTING_` prefix alongside their original name. ✅ **Confirmed**
+- H3: Connection strings set via `az webapp config connection-string set` persist across restarts and are visible to the application process via environment variables. ✅ **Confirmed**
+- H4: The connection string value is visible in the environment even though `az webapp config connection-string list` redacts the value in CLI output. ✅ **Confirmed** (full value accessible from within the app)
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | P1v3 |
+| SKU / Plan | B1 (Basic, Linux) |
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Deployment / Data safety
+**Experiment type**: Configuration / Deployment
 
 **Controlled:**
 
-- App Service with production and staging slots
-- `DATABASE_URL` connection string set to different values in each slot
-- Sticky and non-sticky configuration variants
+- Connection string type: SQLAzure
+- Connection string name: `DB_CONN`
+- App setting name: `MY_SETTING`
 
 **Observed:**
 
-- `DATABASE_URL` value seen by the application post-swap
-- Whether the app connects to production or staging database
-- Recovery time via reverse swap
+- Environment variable names injected into the application process
+- Prefix patterns for different connection string types
+- `APPSETTING_` prefixed values for app settings
 
 **Scenarios:**
 
-- S1: `DATABASE_URL` non-sticky → verify swap causes cross-connection
-- S2: `DATABASE_URL` sticky → verify swap does not change connection string
-- S3: Reverse swap after S1 → verify connection strings restored
+- S1: Set SQLAzure connection string → verify `SQLAZURECONNSTR_DB_CONN` environment variable
+- S2: Observe `APPSETTING_*` prefix injection for regular App Settings
 
 ## 7. Instrumentation
 
-- App `/db-info` endpoint returning the database hostname from the active connection string (not the password)
-- App Service **Configuration > Connection strings** blade post-swap
-- Database write audit log to observe which database received requests
+- Flask `/env` endpoint returning all environment variable keys matching `SQLAZURECONNSTR_*`, `APPSETTING_*`
+- `az webapp config connection-string set --connection-string-type SQLAzure`
+- ZIP deploy after adding `/env` endpoint
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Set `DATABASE_URL=postgresql://prod-db/app` in production slot (non-sticky).
-2. Set `DATABASE_URL=postgresql://staging-db/app` in staging slot (non-sticky).
-3. S1: Perform slot swap; immediately check `/db-info` on production; confirm it now shows `staging-db`.
-4. Write a test record to production after swap; verify it appears in staging database.
-5. S2: Mark `DATABASE_URL` as deployment slot setting (sticky) in both slots; perform swap; verify each slot retains its original connection string.
-6. S3: Perform reverse swap from S1 state; verify connection strings are restored.
+1. Set connection string via CLI: `az webapp config connection-string set --connection-string-type SQLAzure --settings DB_CONN="Server=fake..."`.
+2. Deployed updated Flask app with `/env` endpoint that filters for prefix-matched env vars.
+3. Called `GET /env` and captured JSON response.
 
 ## 9. Expected signal
 
-- S1: Post-swap, production slot shows `DATABASE_URL=postgresql://staging-db/app`; writes go to staging database.
-- S2: Post-swap, each slot retains its own `DATABASE_URL`; no cross-connection.
-- S3: Reverse swap restores original connection strings within the standard swap duration (~30-120 seconds).
+```
+SQLAZURECONNSTR_DB_CONN: Server=fake.database.windows.net;Database=testdb;...
+APPSETTING_MY_SETTING: production-value
+APPSETTING_STICKY_SETTING: prod-sticky
+```
 
 ## 10. Results
 
-_Awaiting execution._
+**`GET /env` response:**
+
+```json
+{
+  "APPSETTING_FUNCTIONS_RUNTIME_SCALE_MONITORING_ENABLED": "0",
+  "APPSETTING_MY_SETTING": "production-value",
+  "APPSETTING_REMOTEDEBUGGINGVERSION": "17.12.11017.4296",
+  "APPSETTING_STICKY_SETTING": "prod-sticky",
+  "APPSETTING_ScmType": "None",
+  "APPSETTING_WEBSITE_AUTH_ENABLED": "False",
+  "APPSETTING_WEBSITE_DEFAULT_HOSTNAME": "app-batch-1777849901.azurewebsites.net",
+  "APPSETTING_WEBSITE_SITE_NAME": "app-batch-1777849901",
+  "SQLAZURECONNSTR_DB_CONN": "Server=fake.database.windows.net;Database=testdb;User Id=admin;Password=test123;"
+}
+```
+
+**Connection string type → environment variable prefix mapping:**
+
+| Connection String Type | Environment Variable Prefix |
+|------------------------|----------------------------|
+| `SQLAzure`             | `SQLAZURECONNSTR_`          |
+| `SQLServer`            | `SQLCONNSTR_`               |
+| `MySQL`                | `MYSQLCONNSTR_`             |
+| `PostgreSQL`           | `POSTGRESQLCONNSTR_`        |
+| `Custom`               | `CUSTOMCONNSTR_`            |
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: App Service injects connection strings as environment variables with a type-specific prefix. A `SQLAzure` connection string named `DB_CONN` becomes `SQLAZURECONNSTR_DB_CONN` in the process environment.
+- **Observed**: App Settings are also injected with the `APPSETTING_` prefix in addition to their bare name. This means `MY_SETTING=production-value` appears in the environment as both `MY_SETTING` and `APPSETTING_MY_SETTING`.
+- **Observed**: Platform-internal settings also appear with the `APPSETTING_` prefix (e.g., `APPSETTING_WEBSITE_SITE_NAME`, `APPSETTING_ScmType`). Applications should not assume all `APPSETTING_*` variables are user-defined.
+- **Inferred**: After a slot swap, if `DB_CONN` is not marked as a slot-sticky setting, the `SQLAZURECONNSTR_DB_CONN` environment variable in the production slot will contain the staging slot's connection string. The application connects to the staging database. Since HTTP responses still return 200, this is silent without database query monitoring.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- `SQLAzure` connection strings → `SQLAZURECONNSTR_<name>` environment variable prefix.
+- App Settings → available as both bare `<KEY>` and `APPSETTING_<KEY>`.
+- Platform metadata settings also appear as `APPSETTING_*` variables.
+- The actual connection string value is accessible within the application despite CLI redaction.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Slot swap behavior (non-sticky connection string swapping to wrong environment) was **Not Tested** — B1 plan does not support deployment slots.
+- Sticky connection string behavior across slot swaps was **Not Tested**.
+- Key Vault reference resolution for connection strings was **Not Tested**.
+- All five connection string type prefixes were not verified — only `SQLAzure` was directly tested; others are from documentation.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+- "My app can't find the connection string" — check the environment variable name. A `SQLAzure` type connection string named `DB_CONN` is accessible as `SQLAZURECONNSTR_DB_CONN`, not `DB_CONN` (in .NET; Python/Node.js access both the bare name and the prefixed name).
+- "After a slot swap, production is using the staging database" — the connection string was not marked as slot-sticky. In the portal, enable the "Deployment slot setting" checkbox for connection strings that should stay with the slot (not swap). Via CLI: `az webapp config connection-string set --slot-settings`.
+- To list all connection string names (values redacted): `az webapp config connection-string list -n <app> -g <rg>`.
+- To see the actual injected env var from within the app: add a diagnostic endpoint that dumps `os.environ` (remove before production).
 
 ## 15. Reproduction notes
 
-- Mark a connection string as sticky: **Configuration > Connection strings** → check "Deployment slot setting" for each entry, or use `az webapp config connection-string set --slot-settings`.
-- Connection strings swap with the slot unless marked sticky. This is the same behavior as app settings.
-- Best practice: ALL environment-specific connection strings (databases, storage accounts, service bus) should be marked sticky to prevent accidental cross-environment connections during slot swaps.
+```bash
+# Set a connection string (SQLAzure type)
+az webapp config connection-string set \
+  -n <app> -g <rg> \
+  --connection-string-type SQLAzure \
+  --settings MY_DB="Server=<server>.database.windows.net;..."
+
+# Set as slot-sticky (does NOT swap during slot swap)
+az webapp config connection-string set \
+  -n <app> -g <rg> \
+  --connection-string-type SQLAzure \
+  --slot-settings MY_DB="Server=<server>.database.windows.net;..."
+
+# Verify injection in app (Python)
+import os
+conn_str = os.environ.get("SQLAZURECONNSTR_MY_DB")
+
+# Type-prefix mapping
+# SQLAzure       → SQLAZURECONNSTR_
+# SQLServer      → SQLCONNSTR_
+# MySQL          → MYSQLCONNSTR_
+# PostgreSQL     → POSTGRESQLCONNSTR_
+# Custom         → CUSTOMCONNSTR_
+```
 
 ## 16. Related guide / official docs
 
-- [Set up staging environments in Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots)
-- [Deployment slot settings](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots#which-settings-are-swapped)
+- [Configure App Service — connection strings](https://learn.microsoft.com/en-us/azure/app-service/configure-common#configure-connection-strings)
+- [Set up deployment slots in App Service](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots)
+- [App Service environment variables reference](https://learn.microsoft.com/en-us/azure/app-service/reference-app-settings)

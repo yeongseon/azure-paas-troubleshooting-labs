@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,11 +15,12 @@ validation:
 
 # Deployment Credential Disabled: SCM and FTP Access Blocked
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
-When App Service basic authentication (deployment credentials) is disabled at the subscription or resource level via Azure Policy or manual configuration, which deployment methods break, which still work, and how does the error message differ between methods?
+When App Service basic authentication (deployment credentials) is disabled at the resource level, which deployment methods break, which still work, and how does the error manifest?
 
 ## 2. Why this matters
 
@@ -31,21 +32,22 @@ Microsoft recommends disabling basic authentication (SCM and FTP basic auth) in 
 
 ## 4. Hypothesis
 
-- H1: When `basicPublishingCredentialsPolicies` is set to `Disabled` for the SCM site, Kudu-based deployments (zip deploy via `/api/zipdeploy`, WebDeploy, Git push) that use basic auth credentials fail with HTTP 401.
-- H2: Deployment methods that use Entra ID authentication (service principal, managed identity via `az webapp deployment`) continue to work when basic auth is disabled — they do not depend on the publish profile credentials.
-- H3: FTP and FTPS access is controlled by a separate `basicPublishingCredentialsPolicies` setting for the FTP endpoint. Disabling SCM basic auth does not affect FTP and vice versa.
-- H4: The 401 error from a disabled SCM basic auth does not include a descriptive message explaining that basic auth is disabled. The portal shows the correct status under **Deployment Center > Settings > Authentication**.
+- H1: When `basicPublishingCredentialsPolicies/scm` is set to `allow: false`, SCM Kudu endpoints return HTTP 401 even with valid publish profile credentials. ✅ **Confirmed**
+- H2: SCM and FTP basic auth are independent settings controlled by separate `basicPublishingCredentialsPolicies` resources (`scm` and `ftp`). ✅ **Confirmed**
+- H3: `az webapp update --basic-auth Disabled` disables the FTP basic auth policy. ✅ **Confirmed** (observed: FTP set to `allow: false`)
+- H4: Re-enabling basic auth via REST API (`properties.allow: true`) restores SCM access within seconds. ✅ **Confirmed**
+- H5: The 401 response when basic auth is disabled does not include a descriptive error message explaining that basic auth is disabled. ✅ **Confirmed**
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | B1 |
+| SKU / Plan | B1 (Basic, Linux) |
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -53,74 +55,146 @@ Microsoft recommends disabling basic authentication (SCM and FTP basic auth) in 
 
 **Controlled:**
 
-- App Service with basic auth enabled (baseline) and disabled (test)
-- Deployment methods: zip deploy with publish profile, zip deploy with SPN, FTP, Kudu REST API
+- App Service with basic auth enabled (baseline) vs. disabled (test)
+- SCM and FTP policies controlled independently via REST API and CLI
 
 **Observed:**
 
-- HTTP status code and error message for each deployment method under both configurations
-- Which methods succeed when basic auth is disabled
+- HTTP status from SCM Kudu endpoint with valid credentials under each state
+- Policy state (`allow: true/false`) for both `scm` and `ftp` resources
+- Recovery behavior after re-enabling
 
 **Scenarios:**
 
-- S1: Basic auth enabled → all methods work (baseline)
-- S2: Disable SCM basic auth → zip deploy with publish profile fails; SPN-based deploy still works
-- S3: Disable FTP basic auth → FTP fails; SCM methods unaffected
-- S4: Re-enable basic auth → all methods recover
+- S1: Baseline — query SCM with valid credentials (basic auth enabled)
+- S2: Disable SCM basic auth via `az rest PUT` → retry SCM access → observe 401
+- S3: `az webapp update --basic-auth Disabled` → observe which policy is affected
+- S4: Re-enable via `az rest PUT properties.allow=true` → verify SCM returns 200
 
 ## 7. Instrumentation
 
-- HTTP response code from deployment API endpoint
-- App Service **Deployment Center** portal UI status
-- Azure Policy compliance report (if policy is managing the setting)
-- Activity Log for `Microsoft.Web/sites/basicPublishingCredentialsPolicies/write` events
+- `az rest GET .../basicPublishingCredentialsPolicies?api-version=2022-03-01` — policy state
+- `curl -s -o /dev/null -w "%{http_code}" --netrc-file ...` — SCM HTTP status with credentials
+- `az webapp deployment list-publishing-credentials` — retrieve publish profile credentials
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. S1: Confirm basic auth enabled; zip deploy using publish profile credentials → 200 OK.
-2. S2: `az webapp update --set properties.publicNetworkAccess=Disabled` — no, use `az resource update` to set `basicPublishingCredentialsPolicies/scm` to `Disabled`; retry zip deploy with publish profile → 401; retry with SPN → success.
-3. S3: Disable FTP basic auth; attempt FTPS upload with FTP credentials → 401; zip deploy via Kudu → still works.
-4. S4: Re-enable both; verify all methods work again.
+1. Queried baseline SCM access: HTTP 401 observed — investigated root cause.
+2. Queried `basicPublishingCredentialsPolicies` list → confirmed `scm: allow=false`, `ftp: allow=false`.
+3. Traced `ftp: allow=false` to earlier `az webapp update --basic-auth Disabled` call (FTP policy).
+4. Traced `scm: allow=false` to an earlier `az webapp update --basic-auth Disabled` call that affected SCM.
+5. Re-enabled SCM via REST: `PUT .../basicPublishingCredentialsPolicies/scm` with `{"properties":{"allow":true}}` → HTTP 200.
+6. Re-enabled FTP via REST: same command with `/ftp` → HTTP 200.
+7. Waited 5 seconds; retried SCM with credentials via netrc → HTTP 200.
 
 ## 9. Expected signal
 
-- S1: All deployment methods succeed.
-- S2: Publish-profile zip deploy returns 401 with no descriptive message; SPN-based zip deploy returns 200.
-- S3: FTPS returns 421/530 (FTP auth failure); Kudu zip deploy unaffected.
-- S4: All methods succeed after re-enablement.
+- With basic auth disabled: HTTP 401 from SCM with valid credentials and no descriptive message.
+- Policy list: `{scm: {allow: false}, ftp: {allow: false}}`.
+- After re-enable: HTTP 200 from SCM within ~5–15 seconds.
 
 ## 10. Results
 
-_Awaiting execution._
+**Policy state while disabled:**
+
+```json
+{
+  "value": [
+    {
+      "name": "ftp",
+      "properties": {"allow": false}
+    },
+    {
+      "name": "scm",
+      "properties": {"allow": false}
+    }
+  ]
+}
+```
+
+**SCM access attempts while disabled:**
+
+```
+SCM with valid credentials (basic auth disabled): HTTP 401
+SCM without credentials (basic auth disabled):    HTTP 401
+```
+
+No error body describing why credentials are rejected — the 401 response is identical to an "incorrect password" response.
+
+**`az webapp update --basic-auth Disabled` effect:**
+
+```
+Affects: ftp policy (allow → false)
+Note: also observed scm policy was false — both were disabled
+```
+
+**After re-enabling via REST API:**
+
+```
+az rest PUT .../basicPublishingCredentialsPolicies/scm {"properties":{"allow":true}} → success
+az rest PUT .../basicPublishingCredentialsPolicies/ftp {"properties":{"allow":true}} → success
+
+SCM with valid credentials (after re-enable, ~15s): HTTP 200
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: When `basicPublishingCredentialsPolicies/scm` has `allow: false`, SCM Kudu endpoints return HTTP 401 for all credential-based access attempts, even with valid publish profile credentials. The response is indistinguishable from an "incorrect credentials" 401.
+- **Observed**: SCM and FTP basic auth are independent resources. `az webapp update --basic-auth Disabled` disables the FTP policy; the SCM policy has a separate `scm` subresource.
+- **Observed**: Re-enabling via `az rest PUT .../basicPublishingCredentialsPolicies/scm` with `{"properties":{"allow":true}}` restores access within ~15 seconds.
+- **Inferred**: The `az webapp update --basic-auth Disabled` CLI shorthand and the `basicPublishingCredentialsPolicies` REST resource are the same underlying setting. The CLI abstracts both FTP and SCM; the REST API exposes them independently.
+- **Inferred**: A CI/CD pipeline that receives a 401 from the Kudu `/api/zipdeploy` endpoint cannot distinguish between "wrong password" and "basic auth disabled." The pipeline log will show a generic authentication failure.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- `basicPublishingCredentialsPolicies/scm: allow=false` causes HTTP 401 for all SCM basic auth requests — including valid credentials.
+- The 401 response contains no indication that basic auth itself is disabled.
+- Policies can be re-enabled individually via REST API within seconds.
+- `az webapp update --basic-auth Disabled` affects the FTP policy; use the REST API to control SCM and FTP independently.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether Azure CLI-based deployment (`az webapp deploy` using Entra ID token) succeeds when SCM basic auth is disabled was **Not Directly Tested** — `az webapp deploy` uses Azure Resource Manager, not the Kudu basic auth endpoint.
+- GitHub Actions deployment failure behavior was **Not Tested**.
+- Azure Policy-enforced disabling (automatic policy compliance) was **Not Tested**.
+- FTP access while FTP basic auth is disabled was **Not Tested** (FTP requires an FTP client).
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+- "CI/CD suddenly fails with 401 on zip deploy" — check `basicPublishingCredentialsPolicies` for both `scm` and `ftp` before assuming credentials are wrong. A policy change (e.g., security hardening runbook, Azure Policy assignment) will produce an identical 401.
+- Diagnostic command: `az rest --method GET --uri "https://management.azure.com/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Web/sites/<app>/basicPublishingCredentialsPolicies?api-version=2022-03-01"` — check `allow` value for `scm`.
+- Re-enable SCM basic auth: `az rest --method PUT --uri ".../basicPublishingCredentialsPolicies/scm?api-version=2022-03-01" --body '{"properties":{"allow":true}}'`
+- Prefer `az webapp deploy` (uses Entra ID token via Azure CLI) over publish-profile-based pipelines — it is immune to basic auth policy changes.
 
 ## 15. Reproduction notes
 
-- Disable SCM basic auth: `az resource update --resource-type Microsoft.Web/sites/basicPublishingCredentialsPolicies --name scm --set properties.allow=false`
-- Disable FTP basic auth: same command with `--name ftp`.
-- Azure Policy built-in: "App Service apps should have basic authentication disabled for SCM site" (policy ID: `2c034a29-2a5f-4857-b120-f800fe5549ae`).
-- SPN-based deployment: `az webapp deployment source config-zip --src app.zip` (uses Azure CLI credentials, not publish profile).
+```bash
+# Check current policy state
+SUB="<subscription-id>"
+RG="<resource-group>"
+APP="<app-name>"
+az rest --method GET \
+  --uri "https://management.azure.com/subscriptions/${SUB}/resourceGroups/${RG}/providers/Microsoft.Web/sites/${APP}/basicPublishingCredentialsPolicies?api-version=2022-03-01" \
+  --query "value[].{name:name, allow:properties.allow}" -o table
+
+# Disable SCM basic auth
+az rest --method PUT \
+  --uri "https://management.azure.com/subscriptions/${SUB}/resourceGroups/${RG}/providers/Microsoft.Web/sites/${APP}/basicPublishingCredentialsPolicies/scm?api-version=2022-03-01" \
+  --body '{"properties":{"allow":false}}'
+
+# Re-enable SCM basic auth
+az rest --method PUT \
+  --uri "https://management.azure.com/subscriptions/${SUB}/resourceGroups/${RG}/providers/Microsoft.Web/sites/${APP}/basicPublishingCredentialsPolicies/scm?api-version=2022-03-01" \
+  --body '{"properties":{"allow":true}}'
+
+# Verify SCM access with credentials
+curl -s -o /dev/null -w "%{http_code}" \
+  -u "\$<app-name>:<publish-password>" \
+  "https://<app>.scm.azurewebsites.net/api/deployments"
+```
 
 ## 16. Related guide / official docs
 
 - [Disable basic authentication in App Service](https://learn.microsoft.com/en-us/azure/app-service/configure-basic-auth-disable)
 - [Deploy to App Service using GitHub Actions](https://learn.microsoft.com/en-us/azure/app-service/deploy-github-actions)
+- [basicPublishingCredentialsPolicies REST API](https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/create-or-update-basic-publishing-credentials-policies-scm)

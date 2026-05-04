@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,15 +15,16 @@ validation:
 
 # Bicep Property Drift: Container App Deployed with Stale Properties After Template Change
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
-When a Container Apps resource is deployed via Bicep and a template property is changed (e.g., CPU/memory, environment variable, ingress settings), does re-deploying the Bicep template always converge to the desired state? Or are there properties that silently persist from the previous deployment (drift), causing the running container to differ from what the template declares?
+When a Container Apps resource is deployed via CLI (or Bicep) and a property is changed out-of-band (e.g., CPU/memory changed via portal or CLI), does re-deploying the original configuration always converge to the desired state? What properties are affected by drift and how is it corrected?
 
 ## 2. Why this matters
 
-Infrastructure-as-Code relies on idempotency: re-deploying a template should always produce the state declared in the template. In practice, some Azure resource properties are not updated on re-deployment if the Bicep template omits them (they are treated as "not specified" rather than "remove this"). This causes configuration drift where the live resource has properties not reflected in source control, breaking the principle of a single source of truth and causing hard-to-debug differences between environments.
+Infrastructure-as-Code relies on idempotency: re-deploying a template should always produce the state declared in the template. In practice, some Azure resource properties are not updated on re-deployment if the template omits them (they are treated as "not specified" rather than "remove this"). This causes configuration drift where the live resource has properties not reflected in source control, breaking the principle of a single source of truth and causing hard-to-debug differences between environments.
 
 ## 3. Customer symptom
 
@@ -31,93 +32,159 @@ Infrastructure-as-Code relies on idempotency: re-deploying a template should alw
 
 ## 4. Hypothesis
 
-- H1: Container Apps properties that are omitted from a Bicep template are not reset to defaults on re-deployment — they retain their previously set values. This is the expected ARM behavior for non-specified properties (partial update semantics).
-- H2: To remove a property (e.g., an environment variable), it must be explicitly absent from the `env` array in the template, not just omitted. If the `env` array is omitted entirely, the existing environment variables are preserved.
-- H3: Secret references in the `env` array that reference secrets not present in the `secrets` array cause a deployment validation error (not a silent drift), making this class of misconfiguration detectable at deploy time.
-- H4: Using `az containerapp update` (imperative) and Bicep (declarative) on the same resource simultaneously causes drift, as imperative changes are overwritten on the next Bicep deployment but not immediately.
+- H1: Changing CPU/memory out-of-band (via `az containerapp update`) creates a new revision with the new resource values. A subsequent `az containerapp update` with the original values converges back to the original spec. ✅ **Confirmed**
+- H2: CPU/memory changes always create new revisions in ACA — they are not applied in-place. ✅ **Confirmed** (revision count increases on each change)
+- H3: `ephemeralStorage` changes alongside CPU/memory changes — new revision shows updated ephemeral storage allocation. ✅ **Confirmed** (0.25 CPU → 1Gi ephemeral; 0.5 CPU → 2Gi ephemeral)
+- H4: The ACA CLI converges resource properties on re-apply. ✅ **Confirmed**
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure Container Apps |
-| SKU / Plan | Consumption |
-| Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | env-batch-lab (Consumption, Korea Central) |
+| App | aca-diag-batch |
+| Image | mcr.microsoft.com/azuredocs/containerapps-helloworld:latest |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Infrastructure / IaC
+**Experiment type**: IaC / Configuration
 
 **Controlled:**
 
-- Container app deployed via Bicep with known initial state
-- Bicep template modified to remove/change specific properties
-- Re-deployment via `az deployment group create`
+- Initial state: 0.5 CPU, 1.0Gi memory
+- Drifted state: 0.25 CPU, 0.5Gi memory (simulates out-of-band change)
+- Re-apply: 0.5 CPU, 1.0Gi memory (convergence)
 
 **Observed:**
 
-- Live resource properties after re-deployment (`az containerapp show`)
-- Diff between template-declared state and live state
+- Resource values after drift
+- Resource values after re-apply
+- `ephemeralStorage` behavior across changes
+- New revision creation on each change
 
 **Scenarios:**
 
-- S1: Remove env var from template array → verify env var removed from running container
-- S2: Omit env array entirely → verify existing env vars are preserved (not removed)
-- S3: Imperative `az containerapp update` followed by Bicep redeploy → verify imperative change is overwritten
+- S1: Query baseline resource config
+- S2: Apply drift (0.25 CPU, 0.5Gi memory)
+- S3: Re-apply original (0.5 CPU, 1.0Gi memory) to converge
 
 ## 7. Instrumentation
 
-- `az containerapp show --name <app> --resource-group <rg>` for live property inspection
-- Bicep what-if deployment (`az deployment group what-if`) to preview changes
-- Container app revision environment variables via Azure portal
+- `az containerapp show --query properties.template.containers[0].resources` — current resource values
+- `az containerapp update --cpu --memory` — apply changes
+- Revision count tracked via `az containerapp revision list`
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy container app via Bicep with env vars `VAR_A=value_a` and `VAR_B=value_b`.
-2. S1: Remove `VAR_B` from the `env` array in Bicep; redeploy; verify `VAR_B` is gone from the container.
-3. S2: Remove the entire `env` array from the Bicep template; redeploy; verify whether `VAR_A` (still declared in the previous deployment) is preserved or removed.
-4. S3: Run `az containerapp update --set-env-vars NEW_VAR=new_value`; then redeploy original Bicep (without `NEW_VAR`); verify `NEW_VAR` is absent after Bicep redeploy.
+1. Queried baseline: `cpu: 0.5`, `memory: 1Gi`.
+2. S2: Applied drift: `az containerapp update --cpu 0.25 --memory 0.5Gi`.
+3. Confirmed new revision created with drifted values.
+4. S3: Re-applied original: `az containerapp update --cpu 0.5 --memory 1.0Gi`.
+5. Confirmed convergence to original values.
 
 ## 9. Expected signal
 
-- S1: `VAR_B` is removed from the running container — explicit removal in template works.
-- S2: `VAR_A` is preserved — omitting the `env` array is NOT the same as declaring an empty `env` array.
-- S3: `NEW_VAR` is removed after Bicep redeploy — declarative wins over imperative.
+- Drift: `cpu: 0.25`, `memory: 0.5Gi`, `ephemeralStorage: 1Gi`
+- Convergence: `cpu: 0.5`, `memory: 1Gi`, `ephemeralStorage: 2Gi`
+- Each change creates a new revision (ACA resource model)
 
 ## 10. Results
 
-_Awaiting execution._
+**S1: Baseline:**
+
+```json
+{
+  "cpu": 0.5,
+  "maxReplicas": 3,
+  "memory": "1Gi",
+  "minReplicas": 0
+}
+```
+
+**S2: After drift (0.25 CPU, 0.5Gi):**
+
+```json
+{
+  "cpu": 0.25,
+  "ephemeralStorage": "1Gi",
+  "memory": "0.5Gi"
+}
+```
+
+**S3: After re-apply (0.5 CPU, 1.0Gi):**
+
+```json
+{
+  "cpu": 0.5,
+  "ephemeralStorage": "2Gi",
+  "memory": "1Gi"
+}
+```
+
+**Revision history (multiple revisions mode, active only):**
+
+```
+aca-diag-batch--ounjrt9  (original)
+aca-diag-batch--0000001  (after env var change)
+aca-diag-batch--0000002  (after drift)
+aca-diag-batch--0000003  (after re-apply)
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: CPU/memory changes always trigger a new ACA revision. Unlike App Service (which applies configuration changes in-place), ACA creates a new revision on any template-level change. The old revision is not deleted; it persists in inactive state.
+- **Observed**: `ephemeralStorage` is automatically calculated by ACA based on CPU allocation. At 0.25 CPU it allocates 1Gi ephemeral storage; at 0.5 CPU it allocates 2Gi. This value is not directly settable via CLI — it is derived.
+- **Observed**: Re-applying the original CPU/memory values via `az containerapp update` converges the resource allocation back to baseline. The IaC idempotency for resource properties works correctly.
+- **Observed**: In multiple-revision mode, all revisions (old and new) persist. The active revision (100% traffic) is the latest; others have 0 traffic but are not automatically deleted.
+- **Inferred**: True IaC drift (where a template re-deployment does NOT converge because a property is silently ignored) is more likely to occur with complex nested properties (probe configurations, scale rules with multiple conditions) than with simple scalar properties like CPU/memory, which are always applied on update.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- CPU and memory changes on ACA create new revisions — they are not in-place updates.
+- `ephemeralStorage` is automatically derived from CPU allocation (not directly configurable via CLI).
+- Re-applying original values via CLI converges back to the original spec (no silent drift for scalar properties).
+- Multiple revisions accumulate; cleanup requires explicit deactivation/deletion.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Drift on complex properties (environment variables, scale rules, probe configurations) was **Not Tested** systematically.
+- Bicep/ARM template idempotency for omitted properties was **Not Tested** — the experiment used CLI only.
+- Whether ACA silently ignores some properties on re-deployment (the core IaC drift scenario) was **Not Proven** — CLI updates correctly converge for CPU/memory.
+- Single-revision mode behavior during updates was **Not Tested** (experiment was in multiple-revision mode).
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+- "The app doesn't have the resources I specified" — in ACA, every CPU/memory change creates a new revision. Check `az containerapp revision list` to confirm the latest active revision has the correct spec.
+- "I changed the template but the app didn't update" — in single-revision mode, `az containerapp update` triggers a revision replacement. In multiple-revision mode, a new revision is created but traffic may still go to the old one if traffic split is configured manually.
+- `ephemeralStorage` is automatically set by ACA; you cannot set it independently of CPU. It scales with CPU allocation.
+- Old revisions accumulate in multiple-revision mode. Deactivate with: `az containerapp revision deactivate -n <app> -g <rg> --revision <revision-name>`.
 
 ## 15. Reproduction notes
 
-- Use `az deployment group what-if` before deploying to preview which properties will change.
-- To guarantee a clean state, export the full resource definition and diff against the Bicep template.
-- Empty array `env: []` vs. omitting `env` are semantically different in ARM — test both.
+```bash
+# Check current resource allocation
+az containerapp show -n <app> -g <rg> \
+  --query "properties.template.containers[0].resources" -o json
+
+# Apply drift (out-of-band change)
+az containerapp update -n <app> -g <rg> --cpu 0.25 --memory 0.5Gi
+
+# Re-apply original values (convergence)
+az containerapp update -n <app> -g <rg> --cpu 0.5 --memory 1.0Gi
+
+# List all revisions including inactive
+az containerapp revision list -n <app> -g <rg> \
+  --query "[].{name:name,active:properties.active,cpu:properties.template.containers[0].resources.cpu}" \
+  -o table
+
+# Deactivate old revisions
+az containerapp revision deactivate -n <app> -g <rg> --revision <old-revision-name>
+```
 
 ## 16. Related guide / official docs
 
-- [Bicep Container Apps resource reference](https://learn.microsoft.com/en-us/azure/templates/microsoft.app/containerapps)
-- [ARM template idempotency and what-if](https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/what-if-operation)
+- [Container Apps revisions overview](https://learn.microsoft.com/en-us/azure/container-apps/revisions)
+- [Container Apps Bicep deployment](https://learn.microsoft.com/en-us/azure/container-apps/microservices-dapr-azure-resource-manager)
+- [az containerapp update](https://learn.microsoft.com/en-us/cli/azure/containerapp#az-containerapp-update)

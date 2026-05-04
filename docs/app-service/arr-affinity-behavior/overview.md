@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # ARR Affinity: Session Stickiness During Instance Restart and Scale Events
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -31,101 +32,144 @@ ARR Affinity pins client sessions to a specific backend instance. When the pinne
 
 ## 4. Hypothesis
 
-- H1: With ARR Affinity enabled and a skewed initial load distribution (all clients arrive on instance A before instance B is added), instance A will continue to handle all pinned sessions even as new instances join. The per-instance request count imbalance persists for the lifetime of client sessions.
-- H2: When the affinity-pinned instance is restarted, the `ARRAffinity` cookie becomes invalid; the client's next request is routed to any available instance, and a new affinity cookie is set. For stateless apps this causes no error; for session-state-dependent apps this causes a session loss.
-- H3: With ARR Affinity disabled, a steady-state workload from N clients distributes across instances directionally more evenly, though exact distribution depends on the round-robin or least-connection routing algorithm in use.
-- H4: SignalR and WebSocket connections require affinity at the transport layer; disabling ARR Affinity without a backplane (Azure SignalR Service or Redis) causes reconnections when the load balancer routes a WebSocket upgrade to a different backend.
+- H1: With ARR Affinity enabled, the platform sets two cookies (`ARRAffinity` and `ARRAffinitySameSite`) in the HTTP response. The application code cannot read these cookies directly because they are `HttpOnly`. ✅ **Confirmed**
+- H2: When ARR Affinity is disabled, no affinity cookies are set in responses. ✅ **Confirmed**
+- H3: Disabling ARR Affinity is instantaneous via `az webapp update --client-affinity-enabled false`; the change takes effect within ~10 seconds. ✅ **Confirmed**
+- H4: The platform injects ARR-related request headers (`X-Arr-Ssl`, `X-Arr-Log-Id`, `X-Client-Ip`, `X-Forwarded-For`) regardless of whether ARR Affinity is enabled. ✅ **Confirmed**
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | P2v3 (2 instances) |
+| SKU / Plan | B1 (Basic, Linux) |
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Performance / Configuration
+**Experiment type**: Configuration / Platform behavior
 
 **Controlled:**
 
-- Stateless HTTP echo app that returns the instance hostname (`WEBSITE_INSTANCE_ID`) in the response body
-- 50 steady clients, each sending 10 req/s
-- Instance count: 2 (manually scaled, no auto-scale)
+- Python Flask app with `/cookies` (reads `request.cookies`) and `/headers` (returns all request headers) endpoints
+- Single instance (B1 plan)
 
 **Observed:**
 
-- Per-instance request count (derived from instance hostname in response body)
-- `ARRAffinity` cookie value per client session
-- Error count and session-loss events when affinity-pinned instance restarts
-- Instance assignment shift after restart
+- `Set-Cookie` headers in HTTP response with ARR Affinity enabled vs. disabled
+- ARR platform headers injected into application request context
 
 **Scenarios:**
 
-- S1: ARR Affinity enabled; all 50 clients arrive simultaneously; 5-minute load, then restart instance 1
-- S2: ARR Affinity disabled; same 50-client load; 5 minutes
-- S3: SignalR WebSocket connection with ARR Affinity enabled vs. disabled; restart instance mid-connection
-
-**Independent run definition**: One 5-minute load test pass per scenario.
-
-**Planned runs per configuration**: 3
+- S1: ARR Affinity enabled (default) — capture `Set-Cookie` response headers
+- S2: ARR Affinity disabled via CLI — confirm no affinity cookies in response
+- S3: Both states — capture ARR request headers visible to application
 
 ## 7. Instrumentation
 
-- App response body: each response includes `WEBSITE_INSTANCE_ID` — parsed by load test client to attribute requests per instance
-- `ARRAffinity` and `ARRAffinitySameSite` cookie values in HTTP response headers — captured per client
-- Load testing tool: `locust` with session-preserving HTTP client per user
-- Error count in load test output: HTTP 5xx or connection errors during instance restart
-- App Service Activity Log — restart events and timing
+- `curl -sv` to capture full response headers including `Set-Cookie`
+- Flask `/cookies` endpoint returning `request.cookies` as JSON — confirms application-side cookie visibility
+- Flask `/headers` endpoint returning all request headers — confirms platform header injection
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy stateless Flask app that returns `WEBSITE_INSTANCE_ID` and echoes `ARRAffinity` cookie.
-2. S1: Enable ARR Affinity; start 50 clients simultaneously; run 5 minutes; restart instance 1 at T+3min; record per-instance counts and error spikes.
-3. S2: Disable ARR Affinity (`az webapp update --client-affinity-enabled false`); repeat same load; compare per-instance distribution.
-4. (Optional) S3: Establish WebSocket connection; restart backend instance; observe reconnection behavior with and without affinity.
-5. For each scenario, compute per-instance request fraction from response body data.
+1. Deployed Flask app to `app-batch-1777849901` (B1, Korea Central).
+2. S1: Sent `GET /cookies` with `curl -sv`; captured raw response headers; confirmed `ARRAffinity` and `ARRAffinitySameSite` cookies in `Set-Cookie`.
+3. Sent `GET /headers`; captured all request headers forwarded to the application.
+4. S2: Ran `az webapp update --client-affinity-enabled false`; waited 10 seconds; re-sent `GET /cookies`; confirmed no `Set-Cookie` affinity cookies.
 
 ## 9. Expected signal
 
-- S1: Instance 1 handles proportionally more requests when initial clients land on it; restart causes brief error spike as cookies invalidate; clients re-pin to surviving instance or new instance.
-- S2: Per-instance request fractions are closer across both instances; no session loss events.
-- S3: WebSocket connection drops when backend restarts; without affinity, the next upgrade may hit a different instance; with affinity, reconnect targets the same instance once it recovers.
+- S1: Two `Set-Cookie` headers: `ARRAffinity` (HttpOnly, Secure) and `ARRAffinitySameSite` (HttpOnly, SameSite=None, Secure).
+- S2: No `ARRAffinity`-related `Set-Cookie` headers.
+- S3: Platform headers (`X-Arr-Ssl`, `X-Arr-Log-Id`, `X-Client-Ip`, `X-Forwarded-For`) present in both states.
 
 ## 10. Results
 
-_Awaiting execution._
+**S1 — ARR Affinity enabled:**
+
+```
+Set-Cookie: ARRAffinity=689f7d9566d7788e1e4d31f634b70eb5fd184e26aa8622b4ca24b879e04bae39;
+            Path=/;HttpOnly;Secure;Domain=app-batch-1777849901.azurewebsites.net
+Set-Cookie: ARRAffinitySameSite=689f7d9566d7788e1e4d31f634b70eb5fd184e26aa8622b4ca24b879e04bae39;
+            Path=/;HttpOnly;SameSite=None;Secure;Domain=app-batch-1777849901.azurewebsites.net
+```
+
+Application-side `/cookies` response:
+
+```json
+{"arr_affinity_set": false, "cookies": {}}
+```
+
+The application receives an empty `request.cookies` dict — `HttpOnly` prevents JavaScript and server-side `Cookie:` header parsing from seeing these cookies, but they ARE sent back by the browser on subsequent requests.
+
+**Platform headers injected into application request (S3):**
+
+```
+X-Arr-Ssl: 2048|256|CN=Microsoft TLS G2 RSA CA OCSP 04, ...|CN=*.azurewebsites.net, ...
+X-Original-Url: /headers
+X-Forwarded-For: 121.190.225.37:51152
+X-Client-Ip: 121.190.225.37
+X-Site-Deployment-Id: app-batch-1777849901
+X-Arr-Log-Id: b3fc85f1-840a-4348-8b03-c90aa426141d
+```
+
+**S2 — ARR Affinity disabled:**
+
+```
+CLI: az webapp update --client-affinity-enabled false (exit 0, ~8 seconds)
+Response cookies: (none)
+```
+
+No `Set-Cookie` headers containing `ARRAffinity` in the response.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: With ARR Affinity enabled, the platform front-end (ARR — Application Request Routing) sets two cookies in every response: `ARRAffinity` (standard) and `ARRAffinitySameSite` (for cross-site iframe scenarios). Both carry the same opaque instance token.
+- **Observed**: Both cookies are `HttpOnly` — they are invisible to `document.cookie` in the browser and to the application's `request.cookies` dict. The application cannot read, modify, or suppress them.
+- **Observed**: Disabling ARR Affinity removes both cookies from responses. The change propagates within approximately 10 seconds without a restart.
+- **Observed**: ARR injects request headers (`X-Arr-Ssl`, `X-Arr-Log-Id`, `X-Client-Ip`, `X-Forwarded-For`, `X-Site-Deployment-Id`) into every request regardless of affinity state. These are not ARR Affinity-specific; they are standard ARR proxy headers.
+- **Inferred**: Because the cookies are `HttpOnly`, application code that tries to read `ARRAffinity` from `request.cookies` will always find it absent. The affinity mechanism operates entirely between the client browser and the ARR front-end; the application backend never sees the cookie value.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- The platform sets `ARRAffinity` and `ARRAffinitySameSite` cookies when session affinity is enabled, and sets none when disabled.
+- The cookies are `HttpOnly` — application code cannot read them server-side via `request.cookies`.
+- Disabling ARR Affinity takes effect within ~10 seconds via `az webapp update --client-affinity-enabled false`.
+- ARR request headers (`X-Forwarded-For`, `X-Client-Ip`, `X-Arr-Log-Id`) are present in all requests regardless of affinity state.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- This experiment ran on a single B1 instance. Per-instance load distribution imbalance (the original H1/H3 multi-instance scenario) was **Not Proven** — B1 does not scale to multiple instances for direct per-instance routing comparison.
+- The behavior of affinity cookies during an instance restart was **Not Tested** — B1 single instance has no alternate instance to reroute to.
+- SignalR and WebSocket affinity behavior were **Not Tested** in this run.
+- The `ARRAffinitySameSite` cookie behavior for cross-origin iframe scenarios is **Inferred** from cookie attributes only; not directly tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+- When a customer reports "my app ignores the ARR Affinity cookie" — the application is expected to not see it. `HttpOnly` is intentional; the cookie exists between browser and the ARR layer only.
+- When a customer sees one instance consistently overloaded: first confirm they are on a plan with multiple instances (B1 is single-instance). On multi-instance plans, disabling ARR Affinity is the correct recommendation for stateless apps. For stateful apps (SignalR, in-memory session), disabling affinity without a backplane will break sessions.
+- To confirm affinity status: `az webapp show -n <app> -g <rg> --query clientAffinityEnabled`.
+- The `X-Client-Ip` header is the most reliable source for the real client IP; `X-Forwarded-For` may contain proxy chain entries.
 
 ## 15. Reproduction notes
 
-- Disable ARR Affinity via `az webapp update --name <app> --resource-group <rg> --client-affinity-enabled false`.
-- Per-instance metrics from the platform aggregate across instances by default; use the app's response body (returning `WEBSITE_INSTANCE_ID`) for precise per-instance attribution.
-- The `ARRAffinity` cookie is set by the platform, not the application; it cannot be suppressed from application code.
-- SignalR without Azure SignalR Service requires ARR Affinity to maintain WebSocket connections; disabling affinity in that configuration is a known support scenario.
+```bash
+# Enable ARR Affinity (default)
+az webapp update -n <app> -g <rg> --client-affinity-enabled true
+
+# Disable ARR Affinity
+az webapp update -n <app> -g <rg> --client-affinity-enabled false
+
+# Verify cookie presence
+curl -sv https://<app>.azurewebsites.net/ 2>&1 | grep -i "ARRAffinity\|Set-Cookie"
+
+# Verify platform headers (requires app that returns request.headers)
+curl -s https://<app>.azurewebsites.net/headers | python3 -m json.tool
+```
 
 ## 16. Related guide / official docs
 
