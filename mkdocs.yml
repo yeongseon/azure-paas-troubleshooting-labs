@@ -47,6 +47,22 @@ nav:
           - Overview: app-service/access-restrictions-scm/overview.md
       - VNet Integration IP Exhaustion:
           - Overview: app-service/vnet-integration-ip-exhaustion/overview.md
+      - Deployment Slot Cold Start:
+          - Overview: app-service/deployment-slots-cold-start/overview.md
+      - Environment Variable Limits:
+          - Overview: app-service/environment-variable-limits/overview.md
+      - Connection Timeout Cascade:
+          - Overview: app-service/connection-timeout-cascade/overview.md
+      - Log Stream Reliability:
+          - Overview: app-service/log-stream-reliability/overview.md
+      - Container Registry Auth Expiry:
+          - Overview: app-service/container-registry-auth-expiry/overview.md
+      - Windows vs Linux Behavioral Diff:
+          - Overview: app-service/windows-linux-behavioral-diff/overview.md
+      - WebSocket Connection Limits:
+          - Overview: app-service/websocket-connection-limits/overview.md
+      - Managed Identity Scope Mismatch:
+          - Overview: app-service/managed-identity-scope-mismatch/overview.md
   - Functions:
       - Overview: functions/index.md
       - Flex Router Queueing:
@@ -63,6 +79,14 @@ nav:
           - Overview: functions/cold-start/overview.md
       - Dependency Visibility:
           - Overview: functions/dependency-visibility/overview.md
+      - Timer Trigger Overlap:
+          - Overview: functions/timer-trigger-overlap/overview.md
+      - Isolated Worker Startup:
+          - Overview: functions/isolated-worker-startup/overview.md
+      - Queue Trigger Parallelism:
+          - Overview: functions/queue-trigger-parallelism/overview.md
+      - Binding Expression Failures:
+          - Overview: functions/binding-expression-failures/overview.md
   - Container Apps:
       - Overview: container-apps/index.md
       - Scale-to-Zero 503:
@@ -81,6 +105,22 @@ nav:
           - Overview: container-apps/scaling-rule-conflicts/overview.md
       - Liveness Probe Failures:
           - Overview: container-apps/liveness-probe-failures/overview.md
+      - HTTP/2 gRPC Timeout:
+          - Overview: container-apps/http2-grpc-timeout/overview.md
+      - Secret Volume Mount:
+          - Overview: container-apps/secret-volume-mount/overview.md
+      - Replica Restart Loop:
+          - Overview: container-apps/replica-restart-loop/overview.md
+      - Bicep Revision Suffix Collision:
+          - Overview: container-apps/bicep-revision-suffix-collision/overview.md
+      - Dapr Component Scoping:
+          - Overview: container-apps/dapr-component-scoping/overview.md
+      - Job Retry Semantics:
+          - Overview: container-apps/job-retry-semantics/overview.md
+      - Env Variable Injection Order:
+          - Overview: container-apps/env-injection-order/overview.md
+      - Ingress CORS Preflight:
+          - Overview: container-apps/ingress-cors-preflight/overview.md
   - Cross-cutting:
       - Overview: cross-cutting/index.md
       - MI RBAC Propagation:
@@ -108,6 +148,10 @@ nav:
           - Overview: container-apps/probe-protocol-semantics/overview.md
       - Worker Saturation vs Liveness:
           - Overview: container-apps/worker-saturation-liveness/overview.md
+      - VNet DNS Server Priority:
+          - Overview: cross-cutting/vnet-dns-server-priority/overview.md
+      - Managed Identity Federated Credential:
+          - Overview: cross-cutting/managed-identity-federated-credential/overview.md
   - Patterns:
       - Symptom to Hypothesis: patterns/symptom-to-hypothesis.md
       - False Positives: patterns/false-positives.md
