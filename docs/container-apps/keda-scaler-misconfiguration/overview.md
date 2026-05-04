@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -13,9 +13,10 @@ validation:
     result: not_tested
 ---
 
-# KEDA Scaler Misconfiguration: Scaler Errors That Look Like Application Errors
+# KEDA Scaler Misconfiguration: Silent Scaling Failure and Error Visibility
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -43,9 +44,8 @@ Container Apps scaling rules are powered by KEDA. When a KEDA scaler fails to po
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| App name | aca-diag-batch |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -106,30 +106,127 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### S1: Scaler with missing connection secret
+
+```bash
+az containerapp update ... \
+  --scale-rule-name "bad-queue-scaler" \
+  --scale-rule-type "azure-queue" \
+  --scale-rule-metadata "queueName=nonexistent-queue" "queueLength=5" "accountName=fakestorageaccount99" \
+  --scale-rule-auth "connection=fake-connection-secret"
+```
+
+The secret `fake-connection-secret` does not exist in the app's secrets. KEDA immediately logs:
+
+```
+KEDAScalerFailed | error parsing azure queue metadata: no connection setting given
+```
+
+### S2: Scaler with invalid storage account (DNS failure)
+
+```bash
+# Create fake connection string secret
+az containerapp secret set ... --secrets \
+  "fake-storage-cs=DefaultEndpointsProtocol=https;AccountName=fakeaccount;AccountKey=<base64-garbage>;EndpointSuffix=core.windows.net"
+
+# Update scaler to use the fake secret
+az containerapp update ... \
+  --scale-rule-auth "connection=fake-storage-cs"
+```
+
+KEDA attempts to connect to `fakeaccount.queue.core.windows.net` and fails DNS resolution. System logs show a cascade of three distinct error events every ~30 seconds (one KEDA polling interval):
+
+```
+KEDAScalerFailed        | Get "https://fakeaccount.queue.core.windows.net/nonexistent-queue?comp=metadata":
+                          dial tcp: lookup fakeaccount.queue.core.windows.net: no such host
+
+FailedGetExternalMetric | unable to get external metric azure-queue-nonexistent-queue for aca-diag-batch:
+                          unable to fetch metrics from external metrics API
+
+FailedComputeMetricsReplicas | invalid metrics (1 invalid out of 5), first error is:
+                               failed to get s1-azure-queue-nonexistent-queue external metric value
+```
+
+!!! warning "Key finding"
+    All three events repeat every ~30 seconds (KEDA polling interval). The app continues running at `minReplicas=0`. No scale-out occurs regardless of any actual workload. The errors are visible in system logs but the app itself shows no errors.
+
+### S3: Application behavior during scaler failure
+
+```bash
+# App remains accessible throughout
+curl https://aca-diag-batch.../health
+→ {"status": "healthy"}
+```
+
+The app runs normally. The scaler failure does not affect running replicas — only scale-out decisions are blocked.
+
+### Polling interval
+
+KEDA retries the scaler on each polling interval (default 30s). Log timestamps show:
+```
+05:46:56 | KEDAScalerFailed
+05:47:25 | KEDAScalerFailed (next cycle)
+```
+**29 seconds between failures** — consistent with the 30s default polling interval.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: H1 is confirmed. A KEDA scaler that cannot authenticate to its event source (missing secret, invalid credentials, DNS failure) causes `KEDAScalerFailed` events in `ContainerAppSystemLogs`. No scale-out occurs. The scaler is effectively disabled — the app stays at `minReplicas`. **Measured**.
+- **Measured**: The error cascade is consistent: `KEDAScalerFailed` → `FailedGetExternalMetric` → `FailedComputeMetricsReplicas`, repeating every polling interval (~30s). **Measured**.
+- **Inferred**: H2 (missing queue name treated as empty queue — silent misconfiguration) was not separately confirmed. In our test, DNS failure made the "missing queue" scenario manifest as an explicit error rather than silent zero-metric behavior. **Inferred** — not directly tested.
+- **Not Proven**: H3 (decoy queue driving spurious scale-out) and H4 (recovery timing after fix) were not tested.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Invalid KEDA scaler credentials (missing secret, DNS failure) produce explicit `KEDAScalerFailed` events in `ContainerAppSystemLogs`, repeating every KEDA polling interval (~30s). **Measured**.
+- The scaler failure does not affect running application replicas — the app continues serving requests normally. **Measured**.
+- Three distinct event types appear in sequence: `KEDAScalerFailed` → `FailedGetExternalMetric` → `FailedComputeMetricsReplicas`. **Measured**.
+- KEDA polling interval is ~30s (matches default configuration). **Measured** (29s observed between error cycles).
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether a non-existent queue (valid account, queue doesn't exist) is treated as an empty queue (silent zero-metric) or produces an error — not tested.
+- Recovery time after fixing the scaler configuration was not measured.
+- Whether the scale-out failure affects the KEDA HPA `ScaledObject` status was not checked.
+- Behavior with other scaler types (Service Bus, HTTP, CPU) was not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "KEDA scale rule is not working" or "Container App is not scaling out":
+
+1. **Check `ContainerAppSystemLogs`** for `KEDAScalerFailed`, `FailedGetExternalMetric`, `FailedComputeMetricsReplicas` events. These repeat every polling interval (~30s) if misconfigured.
+2. **Verify the secret exists**: `az containerapp secret list -n <app> -g <rg>`. The scaler `auth` block references a secret by name — if the secret doesn't exist, KEDA cannot build the scaler.
+3. **Verify the connection string format**: Azure Storage Queue scaler expects `DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net`.
+4. **The app keeps running** — scaler failure does not kill running replicas. Scale-out is blocked but existing replicas continue serving traffic.
+5. **Inspect current scale rules**: `az containerapp show -n <app> -g <rg> --query "properties.template.scale.rules"`.
 
 ## 15. Reproduction notes
 
-- KEDA scaler errors in Container Apps are surfaced in `ContainerAppSystemLogs`; they are not visible in `ContainerAppConsoleLogs` (which is application stdout only).
-- The KEDA polling interval for Azure Storage Queue scaler defaults to 30 seconds; changes to the scaler configuration (via new revision or rule update) take effect within one polling interval.
-- A missing queue name may not produce a scaler error — KEDA treats a non-existent queue as an empty queue (zero messages), which causes scale-in to `minReplicas`, not an error. This is a silent misconfiguration.
-- Use `az containerapp show --query "properties.template.scale.rules"` to inspect the current scaling rule configuration from the CLI; the portal shows a simplified view that may omit secret reference details.
+```bash
+APP="<aca-app>"
+RG="<resource-group>"
+
+# Create fake connection string secret
+az containerapp secret set -n $APP -g $RG \
+  --secrets "fake-storage-cs=DefaultEndpointsProtocol=https;AccountName=fakeaccount;AccountKey=ZmFrZQ==;EndpointSuffix=core.windows.net"
+
+# Add misconfigured Azure Queue scaler
+az containerapp update -n $APP -g $RG \
+  --scale-rule-name "bad-queue-scaler" \
+  --scale-rule-type "azure-queue" \
+  --scale-rule-metadata "queueName=nonexistent-queue" "queueLength=5" "accountName=fakeaccount" \
+  --scale-rule-auth "connection=fake-storage-cs"
+
+# Wait 30-60s and check system logs
+sleep 45
+az containerapp logs show -n $APP -g $RG --type system --tail 20 | \
+  grep -E "KEDAScalerFailed|FailedGetExternalMetric|FailedComputeMetrics"
+
+# Expected output (repeating every ~30s):
+# KEDAScalerFailed | Get "https://fakeaccount.queue.core.windows.net/...": dial tcp: lookup ... no such host
+# FailedGetExternalMetric | unable to get external metric azure-queue-nonexistent-queue...
+# FailedComputeMetricsReplicas | invalid metrics (1 invalid out of 5)...
+```
 
 ## 16. Related guide / official docs
 
