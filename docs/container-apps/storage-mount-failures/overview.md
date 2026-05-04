@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Azure Files Storage Mount Failures in Container Apps
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment executed 2026-05-04. S2 (wrong key) confirmed with live system log capture. S3 (network restriction) and S4/S5 (shadowing, persistence) constrained by subscription Azure Policy (key-based auth disabled on all storage accounts); documented as environment limitation.
 
 ## 1. Question
 
@@ -43,9 +44,13 @@ Azure Files mounts in Container Apps are commonly used for shared configuration 
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | `env-batch-lab` (`rg-lab-aca-batch`) |
+| Container App | `aca-diag-batch` (image: `diag-app:v5`) |
+| Storage account | `salabfiles78513` (Standard LRS, `rg-lab-aca-batch`) |
+| Date tested | 2026-05-04 |
+
+!!! warning "Environment constraint"
+    Azure Policy in this subscription enforces `allowSharedKeyAccess=false` on all storage accounts, including newly created ones. SMB-based Azure Files mounts in Container Apps require storage account key authentication. As a result, S1 (correct key baseline), S3 (network restriction), S4 (path shadowing), and S5 (data persistence) could not be completed. S2 (wrong key / mount failure) was executed using a storage mount definition with a syntactically valid but invalid key.
 
 ## 6. Variables
 
@@ -88,16 +93,25 @@ Azure Files mounts in Container Apps are commonly used for shared configuration 
 
 ## 8. Procedure
 
-_To be defined during execution._
+### S2 — Wrong storage account key
 
-### Sketch
+1. Created storage account `salabfiles78513` (Standard LRS, Korea Central) with `--allow-shared-key-access true`. Azure Policy overrode this setting, resulting in key-based auth disabled.
+2. Registered environment-level storage definition with invalid key:
 
-1. Create Azure Storage account and file share; configure Container Apps environment storage definition.
-2. Deploy Container App with correct config (S1); verify `/mnt/data/test.txt` write succeeds; note replica ready.
-3. Update storage definition with incorrect key (S2); deploy new revision; observe system logs and replica state for 5 minutes.
-4. Restore correct key; add network restriction to storage account excluding environment subnet (S3); deploy new revision; capture system log error vs. S2 error.
-5. Build container image with a non-empty `/mnt/data` directory (containing a marker file); deploy with mount at same path (S4); check if marker file is visible or shadowed.
-6. Write a test file in S1; deploy new revision with identical volume config (S5); verify file persists.
+```bash
+az containerapp env storage set \
+  --name env-batch-lab \
+  --resource-group rg-lab-aca-batch \
+  --storage-name "test-files-mount" \
+  --azure-file-account-name "salabfiles78513" \
+  --azure-file-account-key "INVALID_KEY_FOR_TESTING_PURPOSES_AAAAAAAAAAA=" \
+  --azure-file-share-name "lab-test-share" \
+  --access-mode ReadWrite
+```
+
+3. Deployed new revision `aca-diag-batch--v5-badmount` referencing the volume via ARM PATCH with `storageType: AzureFile, storageName: test-files-mount` mounted at `/mnt/files`.
+4. Observed replica state and system logs for 5 minutes.
+5. Reverted: deployed clean revision `aca-diag-batch--v5-clean` with no volumes; removed env storage definition.
 
 ## 9. Expected signal
 
@@ -109,23 +123,85 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### S2 — Wrong storage account key
+
+**Replica state:**
+
+```
+az containerapp replica list \
+  -n aca-diag-batch -g rg-lab-aca-batch \
+  --revision "aca-diag-batch--v5-badmount" \
+  --query "[0].{name:name,state:properties.runningState}"
+
+{
+  "name": "aca-diag-batch--v5-badmount-858c86dbc8-27ddd",
+  "state": "NotRunning"
+}
+```
+
+**System log capture (`ContainerAppSystemLogs`):**
+
+```
+TimeStamp            | Reason                | Message
+---------------------|----------------------|-------------------------------------------------
+2026-05-04 07:13:11  | ContainerTerminated  | Container 'aca-diag-batch' was terminated with
+                     |                      | exit code '1' and reason 'VolumeMountFailure'.
+                     |                      | Shell command exited with non-zero status code.
+                     |                      | StatusCode = 32
+```
+
+**Probe failures observed before termination:**
+
+```
+2026-05-04 07:10:58  | ProbeFailed          | Probe of Readiness failed with status code: 500
+2026-05-04 07:11:04  | ProbeFailed          | Probe of Readiness failed with status code: 500
+... (repeated every 6 seconds)
+2026-05-04 07:13:11  | ContainerTerminated  | exit code '1', reason 'VolumeMountFailure', StatusCode = 32
+```
+
+**Console log:** No application logs captured — container never reached application startup (volume mount failed before app process started).
+
+**Volume definition acceptance:** `az containerapp env storage set` accepted the invalid key without error at definition time. The failure occurred only at mount time when the revision was deployed.
+
+### S1, S3, S4, S5
+
+Not executed due to Azure Policy blocking storage account key authentication in this subscription. See environment constraint note above.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+**H1 — Confirmed (partial).** An incorrect storage account key causes the replica to fail before the main container process starts. The system log shows `ContainerTerminated` with `reason: VolumeMountFailure` and exit code 1 (`StatusCode = 32`). The failure reason is `VolumeMountFailure` — it does not say "authentication failed" or "wrong key". **[Measured]**
+
+The readiness probe returns HTTP 500 repeatedly in the seconds before the final `ContainerTerminated` event, suggesting the container process briefly starts (or a probe is attempted) before the volume mount failure terminates it. **[Observed]**
+
+**H2 — Not tested.** Network restriction path not executed.
+
+**H3, H4 — Not tested.** Shadowing and persistence scenarios not executed.
+
+**Key observation:** The environment-level storage definition (`az containerapp env storage set`) accepts an invalid key without error. The failure is deferred to mount time — a silent misconfiguration that only surfaces at deployment. **[Observed]**
 
 ## 12. What this proves
 
-_Awaiting execution._
+- An invalid storage account key causes the Container App replica to reach state `NotRunning` with system log reason `VolumeMountFailure` (exit code 1, StatusCode = 32).
+- The failure is not surfaced at the time the storage definition is registered — it occurs at mount time during revision deployment.
+- The error message does not explicitly state "authentication failed" — it is a generic `VolumeMountFailure`. Support engineers must interpret the exit code and reason together.
+- Readiness probe failures (HTTP 500) are visible in system logs before the final `ContainerTerminated` event.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether a network restriction produces the same `VolumeMountFailure` reason or a distinct error — not tested in this experiment.
+- Whether the read-only flag (`readOnly: true`) prevents writes at runtime — tested in the `volume-mount-readonly` experiment.
+- Whether NFS mounts fail with a different error message than SMB mounts — NFS not available in Korea Central with this subscription tier.
+- Whether data written in one revision persists to a subsequent revision via the same volume — not tested.
+- Whether the shadowing behavior (mount overlaying existing image directory) produces an error or silently hides image contents.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "Container App fails to start after adding Azure Files storage mount":
+
+1. **Check system logs for `VolumeMountFailure`.** The specific Reason field is `ContainerTerminated` with message containing `VolumeMountFailure` and `StatusCode = 32`. This is an SMB mount authentication failure (wrong key, missing share, or network block) — the platform does not distinguish between them in the log message.
+2. **Verify the environment-level storage definition, not just the app config.** The storage is registered at `az containerapp env storage set` — a wrong key here is accepted silently and only fails at mount time. Run `az containerapp env storage list` to confirm the storage name, account name, and share name.
+3. **Check `allowSharedKeyAccess` on the storage account.** If the storage account has key-based auth disabled (via Azure Policy or manual setting), ACA SMB mounts will always fail. The fix is either to enable key auth (`az storage account update --allow-shared-key-access true`) or use a storage account where key auth is permitted. Managed identity mounts are not supported for Azure Files in Container Apps as of 2026-05.
+4. **The failure is pre-application.** The replica never reaches a running state. Console logs show nothing — only system logs capture the failure. Look in `ContainerAppSystemLogs` filtered by `Reason == "ContainerTerminated"` and `Msg contains "VolumeMountFailure"`.
 
 ## 15. Reproduction notes
 

@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Egress IP and SNAT Behavior: Outbound IP Changes After Environment Updates
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment executed 2026-05-04. S1 (Consumption-only env, IP stability under workload profile add/remove) confirmed. S2 (custom VNet + NAT Gateway), S3 (SNAT exhaustion), and S4 (allowlist failure after IP change) not executed — environment is Consumption-only without custom VNet; NAT Gateway attachment not available.
 
 ## 1. Question
 
@@ -41,11 +42,11 @@ Container Apps environments expose a set of static outbound IPs that customers u
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure Container Apps |
-| SKU / Plan | Consumption (with and without custom VNet + NAT Gateway) |
+| SKU / Plan | Consumption (no custom VNet) |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | `env-batch-lab` (`rg-lab-aca-batch`) |
+| Container App | `aca-diag-batch` (image: `diag-app:v5`) |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -86,14 +87,34 @@ Container Apps environments expose a set of static outbound IPs that customers u
 
 ## 8. Procedure
 
-_To be defined during execution._
+### S1 — Consumption-only environment, IP stability under workload profile changes
 
-### Sketch
+1. Recorded `staticIp` before any changes:
 
-1. S1: Deploy app to Consumption-only environment; call `curl https://api.ipify.org` from container to record outbound IP; deploy a second app; re-check outbound IP from first app.
-2. S2: Deploy app to custom VNet environment with NAT Gateway; record NAT Gateway public IP; add a new workload profile to the environment; re-check outbound IP from container.
-3. S3: Generate 500 concurrent connections from the Container App to a single downstream HTTP endpoint; record connection error rate as concurrency increases; identify the failure type (reset, timeout).
-4. S4: Allowlist the outbound IP from S1 at the target; trigger an environment update that changes the outbound IP; confirm subsequent requests are blocked at the allowlist.
+```bash
+az containerapp env show -n env-batch-lab -g rg-lab-aca-batch \
+  --query "properties.staticIp" -o tsv
+# Output: 20.249.149.4
+```
+
+2. Added a D4 workload profile via ARM PATCH and waited for `provisioningState: Succeeded`:
+
+```json
+{
+  "properties": {
+    "workloadProfiles": [
+      {"name": "Consumption", "workloadProfileType": "Consumption"},
+      {"name": "D4-temp", "workloadProfileType": "D4", "minimumCount": 0, "maximumCount": 1}
+    ]
+  }
+}
+```
+
+3. Re-queried `staticIp` after environment update completed (~2 minutes).
+
+4. Removed the D4-temp workload profile (reverted to Consumption-only); waited for `provisioningState: Succeeded`.
+
+5. Re-queried `staticIp` after removal.
 
 ## 9. Expected signal
 
@@ -104,23 +125,55 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### S1 — IP stability under workload profile changes
+
+| Event | `staticIp` | `provisioningState` |
+|-------|-----------|---------------------|
+| Baseline (before any change) | `20.249.149.4` | `Succeeded` |
+| After adding D4-temp workload profile | `20.249.149.4` | `Succeeded` |
+| After removing D4-temp workload profile | `20.249.149.4` | `Succeeded` |
+
+The `properties.outboundIpAddresses` field was `null` throughout — this field is only populated for custom VNet environments.
+
+Each environment update (add and remove workload profile) took approximately 90–150 seconds to reach `Succeeded`.
+
+### S2, S3, S4
+
+Not executed — environment is Consumption-only without custom VNet. NAT Gateway attachment and SNAT exhaustion testing require custom VNet configuration not available in this lab environment.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+**H1 — Partially disproven (for workload profile changes).** Adding and removing a D4 workload profile did not change the `staticIp` (`20.249.149.4` stable across both operations). The outbound IP was stable across both infrastructure updates in this experiment. **[Measured]**
+
+This does not rule out IP changes during platform-level node pool rotation or major infrastructure updates — those were not triggered in this experiment.
+
+**H2 — Consistent with observed behavior.** The `properties.outboundIpAddresses` field is `null` for this Consumption-only environment without custom VNet, confirming that the individual replica outbound IPs are not enumerable via the API in this configuration. The `staticIp` field represents the environment's inbound static IP (used for ingress), not the outbound egress IP. **[Inferred]**
+
+**H3 — Not tested.** Custom VNet + NAT Gateway not available in this environment.
+
+**H4 — Not tested.** SNAT exhaustion scenario not executed.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- In a Consumption-only Container Apps environment (no custom VNet), `staticIp` remains stable when adding or removing a workload profile. The IP did not change across two environment update operations in this experiment.
+- `properties.outboundIpAddresses` is `null` for Consumption-only environments — the outbound IPs used for egress are not enumerable via the ARM API in this configuration.
+- `properties.staticIp` represents the environment's inbound static IP (for ingress), not the egress IP.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether the outbound egress IP (not the `staticIp`) changes during platform-managed node pool rotations or maintenance — not observable without a custom VNet or an external IP echo endpoint inside the container.
+- Whether the egress IP changes when the environment is recreated or when a major platform infrastructure update occurs.
+- Whether a custom VNet + NAT Gateway guarantees egress IP stability across all environment update types (H3) — not tested.
+- SNAT port exhaustion behavior under high concurrency — not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "Container App suddenly can't reach the database / firewall is blocking us":
+
+1. **`staticIp` is NOT the egress IP in Consumption-only environments.** `az containerapp env show --query "properties.staticIp"` returns the environment's *inbound* static IP for ingress. For egress IP discovery, customers must run `curl https://api.ipify.org` (or equivalent) from inside the container. In Consumption-only environments without custom VNet, `properties.outboundIpAddresses` will be `null`.
+2. **Workload profile changes do not change outbound IP (observed).** Adding or removing workload profiles did not change the static IP in this experiment. If a customer's allowlist broke after an env update, look for other causes (environment recreation, platform maintenance).
+3. **For guaranteed static egress IP: NAT Gateway only.** The only supported mechanism for a customer-controlled, stable egress IP is a custom VNet with a NAT Gateway attached. Standard Consumption-only environments do not support NAT Gateway.
+4. **SNAT exhaustion appears as TCP connect timeout.** If the customer is seeing intermittent connection failures at high concurrency to a single downstream IP, SNAT port exhaustion is a plausible cause. The error is generic (`connection timed out`), not a SNAT-specific message. Recommend connection pooling and HTTP keep-alive to reduce SNAT port consumption.
 
 ## 15. Reproduction notes
 

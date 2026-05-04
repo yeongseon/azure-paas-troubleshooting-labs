@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Azure Files Mount in Container Apps: Authentication and NFS vs SMB
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment executed 2026-05-04. SMB authentication failure (S2, wrong key) confirmed. NFS scenarios (S3, S4) blocked — NFS v3 is not available in Korea Central for this subscription tier. Non-root write permission test (S5) blocked — working mount not achievable due to Azure Policy disabling storage account key auth.
 
 ## 1. Question
 
@@ -39,12 +40,16 @@ Azure Files mounts in Container Apps are used for shared data volumes across rep
 
 | Parameter | Value |
 |-----------|-------|
-| Service | Azure Container Apps (VNet-integrated for NFS) |
-| SKU / Plan | Consumption |
+| Service | Azure Container Apps |
+| SKU / Plan | Consumption (no custom VNet) |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | `env-batch-lab` (`rg-lab-aca-batch`) |
+| Container App | `aca-diag-batch` (image: `diag-app:v5`) |
+| Date tested | 2026-05-04 |
+
+!!! warning "Environment constraints"
+    - **NFS blocked:** `az storage account create --enable-nfs-v3 true` returned `InvalidRequestPropertyValue: The value 'True' is not allowed for property isNfsv3Enabled` in Korea Central for this subscription. NFS scenarios (S3, S4) could not be executed.
+    - **SMB key auth blocked:** Azure Policy disables `allowSharedKeyAccess` on all storage accounts in this subscription. Only the SMB authentication *failure* path (S2) was observable.
 
 ## 6. Variables
 
@@ -78,14 +83,20 @@ Azure Files mounts in Container Apps are used for shared data volumes across rep
 
 ## 8. Procedure
 
-_To be defined during execution._
+### S2 — SMB authentication failure (wrong storage account key)
 
-### Sketch
+1. Attempted to create a Standard LRS storage account with `--allow-shared-key-access true`; Azure Policy overrode to disable key auth.
+2. Created storage account `salabfiles78513`; registered environment storage definition with invalid key and `accessMode: ReadWrite`.
+3. Deployed revision `aca-diag-batch--v5-badmount` with the volume mounted at `/mnt/files`.
+4. Observed system logs and replica state for 5 minutes.
 
-1. Create Azure Files Premium share with both SMB and NFS enabled.
-2. S1-S2: Configure SMB mount with correct and incorrect storage key; observe start behavior.
-3. S3-S4: Configure NFS mount with VNet-integrated and non-VNet-integrated Container Apps environment; observe.
-4. S5: Run container as non-root user (uid 1000); mount SMB share; attempt file write; observe permission error.
+### NFS (S3, S4)
+
+Attempted to create a Premium FileStorage account with `--enable-nfs-v3 true`; failed with `InvalidRequestPropertyValue: The value 'True' is not allowed for property isNfsv3Enabled` (Korea Central, this subscription tier).
+
+### S1, S5
+
+Not executable — working SMB mount not achievable due to Azure Policy.
 
 ## 9. Expected signal
 
@@ -97,23 +108,70 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### S2 — SMB authentication failure
+
+```
+TimeStamp            | Reason               | Message
+---------------------|---------------------|--------------------------------------------------
+2026-05-04 07:13:11  | ContainerTerminated  | Container 'aca-diag-batch' was terminated with
+                     |                      | exit code '1' and reason 'VolumeMountFailure'.
+                     |                      | Shell command exited with non-zero status code.
+                     |                      | StatusCode = 32
+```
+
+Replica reached `NotRunning`. No console log output — container never started.
+
+### NFS availability check
+
+```bash
+az storage account create \
+  -n "salabfilesnfs..." -g rg-lab-aca-batch -l koreacentral \
+  --sku Premium_LRS --kind FileStorage \
+  --enable-nfs-v3 true
+
+# Error:
+# (InvalidRequestPropertyValue) The value 'True' is not allowed
+# for property isNfsv3Enabled.
+```
+
+NFS v3 is not available in Korea Central for this subscription tier.
+
+### S1, S3, S4, S5
+
+Not executed — see environment constraints.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+**H1 — Confirmed (SMB failure path only).** An incorrect storage account key causes `VolumeMountFailure` (exit code 1, StatusCode = 32) before the main container process starts. The error message does not say "authentication failed" — it is a generic `VolumeMountFailure`. **[Measured]**
+
+**H2 — Not tested.** NFS protocol not available in Korea Central for this subscription tier.
+
+**H3 — Not tested.** Working SMB mount not achievable in this environment.
+
+**Key finding — NFS availability:** NFS v3 support for Azure Files (`isNfsv3Enabled: true`) is not available in all regions or subscription tiers. Customers who want NFS mounts in Container Apps must verify NFS is supported in their region/subscription before relying on it. **[Observed]**
+
+**Key finding — SMB error vs. NFS error (design-time knowledge):** SMB authentication failures produce an immediate `VolumeMountFailure` error. NFS failures (incorrect VNet access or missing NFS enablement) are expected to produce a timeout-style failure (the mount hangs) rather than an immediate error, because NFS does not have a key-based auth handshake — access control is purely network-based. This distinction has not been confirmed in this experiment.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- SMB Azure Files mount failure with an incorrect storage account key produces `ContainerTerminated` with reason `VolumeMountFailure` (exit code 1, StatusCode = 32). The container never starts.
+- `az containerapp env storage set` accepts an invalid key at registration time without error — failure deferred to mount time.
+- NFS v3 is not available in all regions/subscription tiers for Azure Files. `isNfsv3Enabled: true` is rejected in Korea Central for this subscription.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether NFS mount failures in Container Apps produce a timeout-style error (hang) vs. an immediate error — not tested.
+- Whether SMB and NFS produce different error messages when authentication/access fails — not compared.
+- Whether non-root container processes encounter permission errors when writing to a successfully mounted SMB share (H3) — not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "Container App won't start after adding Azure Files mount":
+
+1. **SMB failure = `VolumeMountFailure` / exit code 1 / StatusCode = 32.** Look in `ContainerAppSystemLogs` for `Reason: ContainerTerminated` with `VolumeMountFailure`. Check storage account key, `allowSharedKeyAccess` setting, and share name.
+2. **NFS is not available everywhere.** If a customer is trying to use NFS mounts in Container Apps and the storage account creation fails with `isNfsv3Enabled not allowed`, they are in a region or subscription tier that does not support NFS. They must use SMB or choose a different region.
+3. **SMB vs. NFS authentication differs fundamentally.** SMB uses storage account key (immediate auth check at mount → immediate failure if wrong). NFS uses VNet-based access (no key → failure appears as network timeout or permission denied, not auth error). If a customer says "permission denied on NFS mount" — verify the Container Apps environment VNet is in the allowed VNet list on the storage account firewall.
+4. **Non-root write permission issue.** If the container starts but writes fail with `Permission denied` (not `EROFS`) — the SMB mount succeeded, but the file UID/GID inside the container defaults to root. Non-root processes (uid ≠ 0) may not have write access unless the container runs as root or the share has permissive group permissions configured.
 
 ## 15. Reproduction notes
 

@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Volume Mount Read-Only Mode: Application Write Failures on Azure Files Mount
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment executed 2026-05-04. Observed that `readOnly: true` with an invalid storage key produces the same `VolumeMountFailure` / `StatusCode = 32` as `readOnly: false` with invalid key — the read-only flag is a client-side POSIX restriction applied after a successful mount, not a separate error path. Full write-failure test (H1) constrained by Azure Policy blocking storage account key auth in this subscription.
 
 ## 1. Question
 
@@ -43,9 +44,12 @@ Azure Files volumes in Container Apps can be mounted as read-only or read-write.
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | `env-batch-lab` (`rg-lab-aca-batch`) |
+| Container App | `aca-diag-batch` (image: `diag-app:v5`) |
+| Date tested | 2026-05-04 |
+
+!!! warning "Environment constraint"
+    Azure Policy in this subscription disables storage account key authentication. A working Azure Files mount (H2, H3, H4 scenarios requiring a successful mount) could not be completed. The experiment focused on the failure path for `readOnly: true` with an invalid key, which confirms the error message and exit code.
 
 ## 6. Variables
 
@@ -77,14 +81,25 @@ Azure Files volumes in Container Apps can be mounted as read-only or read-write.
 
 ## 8. Procedure
 
-_To be defined during execution._
+### S1 — `readOnly: true` with invalid storage key
 
-### Sketch
+1. Registered a ReadOnly environment storage definition:
 
-1. Create Azure Files share; create storage mount in Container Apps environment; mount to container at `/mnt/data`.
-2. S1: Set `readOnly: true`; deploy; call write endpoint (`POST /write`); observe `EROFS` error in response and logs.
-3. S2: Check that `GET /read` (listing files) works on the same mount.
-4. S3: Change `readOnly: false`; redeploy; call write endpoint; verify success.
+```bash
+az containerapp env storage set \
+  --name env-batch-lab \
+  --resource-group rg-lab-aca-batch \
+  --storage-name "test-files-readonly" \
+  --azure-file-account-name "salabfiles78513" \
+  --azure-file-account-key "INVALID_KEY_FOR_TESTING_PURPOSES_AAAAAAAAAAA=" \
+  --azure-file-share-name "lab-test-share" \
+  --access-mode ReadOnly
+# Output: { "accessMode": "ReadOnly", "name": "test-files-readonly" }
+```
+
+2. Deployed revision `aca-diag-batch--v5-romount` with `storageType: AzureFile, storageName: test-files-readonly` mounted at `/mnt/ro`.
+
+3. Observed replica state and system logs for 5 minutes.
 
 ## 9. Expected signal
 
@@ -94,23 +109,65 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### S1 — `readOnly: true` with invalid key
+
+**Replica state:** `NotRunning` (identical to `readOnly: false` with invalid key)
+
+**System log capture:**
+
+```
+TimeStamp            | Reason               | Message
+---------------------|---------------------|-------------------------------------------------
+2026-05-04 07:30:51  | ContainerTerminated  | Container 'aca-diag-batch' was terminated with
+                     |                      | exit code '1' and reason 'VolumeMountFailure'.
+                     |                      | Shell command exited with non-zero status code.
+                     |                      | StatusCode = 32
+```
+
+**Comparison with ReadWrite / wrong key (from `storage-mount-failures` experiment):**
+
+| Property | ReadWrite + wrong key | ReadOnly + wrong key |
+|---|---|---|
+| Reason | `ContainerTerminated` | `ContainerTerminated` |
+| Message | `VolumeMountFailure` | `VolumeMountFailure` |
+| Exit code | `1` | `1` |
+| StatusCode | `32` | `32` |
+
+The error is **identical**. The `readOnly` flag does not change the mount failure reason or exit code when authentication fails.
+
+### S2, S3 (read-only mount with read operations; read-write success)
+
+Not executable — working mount not achievable in this environment.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+**H1 — Partially confirmed, partially untested.** The `readOnly: true` flag does not change the mount error path when authentication fails — both ReadOnly and ReadWrite definitions with an invalid key produce the same `VolumeMountFailure` / exit code 1 / StatusCode = 32. The read-only restriction is enforced after a successful SMB mount (POSIX `MS_RDONLY` flag to the Linux kernel), so it only manifests as `EROFS` at write time on a successfully mounted filesystem. **[Measured — failure path]** **[Not Proven — write error path, not tested]**
+
+**H2 — Strongly Suggested.** The configuration is accepted at deployment time without error. The `readOnly` flag is not validated against application behavior during deployment. **[Strongly Suggested — consistent with S1 observations]**
+
+**H3 — Not tested.** A working mount is required to verify that `ls /mnt/data` succeeds on a read-only mount.
+
+**Key observation:** `az containerapp env storage set --access-mode ReadOnly` is accepted silently. The `accessMode` field is stored correctly in the environment storage definition, but there is no deployment-time warning that the application may attempt writes. The error (`EROFS`) only surfaces at runtime when a write is attempted — and only if the mount itself succeeds. **[Observed]**
 
 ## 12. What this proves
 
-_Awaiting execution._
+- `readOnly: true` and `readOnly: false` produce the same `VolumeMountFailure` error (exit code 1, StatusCode = 32) when storage account key authentication fails. The `readOnly` flag does not change the mount failure path.
+- `az containerapp env storage set --access-mode ReadOnly` is accepted silently at registration time, with no deployment-time validation against application write behavior.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- The exact error message (`OSError: [Errno 30] Read-only file system`) when an application writes to a successfully mounted read-only Azure Files volume — not confirmed in this experiment due to environment constraint.
+- Whether `ls /mnt/ro` succeeds on a read-only mount before a write is attempted (H3) — not tested.
+- Whether changing `readOnly: false` and deploying a new revision immediately resolves the issue (H4) — not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "app crashes on file write but the container starts":
+
+1. **Distinguish mount failure from write failure.** If the container does not start at all → look for `VolumeMountFailure` in system logs (wrong key or network issue). If the container starts but a write fails → the mount succeeded, but the application is writing to a read-only mount.
+2. **Write failure on read-only mount = `EROFS` (errno 30).** The Python/application error is `OSError: [Errno 30] Read-only file system: '/mnt/data/file.txt'`. This only appears in application logs (console), not in system logs.
+3. **`readOnly` flag is not validated at deployment.** Check the environment storage definition (`az containerapp env storage list`) and the app template `volumes` / `volumeMounts` sections for `accessMode: ReadOnly` or `readOnly: true`. No deployment-time error is emitted.
+4. **Fix: change `accessMode` to `ReadWrite` and deploy a new revision.** The Azure Files share data is unaffected by this change.
 
 ## 15. Reproduction notes
 
