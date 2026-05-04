@@ -15,7 +15,8 @@ validation:
 
 # Cold Start and Dependency Initialization
 
-!!! info "Status: Draft - Design Complete"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Flex Consumption plan creation blocked by Azure Policy. Consumption plan also blocked.
     Experiment design is complete with instrumented application code, deployment scripts, KQL queries, and full 16-section documentation. The data in **Section 10 (Results)** is **simulated** based on documented Azure Functions cold-start behavior, published benchmarks, and reasonable engineering assumptions. No live measurements have been collected yet.
 
     **Next step**: Execute the experiment on a subscription without shared key access restrictions, then replace simulated data with measured results and update status to "Published".
