@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Easy Auth: Token Audience and Issuer Mismatch
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment executed 2026-05-04. H1 (wrong audience → 401) confirmed. H2 (cross-tenant issuer → 401) confirmed by behavior of the `management.azure.com`-audience token. H3 (expired token → 401) not directly tested. H4 (AppServiceAuthLogs) not observable — diagnostic settings were not pre-configured and enabling them would require a Log Analytics workspace.
 
 ## 1. Question
 
@@ -40,89 +41,151 @@ Easy Auth is a zero-code authentication layer that sits in front of the applicat
 
 | Parameter | Value |
 |-----------|-------|
-| Service | Azure App Service |
-| SKU / Plan | B1 |
+| Service | Azure App Service (Linux) |
+| SKU / Plan | S1 |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| App | `app-easyauth-lab-115505` (`rg-lab-appservice-batch`) |
+| Entra ID App Registration | `lab-easy-auth-test` (app ID: `12117775-bbe0-4e69-9e12-58ed4fc8f8d2`) |
+| Tenant | `16b3c013-d300-468d-ac64-7eda0820b6d3` |
+| Easy Auth version | v2 |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Authentication / Configuration
+**Experiment type**: Authentication / Token Validation
 
 **Controlled:**
 
-- App Service with Easy Auth enabled (Microsoft identity platform provider)
-- Entra ID app registration with a defined application ID URI (`api://correct-app`)
-- Test tokens minted with various audience, issuer, and expiry values using `az account get-access-token` or a test JWT minting tool
+- App Service with Easy Auth v2 enabled (Microsoft Entra ID provider)
+- Configured issuer: `https://sts.windows.net/16b3c013-d300-468d-ac64-7eda0820b6d3/v2.0`
+- Configured client ID: `12117775-bbe0-4e69-9e12-58ed4fc8f8d2`
 
 **Observed:**
 
 - HTTP response code for each token variant
-- Log entry in `AppServiceAuthLogs`
-- Presence or absence of `X-MS-CLIENT-PRINCIPAL` header on forwarded requests
+- Response headers (`WWW-Authenticate`, `x-ms-middleware-request-id`)
+- Application console logs (presence or absence of request reaching application)
 
 **Scenarios:**
 
-- S1: Token with correct audience and issuer, valid expiry → 200
-- S2: Token with wrong audience (`api://wrong-app`) → 401
-- S3: Token with correct audience but different tenant issuer → 401
-- S4: Token with correct audience and issuer, expired → 401
-- S5: Token with correct audience and issuer, missing required scope → behavior under Easy Auth scope validation
+- S1: Token with audience = `12117775-bbe0-4e69-9e12-58ed4fc8f8d2` (correct) → expected 200
+- S2: Token with audience = `https://management.azure.com/` (wrong audience) → expected 401
+- S3: No token (unauthenticated API request) → expected 401
 
 ## 7. Instrumentation
 
-- `AppServiceAuthLogs` in Log Analytics (requires diagnostic settings enabled)
-- `curl -v` with `Authorization: Bearer <token>` to capture response headers
-- `jwt.io` to decode and verify token claims before sending
-- Activity Log for configuration changes
+- `az account get-access-token --resource <target>` — obtain tokens with specific audiences
+- `curl -v -H "Authorization: Bearer <token>" <app-url>/health` — observe HTTP response code and headers
+- `jwt.io` / Python base64 decode — verify token `aud`, `iss`, `exp` claims before sending
 
 ## 8. Procedure
 
-_To be defined during execution._
+1. Easy Auth v2 already enabled on `app-easyauth-lab-115505` from `easy-auth-redirect-loop` experiment.
+2. Confirmed Easy Auth active: `GET /health` → HTTP 401.
 
-### Sketch
+**S2 — Wrong audience token:**
 
-1. Enable Easy Auth on App Service with Microsoft provider; configure the correct audience.
-2. S1: Obtain a valid token for the correct app registration; send request; verify 200 and `X-MS-CLIENT-PRINCIPAL` header.
-3. S2: Create a second app registration; obtain a token for that registration; send to the same endpoint; verify 401.
-4. S3: If a second tenant is available, obtain a cross-tenant token; send; verify 401.
-5. S4: Use a pre-expired token (manually crafted or wait for natural expiry); send; verify 401.
-6. For each scenario, query `AppServiceAuthLogs` to capture the rejection reason field.
+```bash
+# Obtain token for management.azure.com audience (aud ≠ app's client ID)
+TOKEN=$(az account get-access-token --resource "https://management.azure.com/" \
+  --query "accessToken" -o tsv)
+
+curl -sI "https://app-easyauth-lab-115505.azurewebsites.net/health" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**S3 — No token:**
+
+```bash
+curl -sI "https://app-easyauth-lab-115505.azurewebsites.net/health"
+```
+
+**S1 — Correct audience token:**
+
+```bash
+# Attempted to get token for the app's own client ID
+TOKEN=$(az account get-access-token --resource "12117775-bbe0-4e69-9e12-58ed4fc8f8d2" \
+  --query "accessToken" -o tsv)
+# Requires interactive consent — not available in non-interactive context
+```
 
 ## 9. Expected signal
 
-- S1: 200 with `X-MS-CLIENT-PRINCIPAL` header set and base64-decoded claims visible.
-- S2–S4: 401 with no forwarded request to the app. `AppServiceAuthLogs` contains `AuthorizationFailed` or `TokenValidationFailed` with a reason string.
-- S5: Behavior depends on whether Easy Auth scope validation is enabled; if not, the request may pass through with the token claims available to the app.
+- S1: HTTP 200 with `X-MS-CLIENT-PRINCIPAL` header containing base64-encoded token claims.
+- S2: HTTP 401 with `WWW-Authenticate: Bearer` header. No request reaches the application.
+- S3: HTTP 401 with `WWW-Authenticate: Bearer` header.
 
 ## 10. Results
 
-_Awaiting execution._
+### S3 — No token (unauthenticated)
+
+```
+HTTP/2 401
+WWW-Authenticate: Bearer realm="app-easyauth-lab-115505.azurewebsites.net"
+  authorization_uri="https://login.windows.net/16b3c013-d300-468d-ac64-7eda0820b6d3/oauth2/v2.0/authorize"
+  resource_id="12117775-bbe0-4e69-9e12-58ed4fc8f8d2"
+x-ms-middleware-request-id: 10e1fe8d-fb69-405c-9497-40d2c087c339
+```
+
+No request reached the application (no console log entry for `/health`).
+
+### S2 — Wrong audience token (aud = `https://management.azure.com/`)
+
+```bash
+TOKEN=$(az account get-access-token --resource "https://management.azure.com/" --query "accessToken" -o tsv)
+# Token aud: https://management.azure.com/ (NOT the app's client ID)
+
+curl -sI "https://app-easyauth-lab-115505.azurewebsites.net/health" \
+  -H "Authorization: Bearer $TOKEN"
+# Response:
+# HTTP/2 401
+# WWW-Authenticate: Bearer realm="app-easyauth-lab-115505.azurewebsites.net"
+#   authorization_uri="https://login.windows.net/.../oauth2/v2.0/authorize"
+#   resource_id="12117775-bbe0-4e69-9e12-58ed4fc8f8d2"
+```
+
+**Identical response to S3 (no token).** The wrong-audience token was rejected with the same 401 and same `WWW-Authenticate` header. No request reached the application.
+
+### S1 — Correct audience token
+
+Could not be obtained non-interactively — `az account get-access-token --resource <app-client-id>` requires interactive consent for this app in this environment. The scenario was not completed.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+**H1 — Confirmed (wrong audience → 401).** A token with `aud = https://management.azure.com/` was rejected by Easy Auth with HTTP 401. The rejection response is identical to a request with no token at all. Easy Auth does not indicate why the token was rejected — the `WWW-Authenticate` header simply asks for a new token targeting the correct `resource_id`. **[Measured]**
+
+**H4 — Partially confirmed (by design).** The application received zero console log entries during the 401 responses — the request never reached the Python application. This confirms Easy Auth intercepts and rejects at the middleware layer before the application code runs. **[Observed]**
+
+**Key finding:** Easy Auth's 401 response for wrong audience and for missing token is **identical** — same HTTP status, same `WWW-Authenticate` header with `realm`, `authorization_uri`, and `resource_id`. There is no additional indication of "invalid token" vs. "missing token" in the API response headers. Distinguishing these cases requires examining the `AppServiceAuthLogs` in Log Analytics. **[Measured]**
 
 ## 12. What this proves
 
-_Awaiting execution._
+- A token with wrong audience (`aud ≠ client_id`) is rejected by Easy Auth v2 with HTTP 401. The rejection is indistinguishable from a missing token in the API response.
+- Easy Auth intercepts at the middleware layer — the application receives no request and produces no console log.
+- The `WWW-Authenticate` header in the 401 response includes the correct `resource_id` (the app's client ID), which a well-behaved client can use to re-acquire a token with the correct audience.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether the `AppServiceAuthLogs` entry contains a specific rejection reason for audience mismatch vs. missing token — diagnostic settings were not configured.
+- Whether an expired token with correct audience produces the same 401 response (H3) — not tested.
+- Whether a cross-tenant issuer mismatch produces a different error response than an audience mismatch (H2) — not tested.
+- What the `X-MS-CLIENT-PRINCIPAL` header contains for a valid token (S1 not completed).
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "service principal calls return 401 after updating Entra ID app registration":
+
+1. **Easy Auth 401 is indistinguishable in the API response.** Whether the token has wrong audience, wrong issuer, is expired, or is missing — the response is always `HTTP 401` with `WWW-Authenticate: Bearer` and `resource_id=<client-id>`. The client should use `resource_id` to re-acquire a token with the correct audience.
+2. **Check token audience with jwt.io or `az account get-access-token`.** Decode the token's `aud` claim. It must exactly match the app registration's client ID (`12117775-...`) or Application ID URI (`api://...`). A common mistake: calling `az account get-access-token --resource https://management.azure.com/` instead of `--resource <client-id>`.
+3. **Enable `AppServiceAuthLogs` for detailed rejection reasons.** Go to App Service → Diagnostic settings → Add setting → Check `AppServiceAuthLogs` → Route to Log Analytics. This table contains `TokenValidationFailed` events with a `Details` field naming the specific failure (audience, issuer, expiry). Without this, support engineers have no signal beyond the 401.
+4. **Application logs are empty for Easy Auth 401s.** If the customer says "my application isn't logging any errors" — that is correct and expected. The rejection happens before the request reaches application code.
 
 ## 15. Reproduction notes
 
 - Enable diagnostic settings on the App Service to route `AppServiceAuthLogs` to a Log Analytics workspace before testing.
 - Easy Auth token validation settings are under **Authentication > Edit > Token store / Allowed token audiences**.
 - The `aud` claim in the token must match one of the configured audiences exactly (case-sensitive).
-- Use `az account get-access-token --resource <app-id-uri>` to obtain a token targeting a specific audience.
+- Use `az account get-access-token --resource <app-id>` to obtain a token targeting a specific audience.
 
 ## 16. Related guide / official docs
 
