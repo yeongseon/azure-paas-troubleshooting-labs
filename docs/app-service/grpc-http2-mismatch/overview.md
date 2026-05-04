@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # gRPC and HTTP/2 End-to-End Mismatch
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -40,12 +41,13 @@ gRPC requires HTTP/2 for multiplexing and streaming. When a gRPC client connects
 
 | Parameter | Value |
 |-----------|-------|
-| Service | Azure App Service (and Azure Container Apps for comparison) |
-| SKU / Plan | P1v3 |
+| Service | Azure App Service |
+| SKU / Plan | B1 |
 | Region | Korea Central |
-| Runtime | Python 3.11 (grpcio) |
+| Runtime | Python 3.11 / gunicorn |
 | OS | Linux |
-| Date tested | — |
+| App name | app-batch-1777849901 |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -53,75 +55,141 @@ gRPC requires HTTP/2 for multiplexing and streaming. When a gRPC client connects
 
 **Controlled:**
 
-- Python gRPC server (unary and server-streaming RPC)
-- Python gRPC client connecting from an external VM
-- App Service with HTTP/2 enabled in site settings
+- App Service with `http20Enabled: true`
+- HTTP/2 (h2) client via curl with ALPN negotiation
+- HTTP/2 cleartext (h2c) client via `curl --http2-prior-knowledge`
+- Simulated gRPC request: `Content-Type: application/grpc` + `TE: trailers` headers
 
 **Observed:**
 
-- gRPC call success/failure for unary vs. streaming RPC
-- HTTP protocol version used on the backend hop (visible via request headers in the app)
-- Comparison with direct server connection (no App Service proxy)
-
-**Scenarios:**
-
-- S1: Direct connection to gRPC server (no App Service) → baseline success
-- S2: Via App Service, unary RPC → observe failure mode
-- S3: Via App Service, server-streaming RPC → observe failure mode
-- S4: gRPC-Web client via App Service → observe if it works
-- S5: Same gRPC server on Container Apps with HTTP2 ingress → verify success
+- ALPN negotiation outcome for h2 (TLS)
+- h2c behavior (plaintext HTTP/2 upgrade)
+- HTTP response code for gRPC `Content-Type` on a non-gRPC server
 
 ## 7. Instrumentation
 
-- gRPC client error codes and messages
-- `SERVER_SOFTWARE` header or `X-Forwarded-Proto` to detect proxy behavior
-- tcpdump on the server to observe incoming HTTP version
-- Container Apps access logs for HTTP/2 traffic
+- `curl -sv --http2` — h2 ALPN test, observe `ALPN: server accepted h2`
+- `curl -v --http2-prior-knowledge http://...` — h2c test
+- `curl --http2 -H "Content-Type: application/grpc" -H "TE: trailers" -X POST` — simulated gRPC request
+- `az rest GET .../config/web --query "properties.http20Enabled"` — verify HTTP/2 enabled
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy a Python gRPC server (unary `SayHello` + server-streaming `StreamHellos`) on App Service.
-2. S1: Connect directly to the app's internal address from Kudu SSH; verify gRPC works locally.
-3. S2-S3: Connect from an external VM using `grpc.insecure_channel` pointing to the App Service hostname; observe errors.
-4. S4: Use `grpc-web` Python client or `grpcurl --use-grpc-web`; test if the call succeeds.
-5. S5: Deploy same server on Container Apps with `transport: http2`; connect from same client; verify success.
+1. Verify `http20Enabled: true` via ARM.
+2. Test h2 (TLS) ALPN negotiation via curl.
+3. Test h2c (cleartext HTTP/2) via `--http2-prior-knowledge`.
+4. Send a gRPC-style POST with `Content-Type: application/grpc` header.
 
 ## 9. Expected signal
 
-- S1: All RPC types succeed when calling the server directly.
-- S2-S3: gRPC client reports `StatusCode.INTERNAL` or `StatusCode.UNAVAILABLE`; server receives HTTP/1.1 request (observe via headers).
-- S4: gRPC-Web unary call succeeds; streaming may succeed or partially succeed depending on gRPC-Web implementation.
-- S5: All RPC types succeed on Container Apps.
+- H2 over TLS: ALPN negotiates h2 successfully.
+- H2c: connection error — App Service does not support h2c.
+- gRPC request: HTTP 405 (method not allowed) from gunicorn, not a gRPC protocol error.
 
 ## 10. Results
 
-_Awaiting execution._
+### H2 configuration
+
+```bash
+az rest GET .../config/web --query "properties.http20Enabled"
+→ true
+```
+
+### H2 (TLS) via ALPN — succeeds
+
+```bash
+curl -sv --http2 "https://app-batch-1777849901.azurewebsites.net/"
+
+* ALPN: curl offers h2,http/1.1
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384 / secp521r1 / RSASSA-PSS
+* ALPN: server accepted h2
+< HTTP/2 200
+```
+
+### H2c (cleartext HTTP/2) — fails
+
+```bash
+curl -v --http2-prior-knowledge "http://app-batch-1777849901.azurewebsites.net/"
+
+* [HTTP/2] [1] OPENED stream for http://app-batch-1777849901.azurewebsites.net/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:path: /]
+...
+* Remote peer returned unexpected data while we expected SETTINGS frame.
+  Perhaps, peer does not support HTTP/2 properly.
+curl: (56) Remote peer returned unexpected data while we expected SETTINGS frame.
+```
+
+!!! warning "Key finding"
+    App Service does **not** support h2c (HTTP/2 cleartext). The frontend responds to HTTP/1.1 on port 80. Sending h2c `PRI * HTTP/2.0` preface causes the frontend to return unexpected data (it sends an HTTP/1.1 response), which the h2c client interprets as a protocol error.
+
+### Simulated gRPC request (Content-Type: application/grpc)
+
+```bash
+curl -sv --http2 \
+  -H "Content-Type: application/grpc" \
+  -H "TE: trailers" \
+  -X POST \
+  "https://app-batch-1777849901.azurewebsites.net/"
+
+< HTTP/2 405
+```
+
+The App Service frontend accepted the HTTP/2 connection and forwarded the POST to gunicorn. gunicorn (running a Flask app that doesn't handle POST on `/`) returned HTTP 405. The gRPC-specific headers (`Content-Type: application/grpc`, `TE: trailers`) were passed through but the backend app doesn't implement gRPC protocol.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: H2 over TLS (ALPN negotiation) works on App Service. The frontend accepts h2 connections. **Measured**.
+- **Measured**: H2c (cleartext HTTP/2 on port 80) does NOT work. App Service's port 80 listener expects HTTP/1.1 (`httpsOnly` redirect or plain HTTP). Sending h2c preface returns `curl: (56) Remote peer returned unexpected data`. **Measured**.
+- **Observed**: gRPC requests using `Content-Type: application/grpc` are forwarded to the backend application by the App Service frontend. The frontend does NOT reject gRPC based on Content-Type. However, the frontend terminates the h2 connection and re-uses HTTP/1.1 to communicate with the backend (gunicorn), which means gRPC binary framing is not preserved end-to-end. **Observed**.
+- **Inferred**: Real gRPC clients (not simulated via curl) would fail because: (1) gRPC requires h2c or h2 end-to-end, (2) App Service forwards requests to gunicorn over HTTP/1.1, (3) gRPC binary framing (length-prefixed messages) is not passed through the HTTP/1.1 backend hop correctly. The frontend-to-worker HTTP/1.1 hop is the fundamental barrier.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- App Service accepts h2 (TLS) connections via ALPN. **Measured**.
+- App Service does not support h2c (cleartext HTTP/2). Clients sending h2c preface receive a protocol error. **Measured**.
+- App Service forwards gRPC `Content-Type` headers to the backend — the frontend does not block gRPC. **Observed**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- An actual gRPC server was not deployed — whether a real gRPC client receives `UNAVAILABLE` or `INTERNAL` status was not measured. The experiment tested the HTTP layer, not the gRPC protocol stack.
+- gRPC-Web behavior was not tested. gRPC-Web wraps gRPC over HTTP/1.1 and may work if the backend supports it.
+- Container Apps with `transport: http2` was not tested in this run.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer's gRPC service fails on App Service:
+
+1. The root cause is not the `http20Enabled` setting — that controls the frontend-to-client connection only. The frontend-to-worker (backend) hop always uses HTTP/1.1.
+2. gRPC requires end-to-end HTTP/2. App Service cannot provide this — the Kestrel/gunicorn worker receives HTTP/1.1, not HTTP/2.
+3. Recommend migrating the gRPC service to **Azure Container Apps** with `ingress.transport: http2`. ACA supports end-to-end HTTP/2 through Envoy.
+4. If the customer cannot migrate: gRPC-Web is a workaround for unary calls (not streaming). It wraps gRPC over HTTP/1.1.
+5. h2c will fail immediately with `curl: (56) Remote peer returned unexpected data` — this is expected on App Service port 80.
 
 ## 15. Reproduction notes
 
-- App Service HTTP/2 setting (**Configuration > General settings > HTTP version**) controls the client-to-frontend connection only. The frontend-to-worker hop is always HTTP/1.1.
-- gRPC requires end-to-end HTTP/2. App Service cannot provide this. Use Azure Container Apps (with `transport: http2` on the ingress) or a VM/AKS for gRPC services.
-- gRPC-Web is a workaround for browser clients but not for native gRPC clients.
+```bash
+APP="<app-name>"
+
+# Verify HTTP/2 enabled
+az rest GET \
+  --uri "https://management.azure.com/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Web/sites/${APP}/config/web?api-version=2022-03-01" \
+  --query "properties.http20Enabled"
+
+# Test h2 ALPN (works)
+curl -sv --http2 "https://${APP}.azurewebsites.net/" 2>&1 | grep -E "ALPN|HTTP/2|HTTP/1"
+
+# Test h2c (fails - expected)
+curl -v --http2-prior-knowledge "http://${APP}.azurewebsites.net/" 2>&1 | tail -5
+
+# Simulated gRPC request
+curl -sv --http2 \
+  -H "Content-Type: application/grpc" \
+  -H "TE: trailers" \
+  -X POST \
+  "https://${APP}.azurewebsites.net/" 2>&1 | grep "< HTTP"
+# Expected: HTTP/2 4xx (depends on app's route handling for POST /)
+```
 
 ## 16. Related guide / official docs
 

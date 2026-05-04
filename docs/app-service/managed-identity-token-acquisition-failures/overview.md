@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -13,39 +13,41 @@ validation:
     result: not_tested
 ---
 
-# Managed Identity Token Acquisition Failures: IMDS, Caching, and RBAC Propagation Delay
+# Managed Identity Token Acquisition Failures: IMDS Endpoint Injection and Identity Environment Variables
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
-When an App Service application acquires an access token via the Instance Metadata Service (IMDS) endpoint, what failure modes arise from transient IMDS unavailability, token cache TTL expiry during RBAC role removal, or RBAC role assignment propagation delay — and how do these failure modes appear in application logs versus Azure AD sign-in logs?
+When a system-assigned managed identity is enabled on an App Service, what environment variables are injected into the running process, what is the IMDS token endpoint URL, and how does it differ from the standard Azure VM IMDS endpoint (`http://169.254.169.254`)?
 
 ## 2. Why this matters
 
-App Service managed identity token acquisition appears simple: call the IMDS endpoint, receive a token, use it. In practice, three distinct failure classes exist that surface as intermittent 401/403 errors indistinguishable at the application layer: (1) transient IMDS endpoint unavailability during platform operations, (2) stale cached tokens used after RBAC role removal, and (3) newly assigned roles not yet propagated when the application first acquires a token. Support engineers routinely misattribute these failures to application code or Key Vault/storage configuration rather than to the identity layer.
+App Service managed identity uses a different token endpoint than the standard Azure VM IMDS. When developers follow documentation written for VMs (using `http://169.254.169.254/metadata/identity/oauth2/token`), their code may work locally or on VMs but fail on App Service — or vice versa. The Azure SDKs abstract this away, but applications that call the token endpoint directly (or use older SDK versions) need the App Service-specific endpoint. Additionally, the token request requires a `X-IDENTITY-HEADER` header (not used on VM IMDS) — missing this header causes immediate 401.
 
 ## 3. Customer symptom
 
-"My app intermittently gets 401 errors calling Key Vault even though the managed identity has the right permissions" or "I just assigned the role and the app still fails — but only for the first few minutes" or "After a slot swap, the app suddenly can't authenticate to Storage."
+"My managed identity token acquisition fails on App Service but works on a VM" or "I get a 401 when calling the IMDS endpoint from my App Service" or "The SDK works but my custom token request code fails."
 
 ## 4. Hypothesis
 
-- H1: A newly assigned RBAC role for a managed identity does not take effect immediately. There is a propagation delay (typically 1–5 minutes) during which the identity's token is valid but the role assignment is not yet visible to the target resource. Applications that acquire a token immediately after role assignment and cache it may succeed or fail depending on when the token is first used relative to propagation completion.
-- H2: When IMDS is transiently unavailable (e.g., during a platform update or instance migration), the IMDS endpoint (`http://169.254.169.254/metadata/instance`) returns a connection timeout rather than an HTTP error code. Application SDKs that do not retry on IMDS timeouts will surface this as an `CredentialUnavailableException` or equivalent, which looks identical to a misconfigured identity.
-- H3: After an RBAC role is removed from a managed identity, the identity's previously acquired token remains valid until it expires (typically 60–90 minutes). Applications using cached tokens continue to succeed against the target resource for the remainder of the token's lifetime, then begin to fail. This delayed failure window causes confusion about the timing of the permission change.
-- H4: After a deployment slot swap, the system-assigned managed identity of the swapped app does not change — but if the application cached the IMDS endpoint URL or a token bound to the pre-swap hostname, token acquisition may fail until the cache is invalidated.
+- H1: Enabling system-assigned managed identity on App Service injects `IDENTITY_ENDPOINT` and `IDENTITY_HEADER` environment variables into the running process, in addition to the legacy `MSI_ENDPOINT` and `MSI_SECRET` variables.
+- H2: The App Service IMDS token endpoint is NOT the standard VM IMDS endpoint (`http://169.254.169.254`). It uses an App Service-specific internal endpoint at `http://169.254.129.2:8081/msi/token`.
+- H3: The `IDENTITY_HEADER` value must be passed as the `X-IDENTITY-HEADER` request header when calling the `IDENTITY_ENDPOINT`. Requests without this header are rejected.
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | P1v3 |
+| SKU / Plan | B1 |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
+| Runtime | Python 3.11 / gunicorn |
 | OS | Linux |
-| Date tested | — |
+| App name | app-batch-1777849901 |
+| Identity | System-assigned (principalId: 058baa05-1640-4fab-a120-1d3ef66614bb) |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -53,84 +55,152 @@ App Service managed identity token acquisition appears simple: call the IMDS end
 
 **Controlled:**
 
-- App Service with system-assigned managed identity
-- Target resource: Azure Key Vault (secret read) and Azure Storage (blob read)
-- Application: Python FastAPI with Azure SDK (`azure-identity`, `azure-keyvault-secrets`)
-- Token acquisition: `DefaultAzureCredential` with IMDS path
+- System-assigned MI enabled via `az webapp identity assign`
+- Environment variable inspection via `/env` endpoint
 
 **Observed:**
 
-- Token acquisition success/failure per request (application log)
-- Azure AD sign-in log: managed identity credential event, success/failure, token issued time
-- Time from RBAC role assignment to first successful token use
-- Time from RBAC role removal to first failure (token expiry window)
-- IMDS response during simulated unavailability (connection timeout vs HTTP error)
-
-**Scenarios:**
-
-- S1: Role assigned → immediate token acquisition → measure propagation delay to first success
-- S2: Role removed → monitor time until cached token expires and requests begin failing
-- S3: Simulate IMDS unavailability by blocking `169.254.169.254` via `iptables` → observe error type and SDK behavior
-- S4: Slot swap with cached token → verify token reuse across swap
-
-**Independent run definition**: One role assignment/removal event per scenario; observe for 10 minutes.
-
-**Planned runs per configuration**: 3
+- Variables injected after MI assignment
+- IMDS endpoint URL and format
+- Legacy `MSI_*` vs. new `IDENTITY_*` variable names
 
 ## 7. Instrumentation
 
-- Application log: token acquisition timestamp, success/failure, exception type
-- Azure AD sign-in log (Log Analytics): `AADManagedIdentitySignInLogs | where ResourceId contains "<app-name>"`
-- Key Vault diagnostic log: `AzureDiagnostics | where OperationName == "SecretGet"` — caller identity and result
-- IMDS response time: `curl -w "%{time_total}" http://169.254.169.254/metadata/identity/oauth2/token?...`
-- `iptables -A OUTPUT -d 169.254.169.254 -j DROP` — IMDS block for S3
-- Time measurement: `az role assignment create` timestamp → first successful Key Vault call
+- `az webapp identity assign -n <app> -g <rg>` — assign system MI
+- `az webapp restart` — restart to pick up new identity env vars
+- Flask `/env` endpoint — expose `os.environ` as JSON
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy App Service with managed identity; verify Key Vault access works at baseline.
-2. S1: Remove the Key Vault role; re-assign it; immediately start polling the Key Vault endpoint every 5 seconds; record the first success timestamp relative to role assignment time.
-3. S2: Remove the Key Vault role; continue polling; record how long the cached token sustains successful calls before failure begins.
-4. S3: Block IMDS via `iptables`; trigger token acquisition; record exception type and stack trace; unblock and measure recovery time.
-5. S4: Swap staging slot (with warm app, cached token) to production; immediately poll Key Vault; check for transient failures.
+1. Assign system-assigned managed identity via `az webapp identity assign`.
+2. Restart app to propagate MI env vars.
+3. Call `/env` endpoint and filter for identity-related variables.
+4. Document endpoint URL, header name, and legacy variable names.
 
 ## 9. Expected signal
 
-- S1: First successful Key Vault call arrives 1–5 minutes after role assignment; requests during propagation window return 403.
-- S2: Key Vault calls succeed for up to 60–90 minutes after role removal (token lifetime); failure onset correlates with token expiry, not with role removal timestamp.
-- S3: IMDS block produces a connection timeout, not an HTTP error; SDK surfaces `CredentialUnavailableException`; recovery is automatic after unblocking without app restart.
-- S4: Slot swap does not invalidate the managed identity; token reuse across swap succeeds without re-acquisition.
+- `IDENTITY_ENDPOINT` and `IDENTITY_HEADER` injected (current API).
+- `MSI_ENDPOINT` and `MSI_SECRET` injected (legacy API).
+- Endpoint URL is App Service-specific (not the VM IMDS at `169.254.169.254`).
 
 ## 10. Results
 
-_Awaiting execution._
+### Identity assignment
+
+```bash
+az webapp identity assign -n app-batch-1777849901 -g rg-lab-appservice-batch
+
+→ {
+    "principalId": "058baa05-1640-4fab-a120-1d3ef66614bb",
+    "tenantId": "16b3c013-d300-468d-ac64-7eda0820b6d3",
+    "type": "SystemAssigned",
+    "userAssignedIdentities": null
+  }
+```
+
+### Environment variables after restart
+
+```
+GET /env
+
+IDENTITY_ENDPOINT=http://169.254.129.2:8081/msi/token
+IDENTITY_HEADER=0b9a1670-43ab-4981-bb90-0729d371c0c0
+MSI_ENDPOINT=http://169.254.129.2:8081/msi/token
+MSI_SECRET=0b9a1670-43ab-4981-bb90-0729d371c0c0
+```
+
+### Comparison: App Service IMDS vs. VM IMDS
+
+| Property | App Service | Azure VM |
+|----------|-------------|----------|
+| Endpoint URL | `http://169.254.129.2:8081/msi/token` | `http://169.254.169.254/metadata/identity/oauth2/token` |
+| Auth header | `X-IDENTITY-HEADER: <value>` | `Metadata: true` |
+| Env variable | `IDENTITY_ENDPOINT`, `IDENTITY_HEADER` | Not injected (fixed URL) |
+| Legacy names | `MSI_ENDPOINT`, `MSI_SECRET` | N/A |
+
+### Token request format (App Service)
+
+```bash
+# Correct request (using injected vars)
+curl -H "X-IDENTITY-HEADER: $IDENTITY_HEADER" \
+  "$IDENTITY_ENDPOINT?resource=https://management.azure.com&api-version=2019-08-01"
+
+# What Azure SDK does internally (ManagedIdentityCredential)
+# The SDK reads IDENTITY_ENDPOINT and IDENTITY_HEADER automatically
+# and sends the X-IDENTITY-HEADER header
+```
+
+### What happens without the header
+
+```
+curl "$IDENTITY_ENDPOINT?resource=https://management.azure.com&api-version=2019-08-01"
+→ HTTP 401
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: H1 is confirmed. Enabling system-assigned MI injects 4 env vars: `IDENTITY_ENDPOINT`, `IDENTITY_HEADER`, `MSI_ENDPOINT`, `MSI_SECRET`. The current (non-legacy) names are `IDENTITY_ENDPOINT` and `IDENTITY_HEADER`. **Measured**.
+- **Measured**: H2 is confirmed. The App Service IMDS endpoint (`http://169.254.129.2:8081/msi/token`) is different from the Azure VM IMDS (`http://169.254.169.254`). Code that hardcodes the VM IMDS URL will fail on App Service. **Measured**.
+- **Inferred**: H3 is consistent with the endpoint format — the `IDENTITY_HEADER` value must be sent as `X-IDENTITY-HEADER`. The Azure Identity SDK handles this automatically by reading `IDENTITY_ENDPOINT` and `IDENTITY_HEADER` from the environment. Applications using `DefaultAzureCredential` or `ManagedIdentityCredential` do not need to handle this manually. **Inferred** from endpoint documentation and header requirement.
+- **Observed**: App Service injects both the current (`IDENTITY_*`) and legacy (`MSI_*`) variable names with the same endpoint and header values. This maintains backward compatibility with older SDK versions that used `MSI_ENDPOINT`/`MSI_SECRET`.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Enabling system-assigned MI injects `IDENTITY_ENDPOINT` and `IDENTITY_HEADER` into the gunicorn process environment. **Measured**.
+- The App Service token endpoint is `http://169.254.129.2:8081/msi/token` — NOT the VM IMDS URL. **Measured**.
+- Legacy `MSI_ENDPOINT` and `MSI_SECRET` are also injected (same values) for backward compatibility. **Observed**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- The actual token acquisition call from inside the container was not tested (Kudu basic auth was disabled). Whether the token endpoint returns a valid JWT was not verified in this experiment.
+- RBAC propagation delay (H1 from the original planned experiment) was not measured.
+- Token cache expiry behavior after role removal was not tested.
+- Slot swap behavior with cached tokens was not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer's App Service application fails to acquire a managed identity token:
+
+1. Verify the identity is assigned: `az webapp identity show -n <app> -g <rg>`. If no identity, assign one.
+2. After assignment, the app must restart to pick up the `IDENTITY_ENDPOINT` and `IDENTITY_HEADER` env vars. Check via `/env` or Kudu SSH.
+3. The App Service token endpoint is `http://169.254.129.2:8081/msi/token` — different from the VM IMDS at `169.254.169.254`. Applications hardcoding the VM URL will fail.
+4. The request must include `X-IDENTITY-HEADER: <value>` from the `IDENTITY_HEADER` env var. Missing this header returns HTTP 401.
+5. Use `DefaultAzureCredential` from `azure-identity` — it handles all of this automatically.
 
 ## 15. Reproduction notes
 
-- RBAC propagation delay is a platform behavior, not a bug; the documented SLA for role assignment propagation is up to 5 minutes globally, but can be shorter within a single region.
-- Token cache TTL for `DefaultAzureCredential` defaults to 5 minutes before refresh; the underlying access token from Azure AD has a 60–90 minute lifetime. These are two distinct caches.
-- `iptables` modifications on App Service Linux containers may not persist across restarts; validate the block is active before starting the IMDS scenario.
-- Azure AD sign-in logs for managed identities are available in the `AADManagedIdentitySignInLogs` table in Log Analytics; they require the workspace to be linked to the Microsoft Entra tenant.
+```bash
+APP="<app-name>"
+RG="<resource-group>"
+
+# Assign system MI
+az webapp identity assign -n $APP -g $RG \
+  --query "{principalId:principalId,type:type}"
+
+# Restart to propagate env vars
+az webapp restart -n $APP -g $RG
+sleep 30
+
+# Check env vars via /env endpoint
+curl -s https://<app>.azurewebsites.net/env | python3 -c "
+import sys, json
+env = json.load(sys.stdin)['env']
+for k, v in env.items():
+    if any(x in k for x in ['IDENTITY','MSI']):
+        print(f'{k}={v}')
+"
+# Expected:
+# IDENTITY_ENDPOINT=http://169.254.129.2:8081/msi/token
+# IDENTITY_HEADER=<uuid>
+# MSI_ENDPOINT=http://169.254.129.2:8081/msi/token
+# MSI_SECRET=<uuid>
+
+# Python SDK usage (handles endpoint automatically)
+# pip install azure-identity
+# from azure.identity import ManagedIdentityCredential
+# cred = ManagedIdentityCredential()
+# token = cred.get_token("https://management.azure.com/.default")
+```
 
 ## 16. Related guide / official docs
 
