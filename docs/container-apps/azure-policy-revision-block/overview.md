@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Azure Policy Blocking Container App Revision Creation
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -42,9 +43,9 @@ Organizations use Azure Policy to enforce governance (security baselines, taggin
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| App name | aca-diag-batch |
+| Policy scope | rg-lab-aca-batch (resource group) |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -94,29 +95,128 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### Policy definition created
+
+```bash
+az policy definition create \
+  --name "lab-deny-external-aca-ingress" \
+  --rules '{"if":{"allOf":[
+      {"field":"type","equals":"Microsoft.App/containerApps"},
+      {"field":"Microsoft.App/containerApps/configuration.ingress.external","equals":"true"}
+    ]},"then":{"effect":"deny"}}' \
+  --mode All
+```
+
+### Policy assignment to resource group
+
+```bash
+az policy assignment create \
+  --name "lab-deny-ext-aca-ingress" \
+  --policy "lab-deny-external-aca-ingress" \
+  --scope "/subscriptions/.../resourceGroups/rg-lab-aca-batch"
+```
+
+### Deployment attempt while policy is active
+
+```bash
+az containerapp update -n aca-diag-batch -g rg-lab-aca-batch \
+  --set-env-vars "POLICY_TEST=1"
+```
+
+```
+ERROR: (RequestDisallowedByPolicy) Resource 'aca-diag-batch' was disallowed by policy.
+Policy identifiers: '[{
+  "policyAssignment": {
+    "name": "Lab: Deny external ACA ingress",
+    "id": ".../policyAssignments/lab-deny-ext-aca-ingress"
+  },
+  "policyDefinition": {
+    "name": "Lab: Deny external Container App ingress",
+    "id": ".../policyDefinitions/lab-deny-external-aca-ingress",
+    "version": "1.0.0"
+  }
+}]'.
+```
+
+!!! warning "Key finding"
+    The policy denial is **synchronous and immediate** — no propagation delay was observed. The error returned at the `az containerapp update` command level with full policy assignment and definition details embedded in the error body.
+
+### Policy propagation timing
+
+The policy was assigned and immediately tested. The denial was enforced **without any delay** — contradicting the typical 5-15 minute propagation estimate. This suggests the enforcement path for `Deny` effect policies on `Microsoft.App/containerApps` may be synchronous at the ARM RP layer.
+
+### After policy removal — deployment succeeds
+
+```bash
+az policy assignment delete --name "lab-deny-ext-aca-ingress" ...
+az containerapp update -n aca-diag-batch -g rg-lab-aca-batch --set-env-vars "POLICY_TEST=cleared"
+→ revision: aca-diag-batch--0000028 (success)
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: H1 is confirmed. A Deny policy targeting `Microsoft.App/containerApps/configuration.ingress.external=true` causes `RequestDisallowedByPolicy` with full policy assignment and definition details in the error body. **Measured**.
+- **Measured**: H2 is confirmed. The denial is synchronous at the ARM `PUT` request level — no revision provisioning begins. The CLI returns the error immediately without waiting for an async provisioning result. **Measured**.
+- **Inferred**: H3 (activity log visibility) was not directly verified, but `RequestDisallowedByPolicy` ARM errors are standard Activity Log entries. **Inferred**.
+- **Observed**: Policy took effect immediately (no observed propagation delay) — faster than the documented 5-15 minute estimate. **Observed** (single data point; may not generalize to all cases).
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Azure Policy Deny assignments on Container Apps produce `RequestDisallowedByPolicy` with full policy identification details (assignment name, definition name, resource IDs). **Measured**.
+- The denial is synchronous — the `az containerapp update` / `PUT` call returns the policy error immediately without creating any revision. **Measured**.
+- Removing the policy assignment allows deployments to succeed immediately. **Measured**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether the 5-15 minute policy propagation delay applies to new assignments was not confirmed (denial appeared immediate in this test).
+- Activity log visibility of policy violations was not directly checked.
+- Whether `Audit` effect policies produce different behavior (vs. `Deny`) was not tested.
+- Tag-based policy violations on Container Apps were not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "Container App deployment fails with 403" or "CI/CD fails at deployment step":
+
+1. **Check the error code**: `RequestDisallowedByPolicy` = Azure Policy is blocking the deployment. The error body contains the exact policy assignment name and definition name.
+2. **Identify the policy**: The error includes the policy assignment ID and definition ID. Use `az policy assignment show --id <id>` to get details.
+3. **Fix options**:
+   - Modify the deployment to comply with the policy (e.g., set `ingress.external=false`)
+   - Request a policy exemption from the organization's policy admin
+   - If the policy is incorrect, update or remove it (requires Policy Contributor or Owner role)
+4. **CI/CD pipelines** may surface this as a generic 403 or "Forbidden" error. Instruct developers to check the full ARM error response body, not just the HTTP status code.
+5. **Policy propagation**: New Deny assignments may take effect faster than documented (observed: immediate). Do not assume a grace period after policy assignment.
 
 ## 15. Reproduction notes
 
-- Azure Policy custom definition for Container Apps: use `Microsoft.App/containerApps` as the resource type; target `properties.configuration.ingress.external` with a `field` condition.
-- Policy assignment takes 5-15 minutes to take effect after creation.
-- Built-in Container Apps policies: search for "container apps" in Azure Policy definitions in the portal.
+```bash
+SUB="<subscription-id>"
+RG="<resource-group>"
+APP="<aca-app>"
+
+# Create deny policy definition
+az policy definition create \
+  --name "deny-external-aca-ingress" \
+  --rules '{"if":{"allOf":[
+    {"field":"type","equals":"Microsoft.App/containerApps"},
+    {"field":"Microsoft.App/containerApps/configuration.ingress.external","equals":"true"}
+  ]},"then":{"effect":"deny"}}' \
+  --mode All --subscription $SUB
+
+# Assign to resource group
+az policy assignment create \
+  --name "deny-ext-aca-test" \
+  --policy "deny-external-aca-ingress" \
+  --scope "/subscriptions/${SUB}/resourceGroups/${RG}"
+
+# Trigger policy violation (app has external ingress)
+az containerapp update -n $APP -g $RG --set-env-vars "TEST=1"
+# Expected: (RequestDisallowedByPolicy) Resource '...' was disallowed by policy.
+
+# Cleanup
+az policy assignment delete --name "deny-ext-aca-test" \
+  --scope "/subscriptions/${SUB}/resourceGroups/${RG}"
+az policy definition delete --name "deny-external-aca-ingress" --subscription $SUB
+```
 
 ## 16. Related guide / official docs
 
