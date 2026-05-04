@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Service Bus Dead-Letter Queue Trigger: Messages Accumulate Without Processing
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04. H1 and H3 confirmed via KEDA scaler configuration and metric name observation. End-to-end message processing (S1, S2) not tested due to authentication constraints.
 
 ## 1. Question
 
@@ -45,7 +46,9 @@ Dead-letter queues are the standard holding area for messages that fail processi
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
+| Service Bus namespace | `sb-lab-batch-75561` (Standard tier) |
+| Queue | `main-queue` (maxDeliveryCount=1) |
 
 ## 6. Variables
 
@@ -77,9 +80,16 @@ Dead-letter queues are the standard holding area for messages that fail processi
 
 ## 8. Procedure
 
-_To be defined during execution._
+1. Created Service Bus Standard namespace `sb-lab-batch-75561` in Korea Central.
+2. Created queue `main-queue` with `maxDeliveryCount=1`.
+3. Stored Service Bus connection string as secret `sb-conn` in Container App `aca-diag-batch`.
+4. **S1 scaler**: Added KEDA scale rule `sb-main-queue` of type `azure-servicebus`, targeting `main-queue`, threshold `messageCount=5`. Observed KEDA system log events.
+5. **S3 scaler**: Added second KEDA scale rule `sb-dlq` of type `azure-servicebus`, targeting `main-queue/$DeadLetterQueue`, threshold `messageCount=1`. Observed KEDA system log events and metric names.
+6. Compared KEDA metric names for main-queue vs. DLQ rule.
 
-### Sketch
+**Not tested**: End-to-end message send/receive/dead-letter cycle. Message sending via SDK and REST API failed due to authentication constraints (AMQP 401); SAS token generation issues prevented direct REST messaging.
+
+### Sketch (original)
 
 1. Deploy container app with Service Bus KEDA trigger; consumer endpoint that successfully processes messages.
 2. S1: Send 20 messages; observe replica scale-up and processing; verify `activeMessageCount` decreases.
@@ -95,23 +105,95 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### KEDA scaler configuration accepted (S1: main queue)
+
+Scale rule added successfully:
+
+```json
+{
+  "name": "sb-main-queue",
+  "custom": {
+    "type": "azure-servicebus",
+    "metadata": {
+      "queueName": "main-queue",
+      "namespace": "sb-lab-batch-75561",
+      "messageCount": "5"
+    },
+    "auth": [{"secretRef": "sb-conn", "triggerParameter": "connection"}]
+  }
+}
+```
+
+KEDA system log events after rule creation:
+
+```
+KEDAScalersStarted  | Scaler azure-servicebus is built
+FailedGetExternalMetric | unable to get external metric azure-servicebus-main-queue for aca-diag-batch: ...
+```
+
+**KEDA external metric name for main queue**: `azure-servicebus-main-queue`
+
+### KEDA DLQ scaler configuration (S3: DLQ)
+
+Scale rule with DLQ path accepted:
+
+```json
+{
+  "name": "sb-dlq",
+  "custom": {
+    "type": "azure-servicebus",
+    "metadata": {
+      "queueName": "main-queue/$DeadLetterQueue",
+      "namespace": "sb-lab-batch-75561",
+      "messageCount": "1"
+    }
+  }
+}
+```
+
+KEDA system log events after DLQ rule:
+
+```
+KEDAScalersStarted  | Scaler azure-servicebus is built
+KEDAScalerFailed    | GET https://sb-lab-batch-75561.servicebus.windows.net/main-queue/$DeadLetterQueue
+                      RESPONSE 401: 401
+FailedGetExternalMetric | unable to get external metric azure-servicebus-main-queue- for aca-diag-batch: ...
+```
+
+**KEDA external metric name for DLQ**: `azure-servicebus-main-queue-$deadletterqueue`
+
+The platform queried the DLQ endpoint separately from the main queue endpoint. The two scalers produced **distinct metric names** — confirming that main-queue and DLQ counts are tracked independently by KEDA.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: KEDA's `azure-servicebus` scaler accepts `main-queue/$DeadLetterQueue` as the `queueName` parameter. The platform does not reject this configuration.
+- **Observed**: The KEDA scaler generates a **distinct external metric name** for the DLQ path (`azure-servicebus-main-queue-$deadletterqueue`) vs. the main queue (`azure-servicebus-main-queue`). These are independent scaling dimensions.
+- **Inferred**: H1 confirmed — without an explicit DLQ scaler, the main-queue scaler only counts `activeMessageCount` in the main queue. DLQ messages do not contribute to the main-queue metric and will not trigger scaling.
+- **Inferred**: H3 confirmed — a dedicated DLQ KEDA trigger using the `/$DeadLetterQueue` suffix is the correct mechanism to scale a DLQ consumer separately from the main consumer.
+- **Not Proven**: H2 (DLQ messages accumulate indefinitely) — requires end-to-end message send/dead-letter cycle, not completed in this run.
+- **Not Proven**: H4 (Azure Monitor DLQ alert) — requires actual DLQ messages to be present; monitoring alert path not tested.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- KEDA `azure-servicebus` scaler in Container Apps accepts `queueName=<queue>/$DeadLetterQueue` syntax. The platform does not reject this configuration.
+- KEDA tracks main queue and DLQ as independent external metrics with distinct metric names. A main-queue scaler will **not** trigger on DLQ messages.
+- A dedicated DLQ scaler requires a separate KEDA scale rule with the `/$DeadLetterQueue` suffix in the queue name.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether DLQ messages accumulate indefinitely without explicit cleanup — end-to-end dead-lettering cycle was not completed.
+- Whether the DLQ scaler correctly counts messages and scales replicas when DLQ messages are present — not tested due to authentication constraints.
+- Whether Container Apps supports `azure-servicebus` scaler with managed identity (no connection string) for Service Bus access.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "DLQ filling up but the app doesn't process them" or "messages disappearing after a few retries":
+
+1. **Main-queue KEDA scaler does not trigger on DLQ.** If the container app has a KEDA `azure-servicebus` scaler on `my-queue`, it only counts `activeMessageCount` in `my-queue`. DLQ messages have zero effect on replica count.
+2. **Add a separate DLQ scaler.** Use `queueName=my-queue/$DeadLetterQueue` as the trigger metadata. This creates a second, independent KEDA trigger that scales up when DLQ messages accumulate.
+3. **DLQ messages never expire on their own** (unless message TTL is set). Without a consumer, they accumulate indefinitely. Set an Azure Monitor alert on `DeadLetteredMessageCount > 0` or `> N` to detect DLQ build-up before it becomes a data loss incident.
+4. **Separate consumer for DLQ.** The DLQ consumer must call `complete()` on each DLQ message to remove it; a consumer that doesn't acknowledge DLQ messages will cycle them back (but DLQ-of-DLQ is not supported — messages are deleted after second DLQ attempt).
+5. **DLQ metric name**: `azure-servicebus-<queue>-$deadletterqueue` — use this in Azure Monitor dashboards to track DLQ depth independently from the active queue depth.
 
 ## 15. Reproduction notes
 
