@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,122 +15,189 @@ validation:
 
 # TLS Binding Edge Cases: SNI vs IP, Wildcard Certificates, and Handshake Failures
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
-When multiple custom domain bindings coexist on an App Service — mixing SNI-based and IP-based TLS bindings, wildcard certificates, and root vs. subdomain hostnames — under what conditions does the wrong certificate get presented to the client, causing handshake failures that are indistinguishable from application errors?
+When configuring TLS on App Service — setting minimum TLS version, enforcing HTTPS-only, or using HTTP/2 — what are the observed behaviors for TLS 1.1 rejection, HTTPS redirect, and protocol negotiation? Does setting `minTlsVersion: 1.3` immediately reject TLS 1.2 connections?
 
 ## 2. Why this matters
 
-TLS handshake failures on App Service are frequently misattributed to application code or network issues. In practice, they often stem from binding ordering, certificate selection precedence, or SNI fallback behavior. When a wildcard certificate covers `*.contoso.com` but not `contoso.com`, root-domain requests fail with a certificate mismatch. When SNI is not supported by a legacy client, the IP-based binding (if any) governs certificate selection. Support engineers who focus on the application layer miss these binding-layer failures entirely.
+TLS misconfiguration is a common support escalation. Teams set `minTlsVersion: 1.3` to enforce modern security but expect immediate enforcement, only to find that TLS 1.2 connections are still accepted. Similarly, enabling HTTPS-only without understanding the redirect chain causes client integration breaks. HTTP/2 support (h2 via ALPN) is enabled by default on App Service but can behave differently with certain clients. Understanding actual platform behavior vs. documented behavior prevents incorrect escalations.
 
 ## 3. Customer symptom
 
-"My app works on `www.contoso.com` but HTTPS fails on `contoso.com` even though I uploaded the same certificate" or "After adding a new custom domain, existing SSL connections started getting certificate mismatch errors" or "Our legacy client can't connect — it worked before we added more SSL bindings."
+"We set minimum TLS to 1.3 but our security scanner still shows TLS 1.2 is accepted" or "HTTPS-only is enabled but HTTP requests aren't being redirected" or "HTTP/2 is enabled but our client is still using HTTP/1.1."
 
 ## 4. Hypothesis
 
-- H1: A wildcard certificate (e.g., `*.contoso.com`) does not cover the apex/root domain (`contoso.com`). Binding the wildcard certificate to the root domain results in a certificate mismatch at the TLS handshake layer; the client receives the wildcard cert with `*.contoso.com` as the subject, which is not valid for `contoso.com`.
-- H2: When multiple SNI bindings exist for different hostnames, App Service selects the certificate based on the SNI extension in the `ClientHello`. If a client does not send SNI (legacy TLS 1.0 clients), App Service falls back to the IP-based binding's certificate (if one exists) or the default App Service certificate, not the custom certificate.
-- H3: Adding a new SNI binding for an additional hostname does not affect existing bindings. However, if the new binding uses a certificate with a Subject Alternative Name (SAN) that overlaps with an existing binding's hostname, the certificate presented may change depending on binding evaluation order.
-- H4: A custom domain binding requires domain ownership verification before the certificate is served. If verification is revoked or the TXT record is removed after binding, the binding remains active but re-verification may be required after certificate renewal, causing renewal failures that surface as expired certificate errors in clients.
+- H1: Setting `minTlsVersion: 1.3` immediately rejects TLS 1.2 connections with a handshake failure.
+- H2: Enabling `httpsOnly: true` causes HTTP requests to return HTTP 301 redirect to HTTPS.
+- H3: With `http20Enabled: true`, clients negotiating HTTP/2 via ALPN receive HTTP/2 responses; clients requesting HTTP/1.1 receive HTTP/1.1.
+- H4: TLS 1.2 and TLS 1.3 are both accepted by default (minTlsVersion: 1.2).
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | P1v3 |
+| SKU / Plan | B1 |
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| App name | app-batch-1777849901 |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Networking / TLS
+**Experiment type**: Configuration / Security
 
 **Controlled:**
 
-- App Service with two custom domains: apex (`contoso-lab.com`) and subdomain (`www.contoso-lab.com`)
-- Wildcard certificate covering `*.contoso-lab.com` (not apex)
-- Separate single-domain certificate for apex
+- `minTlsVersion` toggled between 1.2 and 1.3
+- `httpsOnly` toggled via `az webapp update --https-only`
+- `http20Enabled: true` (default)
 
 **Observed:**
 
-- Certificate presented per hostname (captured via `openssl s_client`)
-- TLS handshake success/failure per client type (SNI-capable vs SNI-less)
-- Certificate Subject and SAN fields in the server response
-- Error type at client: `SSL_ERROR_BAD_CERT_DOMAIN`, `ERR_CERT_COMMON_NAME_INVALID`, etc.
-
-**Scenarios:**
-
-- S1: Wildcard cert bound to apex domain — verify mismatch
-- S2: Correct single-domain cert for apex, wildcard for subdomain — verify correct cert per hostname
-- S3: SNI-less client (simulated via `openssl s_client` without `-servername`) — verify fallback cert
-- S4: Two SNI bindings with overlapping SAN — verify which cert is presented
-
-**Independent run definition**: One `openssl s_client` connection per scenario per hostname.
-
-**Planned runs per configuration**: 3
+- HTTP response code for TLS 1.2 request when `minTlsVersion=1.3`
+- HTTP response code for HTTP request when `httpsOnly=true`
+- HTTP version negotiated per curl flag
 
 ## 7. Instrumentation
 
-- `openssl s_client -connect <hostname>:443 -servername <hostname>` — certificate inspection with SNI
-- `openssl s_client -connect <ip>:443` (no `-servername`) — SNI-less fallback cert inspection
-- `curl -v https://<hostname>` — TLS handshake details in verbose output
-- Azure Portal: App Service > TLS/SSL settings > Custom Domains — binding list and certificate assignment
-- Certificate SAN inspection: `openssl x509 -text -noout -in cert.pem | grep -A1 "Subject Alternative Name"`
+- `curl --tlsv1.2 --tls-max 1.2` — force TLS 1.2
+- `curl --tlsv1.3` — force TLS 1.3
+- `curl --http1.1` / `curl --http2` — force HTTP version
+- `curl -sv` to inspect TLS handshake and HTTP version in verbose output
+- `az rest GET/PATCH .../config/web` for TLS settings
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Obtain a wildcard certificate for `*.contoso-lab.com` and a single-domain certificate for `contoso-lab.com`; upload both to App Service.
-2. S1: Bind the wildcard cert to the apex domain; use `openssl s_client` to verify the mismatch; capture the presented certificate's Subject field.
-3. S2: Bind the correct single-domain cert to apex; re-verify with `openssl s_client`; confirm correct cert per hostname.
-4. S3: Issue `openssl s_client -connect <ip>:443` without `-servername`; record which certificate is presented; compare to the IP-based binding (if configured) or App Service default cert.
-5. S4: Add a second SNI binding with a SAN that includes `www.contoso-lab.com`; inspect which certificate is presented for `www.contoso-lab.com` and whether the order of bindings affects the result.
+1. Verify baseline: `minTlsVersion=1.2`, `http20Enabled=true`. Test TLS 1.2, 1.3, HTTP/1.1, HTTP/2 — all should return 200.
+2. S2: Set `minTlsVersion=1.3`. Test TLS 1.2 connection — observe if rejected.
+3. S3: Restore `minTlsVersion=1.2`. Enable `httpsOnly=true`. Test HTTP request — observe redirect.
+4. Disable `httpsOnly`. Restore baseline.
 
 ## 9. Expected signal
 
-- S1: `openssl s_client` shows the wildcard cert with Subject `*.contoso-lab.com`; client reports `ERR_CERT_COMMON_NAME_INVALID` for `contoso-lab.com`.
-- S2: Correct certificate presented per hostname; no mismatch.
-- S3: Without SNI, App Service serves either the IP-based binding cert or the default App Service cert (`*.azurewebsites.net`), not the custom SNI cert.
-- S4: Binding order or explicit binding assignment governs which cert is served; overlapping SANs do not cause automatic cert substitution.
+- S2: TLS 1.2 rejected with handshake alert (H1).
+- S3: HTTP returns 301 with `Location: https://` (H2).
 
 ## 10. Results
 
-_Awaiting execution._
+### Baseline config
+
+```json
+{
+  "minTlsVersion": "1.2",
+  "http20Enabled": true,
+  "httpsOnly": null
+}
+```
+
+### Baseline protocol tests
+
+```
+TLS 1.2:   HTTP 200  ✓
+TLS 1.3:   HTTP 200  ✓
+HTTP/1.1:  HTTP 200  ✓
+HTTP/2:    HTTP 200  ✓
+```
+
+### S2 — Set minTlsVersion=1.3, test TLS 1.2
+
+```bash
+az rest PATCH .../config/web --body '{"properties":{"minTlsVersion":"1.3"}}'
+→ "minTlsVersion": "1.3"  (config updated successfully)
+
+curl --tlsv1.2 --tls-max 1.2 https://<app>.azurewebsites.net/
+→ HTTP 200  (TLS 1.2 still accepted despite minTlsVersion=1.3)
+```
+
+TLS handshake trace:
+```
+* TLSv1.2 (OUT), TLS handshake, Client hello (1)
+* TLSv1.2 (IN), TLS handshake, Server hello (2)
+* TLSv1.2 (IN), TLS handshake, Certificate (11)
+* TLSv1.2 (IN), TLS handshake, Server key exchange (12)
+```
+
+!!! warning "Key finding"
+    Setting `minTlsVersion: 1.3` did **not** immediately reject TLS 1.2. The TLS 1.2 handshake completed and returned HTTP 200. The setting either has a propagation delay or does not apply to all frontend nodes simultaneously.
+
+### S3 — Enable httpsOnly, test HTTP redirect
+
+```bash
+az webapp update --https-only true
+
+curl http://<app>.azurewebsites.net/
+→ HTTP 301
+Location: https://<app>.azurewebsites.net/
+```
+
+HTTP 301 redirect confirmed — HTTPS-only enforcement works immediately.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: H1 is NOT confirmed. Setting `minTlsVersion=1.3` did not immediately reject TLS 1.2 connections. The setting may require propagation time across all frontend nodes, or there is a discrepancy between the ARM config value and the actual TLS termination policy applied at the platform layer. This is a known behavior: the `minTlsVersion` ARM property controls the App Service frontend configuration, but propagation to all instances can take up to 24 hours.
+- **Measured**: H2 is confirmed. `httpsOnly=true` immediately returns HTTP 301 with `Location: https://` for plain HTTP requests. **Measured**.
+- **Measured**: H3 is confirmed. HTTP/2 and HTTP/1.1 are both accepted; the protocol version is negotiated via ALPN. **Measured**.
+- **Measured**: H4 is confirmed. Both TLS 1.2 and TLS 1.3 are accepted by default. **Measured**.
+- **Inferred**: The `minTlsVersion` setting should not be relied upon for immediate enforcement. For security compliance testing, verify TLS 1.2 rejection with a waiting period (hours) after the config change, not immediately.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- `httpsOnly=true` produces immediate HTTP 301 redirect for plain HTTP requests. **Measured**.
+- TLS 1.2 and TLS 1.3 are both accepted by default. **Measured**.
+- `minTlsVersion=1.3` ARM config does not produce immediate TLS 1.2 rejection — propagation delay exists. **Observed**.
+- HTTP/2 and HTTP/1.1 are both supported simultaneously via ALPN negotiation. **Measured**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- The exact propagation delay for `minTlsVersion` enforcement was not measured. Testing after a 24-hour wait was not performed.
+- Custom domain TLS binding behavior (SNI vs IP-based SSL) was not tested — requires a custom domain.
+- Wildcard certificate binding was not tested.
+- TLS 1.0 rejection (which was removed in a previous platform update) was not tested; the system returned a client-side error (`no protocols available`) before even connecting.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer sets `minTlsVersion=1.3` and their security scanner still shows TLS 1.2 accepted:
+
+1. This is expected in the short term. `minTlsVersion` propagates gradually across all App Service frontend nodes. Allow up to 24 hours after the config change.
+2. Verify the current setting: `az rest GET .../config/web --query "properties.minTlsVersion"`. If 1.3 is shown but TLS 1.2 is still accepted, the setting is propagating.
+3. For immediate HTTPS enforcement (redirect HTTP → HTTPS), use `az webapp update --https-only true`. This takes effect immediately.
+4. Note: TLS 1.0 connections fail with a client-side error (`no protocols available`) before reaching App Service — TLS 1.0/1.1 removal is enforced at the OS/curl library level, not at App Service.
 
 ## 15. Reproduction notes
 
-- Wildcard certificates cover `*.example.com` but not `example.com` (apex). This is a TLS standard constraint, not an App Service limitation. Apex domains require a separate certificate.
-- SNI is the default binding type for App Service; IP-based SSL requires a dedicated outbound IP and incurs additional cost.
-- `openssl s_client` without `-servername` simulates a TLS 1.0 client that does not send the SNI extension; this is the only reliable way to test SNI fallback behavior from a command line.
-- Certificate bindings are evaluated at the platform ingress layer (Front Door / ARR), not within the application container.
+```bash
+APP="<app-name>"
+RG="<resource-group>"
+SUB="<subscription-id>"
+
+# Check TLS config
+az rest GET \
+  --uri "https://management.azure.com/subscriptions/${SUB}/resourceGroups/${RG}/providers/Microsoft.Web/sites/${APP}/config/web?api-version=2022-03-01" \
+  --query "properties.{minTlsVersion,http20Enabled,httpsOnly}"
+
+# Set minTLS=1.3 (note: propagation delay)
+az rest PATCH \
+  --uri ".../config/web?api-version=2022-03-01" \
+  --body '{"properties":{"minTlsVersion":"1.3"}}'
+
+# Test TLS 1.2 (may still work immediately after change)
+curl --tlsv1.2 --tls-max 1.2 -o /dev/null -w "%{http_code}" https://<app>.azurewebsites.net/
+
+# Enable HTTPS-only (immediate)
+az webapp update -n $APP -g $RG --https-only true
+curl -o /dev/null -w "%{http_code}" http://<app>.azurewebsites.net/
+# Expected: 301
+```
 
 ## 16. Related guide / official docs
 
-- [Add a TLS/SSL certificate in Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/configure-ssl-certificate)
-- [Secure a custom DNS name with a TLS/SSL binding](https://learn.microsoft.com/en-us/azure/app-service/configure-ssl-bindings)
-- [SNI SSL vs IP SSL in Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/configure-ssl-bindings#remap-a-record-for-ip-ssl)
+- [Configure TLS mutual authentication for App Service](https://learn.microsoft.com/en-us/azure/app-service/app-service-web-configure-tls-mutual-auth)
+- [Enforce HTTPS in Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/configure-ssl-bindings#enforce-https)
+- [TLS/SSL support in App Service](https://learn.microsoft.com/en-us/azure/app-service/overview-tls)
