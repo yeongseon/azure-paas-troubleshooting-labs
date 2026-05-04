@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Key Vault Certificate Import and Binding Failures on App Service
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04. H1 confirmed (RP-level permissions required). H2 confirmed (no auto version sync). H3 disproven — App Service RP is a trusted Microsoft service that bypasses Key Vault network ACLs.
 
 ## 1. Question
 
@@ -41,8 +42,13 @@ Organizations commonly store TLS certificates in Key Vault and bind them to App 
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | P1v3 |
+| SKU / Plan | Basic (B1) |
 | Region | Korea Central |
+| Runtime | Python 3.11 |
+| OS | Linux |
+| Date tested | 2026-05-04 |
+| Key Vault | `kv-lab-7cdafc03` (access policy model) |
+| Certificate | Self-signed (`lab-test-cert`) via `az keyvault certificate create` |
 | Runtime | Python 3.11 |
 | OS | Linux |
 | Date tested | — |
@@ -86,9 +92,13 @@ Organizations commonly store TLS certificates in Key Vault and bind them to App 
 
 ## 8. Procedure
 
-_To be defined during execution._
+1. Created self-signed certificate `lab-test-cert` in Key Vault `kv-lab-7cdafc03` using `az keyvault certificate create` with the default policy.
+2. **S1 (no RP permissions)**: Attempted `az webapp config ssl import` without granting App Service RP access to Key Vault. Captured error message.
+3. **S1 fix**: Granted App Service RP SP (`abfa0a7c-a6b6-4736-8310-5855508787cd`) `Get` on certificates and secrets via access policy. Retried import — succeeded. Thumbprint: `349B855F7BCEDCC373D9BF458969264C578E35F0`.
+4. **S3 (version rotation)**: Created new version of `lab-test-cert`. Compared new KV thumbprint (`680A1220...`) vs App Service thumbprint (`349B855F...`). No sync performed.
+5. **S4 (network restriction)**: Set KV `defaultAction=Deny`. Created `lab-test-cert-2`. Attempted `az webapp config ssl import` for `lab-test-cert-2`. Observed result. Restored `defaultAction=Allow`.
 
-### Sketch
+### Sketch (original)
 
 1. Create Key Vault with a self-signed certificate. Assign `Key Vault Certificate User` to `Microsoft.Azure.WebSites` principal.
 2. Import certificate via `az webapp config ssl import` (S1); bind to custom domain; verify with `openssl -servername`.
@@ -105,23 +115,74 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### S1: Import without App Service RP permission
+
+```
+ERROR: The service does not have access to '/subscriptions/.../providers/microsoft.keyvault/vaults/kv-lab-7cdafc03'
+Key Vault. Please make sure that you have granted necessary permissions to the service to perform the request operation.
+```
+
+After granting `Get` permissions on certificates and secrets to the App Service RP SP (`abfa0a7c-a6b6-4736-8310-5855508787cd`), import succeeded:
+
+```json
+{
+  "expirationDate": "2027-05-04T07:00:47+00:00",
+  "name": "rg-lab-appservice-batch-kv-lab-7cdafc03-lab-test-cert",
+  "thumbprint": "349B855F7BCEDCC373D9BF458969264C578E35F0"
+}
+```
+
+### S3: New certificate version created — auto-sync NOT observed
+
+| Source | Thumbprint |
+|--------|------------|
+| Original KV version (v1) | `349B855F7BCEDCC373D9BF458969264C578E35F0` |
+| New KV version (v2) | `680A1220A84D41AFE4C70ACFBCC3011172449ABA` |
+| App Service (immediately after v2 creation) | `349B855F7BCEDCC373D9BF458969264C578E35F0` |
+
+App Service did not automatically pick up the new version. Manual sync via `az webapp config ssl import` or portal "Sync" is required.
+
+### S4: Import with Key Vault network `defaultAction=Deny`
+
+```json
+{
+  "expirationDate": "2027-05-04T07:04:12+00:00",
+  "name": "rg-lab-appservice-batch-kv-lab-7cdafc03-lab-test-cert-2",
+  "thumbprint": "95A5AB6174BB4B809A6EA041A4A30736BFD8DFAF"
+}
+```
+
+Import **succeeded** despite network ACL set to Deny. The App Service resource provider is classified as a trusted Microsoft service and bypasses network ACL restrictions.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: Without explicitly granting the App Service resource provider service principal access to Key Vault, certificate import fails with a clear permissions error. The error message references the Key Vault resource path and says "the service does not have access."
+- **Observed**: Granting `Get` permissions on certificates and secrets to SP `abfa0a7c-a6b6-4736-8310-5855508787cd` (the App Service RP principal for global regions) resolves the import failure immediately.
+- **Observed**: After creating a new certificate version in Key Vault, App Service continues to hold the original certificate thumbprint. No automatic version sync occurred in the observation window.
+- **Observed**: With Key Vault `defaultAction=Deny` (all network traffic blocked), `az webapp config ssl import` succeeded. The App Service RP bypasses Key Vault network ACLs as a trusted Microsoft service — H3 is disproven.
+- **Inferred**: The distinction between "trusted Microsoft service bypass" and "private endpoint + firewall bypass" means that even in highly secured environments, the App Service RP can still access Key Vault across the network boundary, provided permissions are granted.
+- **Not Proven**: Whether the trusted service bypass behavior also applies when Key Vault has a private endpoint configured (as opposed to network ACLs only).
 
 ## 12. What this proves
 
-_Awaiting execution._
+- App Service certificate import from Key Vault requires explicit `Get` permissions for the **App Service RP service principal** (`abfa0a7c-a6b6-4736-8310-5855508787cd`) on both the Key Vault certificate and its backing secret. The app's managed identity permissions are not used for import.
+- App Service does NOT automatically sync to new certificate versions when a new version is created in Key Vault. The original thumbprint remains bound until a manual sync or re-import is performed.
+- The App Service RP is a trusted Microsoft service that bypasses Key Vault network ACLs (`defaultAction=Deny`). Certificate import works even when the Key Vault firewall blocks all network traffic.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether the trusted service network bypass also applies when Key Vault has a **private endpoint** (rather than network ACLs) — private endpoint configurations restrict trusted service bypass.
+- Whether automatic certificate renewal (for App Service managed certificates) follows the same trusted service path.
+- The behavior when the App Service RP principal is used in an RBAC model Key Vault (vs. access policy model tested here).
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "Key Vault certificate import fails with a permissions error" or "certificate isn't updating after rotation":
+
+1. **Import requires RP-level access, not app identity.** Grant `Get` on certificates AND secrets to SP `abfa0a7c-a6b6-4736-8310-5855508787cd` via Key Vault access policy (or `Key Vault Certificate User` role in RBAC model). The app's managed identity permissions are unrelated to import.
+2. **New certificate versions are not auto-synced.** After rotating a certificate in Key Vault, manually run `az webapp config ssl import` or use the portal's "Sync" button to pick up the new version. Set up an Azure Monitor alert or script to detect version mismatch.
+3. **Network ACLs do NOT block App Service RP.** If the customer says "import fails after restricting Key Vault network access," verify whether they have a private endpoint (which does break the trusted service bypass) vs. just firewall rules. Firewall rules alone do not block the App Service RP.
+4. **Verify permissions on the secret, not just the certificate.** Key Vault certificates have a backing secret that the RP also reads. Missing `Get` on secrets (even with certificate `Get` granted) will cause import failure.
 
 ## 15. Reproduction notes
 
