@@ -86,6 +86,20 @@ Container restart behavior on configuration changes. Tests which configuration c
 !!! info "Status: Draft - Awaiting Execution"
     Designed based on Oracle recommendations. Awaiting execution.
 
+### [VNet DNS Server Priority](vnet-dns-server-priority/overview.md) — **Draft**
+
+DNS resolution priority when both custom DNS servers and Azure DNS Private Zones are configured on the same VNet. Tests resolution order, fallback behavior when the custom DNS server is unreachable, and whether Azure DNS Private Zones are queried before or after custom servers.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Addresses a common misconfiguration: custom DNS server blocks Azure-internal name resolution.
+
+### [Managed Identity Federated Credential](managed-identity-federated-credential/overview.md) — **Draft**
+
+Federated credential token exchange behavior for workload identity federation. Tests OIDC issuer validation, subject claim mismatch failures, and token exchange latency compared to standard managed identity token acquisition.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Relevant for GitHub Actions and Kubernetes workloads authenticating to Azure via federated credentials.
+
 ## Related Experiments
 
 These service-specific experiments touch on cross-cutting concerns:

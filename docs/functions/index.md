@@ -73,6 +73,8 @@ graph TB
 | [Flex Consumption Storage](flex-consumption-storage/overview.md) | Planned | Storage identity misconfiguration edge cases |
 | [Cold Start](cold-start/overview.md) | Draft | Dependency initialization and cold start duration breakdown |
 | [Dependency Visibility](dependency-visibility/overview.md) | Planned | Outbound dependency observability limits |
+| [Timer Trigger Overlap](timer-trigger-overlap/overview.md) | **Draft** | Singleton lease, overlap prevention, schedule recovery behavior |
+| [Isolated Worker Startup](isolated-worker-startup/overview.md) | **Draft** | Host-worker gRPC handshake; slow startup and ImportError failures |
 
 !!! info "No experiments executed yet"
     Functions experiments are designed but have not yet been executed against real Azure environments. Execution is planned after completing the current App Service and Container Apps experiment backlog.
@@ -106,6 +108,34 @@ Dependency initialization impact on cold start duration. Breaks down the relativ
 ### [Dependency Visibility](dependency-visibility/overview.md)
 
 Limitations of observing outbound dependency calls through Application Insights and platform telemetry. Tests what is visible, what is missing, and where correlation breaks down in distributed tracing scenarios.
+
+### [Timer Trigger Overlap](timer-trigger-overlap/overview.md) — *Draft*
+
+Distributed singleton lease behavior preventing timer trigger overlap. Tests overlap conditions when function execution exceeds the schedule interval, `RunOnStartup` behavior on every host restart, and schedule recovery after a cold period.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Documents the timer singleton mechanism and common misconceptions (RunOnStartup, duplicate execution on scale-out).
+
+### [Isolated Worker Startup](isolated-worker-startup/overview.md) — *Draft*
+
+Startup and failure modes specific to the isolated worker model (Python, .NET 8+). Investigates the host-to-worker gRPC handshake, timeout behavior for slow startup, ImportError isolation across functions, and KV reference access timing.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Addresses failure modes that don't exist in the in-process model and are hard to diagnose from host-side logs alone.
+
+### [Queue Trigger Parallelism](queue-trigger-parallelism/overview.md) — *Draft*
+
+Concurrency and parallelism behavior of Queue-triggered Azure Functions. Tests `batchSize` vs `newBatchThreshold` interaction, per-instance message claim limits, and what happens to in-flight messages when scale-in occurs mid-execution.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Addresses a frequent support question: why queue processing stalls even when messages are visible.
+
+### [Binding Expression Failures](binding-expression-failures/overview.md) — *Draft*
+
+Runtime failure modes when Functions binding expressions resolve to invalid values. Tests empty or null output binding targets, input binding resolution failure (non-existent blob, missing queue), and how binding failures differ from function code exceptions in logs and retry behavior.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Documents binding failure signals that are distinct from application exceptions and easy to misdiagnose.
 
 ## Related Experiments in Other Services
 

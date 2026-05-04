@@ -98,6 +98,11 @@ graph TB
 | [Multi-Revision Traffic Split](multi-revision-traffic-split/overview.md) | **Published** | Unhealthy revision behavior in percentage-based traffic splitting |
 | [Probe Protocol Semantics](probe-protocol-semantics/overview.md) | **Published** | HTTP vs TCP probe failure detection differences |
 | [Worker Saturation vs Liveness](worker-saturation-liveness/overview.md) | **Published** | Single-worker thread saturation causing liveness probe timeout |
+| [HTTP/2 gRPC Timeout](http2-grpc-timeout/overview.md) | **Draft** | Envoy idle timeout on gRPC streams; heartbeat mitigation |
+| [Secret Volume Mount](secret-volume-mount/overview.md) | **Draft** | Volume-mounted secrets do not auto-refresh; new revision required |
+| [Replica Restart Loop](replica-restart-loop/overview.md) | **Draft** | Crash loop backoff; OOMKill vs probe failure restart patterns |
+| [Bicep Revision Suffix Collision](bicep-revision-suffix-collision/overview.md) | **Draft** | Static revisionSuffix no-op re-deployments in CI/CD pipelines |
+| [Dapr Component Scoping](dapr-component-scoping/overview.md) | **Draft** | Component scope enforcement and bypass vectors |
 
 ## Published Experiments
 
@@ -218,6 +223,64 @@ Single-worker thread saturation causing liveness probe timeout and container res
 
 ??? success "Experiment Complete"
     Completed 2026-04-13 on Consumption tier (koreacentral). A 60s blocking request on a 1-worker/1-thread gunicorn app caused readiness failure at T+24s, liveness failure at T+40s, and container termination. App auto-recovered after restart.
+
+## Draft Experiments
+
+### [HTTP/2 gRPC Timeout](http2-grpc-timeout/overview.md) — **Draft**
+
+How Envoy ingress handles long-lived HTTP/2 streams for gRPC. Tests idle timeout behavior on server-streaming and bidirectional gRPC RPCs, heartbeat prevention of timeout, and gRPC health probe HTTP/2 requirements.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Addresses a common Container Apps gRPC streaming failure mode: streams terminated at exactly the ingress timeout.
+
+### [Secret Volume Mount](secret-volume-mount/overview.md) — **Draft**
+
+Whether volume-mounted Container Apps secrets auto-refresh when the secret value is updated. Tests plain text secrets, Key Vault references, and compares volume mount vs. environment variable refresh behavior.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Important for customers expecting zero-downtime secret rotation via volume mounts.
+
+### [Replica Restart Loop](replica-restart-loop/overview.md) — **Draft**
+
+Crash loop backoff timing and detection. Tests exponential backoff patterns for immediate crashes vs. delayed crashes, OOMKill vs. probe failure restart patterns, and whether a new revision clears the backoff delay.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Critical for diagnosing why a "fixed" crash loop doesn't recover immediately.
+
+### [Bicep Revision Suffix Collision](bicep-revision-suffix-collision/overview.md) — **Draft**
+
+Idempotency behavior when Bicep deployments use static `revisionSuffix` values. Tests no-op re-deployments, concurrent pipeline collisions, and the `utcNow()` workaround for forcing revision creation.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Documents the most common CI/CD deployment anti-pattern for Container Apps.
+
+### [Dapr Component Scoping](dapr-component-scoping/overview.md) — **Draft**
+
+Dapr component scope enforcement in shared environments. Tests whether out-of-scope apps are blocked at the Dapr sidecar level, whether direct Azure SDK access bypasses scoping, and how dynamic scope updates propagate.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Important for multi-team environments sharing a Container Apps environment.
+
+### [Job Retry Semantics](job-retry-semantics/overview.md) — **Draft**
+
+Container Apps Job retry behavior when executions fail. Tests retry count enforcement, backoff behavior, exit code interpretation (retry-eligible vs. permanent failure), and whether retries create new replicas or reuse existing ones.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Addresses common misconceptions about job retry behavior and exit code semantics.
+
+### [Env Variable Injection Order](env-injection-order/overview.md) — **Draft**
+
+Precedence and override behavior when environment variables are set at multiple levels in Container Apps. Tests ARM app-settings vs. Dapr component env, secret reference vs. plain value for same key, and revision-level vs. environment-level variable scoping.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Documents the variable injection order which differs from App Service behavior.
+
+### [Ingress CORS Preflight](ingress-cors-preflight/overview.md) — **Draft**
+
+How Container Apps ingress handles CORS preflight (OPTIONS) requests. Tests whether ingress terminates OPTIONS requests before they reach the container, whether ingress injects CORS headers, and how custom CORS headers interact with ingress-level behavior.
+
+!!! info "Status: Draft - Awaiting Execution"
+    A common source of confusion: CORS errors that disappear when ingress is removed from the path.
 
 ## Related Experiments in Other Services
 

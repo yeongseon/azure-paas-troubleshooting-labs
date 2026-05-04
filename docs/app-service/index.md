@@ -74,6 +74,11 @@ graph TB
 | [Zip Deploy vs Container](zip-vs-container/overview.md) | **Published** | Deployment method behavioral differences |
 | [Slot Swap Warmup](slot-swap-warmup/overview.md) | **Draft** | In-flight request handling during slot swap warmup |
 | [Access Restrictions SCM](access-restrictions-scm/overview.md) | **Draft** | Access restriction behavior on SCM site |
+| [Deployment Slot Cold Start](deployment-slots-cold-start/overview.md) | **Draft** | Post-swap cold-start when warming fails; ARR affinity uneven warming |
+| [Environment Variable Limits](environment-variable-limits/overview.md) | **Draft** | App setting count/size limits; KV reference fallback behavior |
+| [Connection Timeout Cascade](connection-timeout-cascade/overview.md) | **Draft** | Thread pool saturation from slow dependencies; recovery lag |
+| [Log Stream Reliability](log-stream-reliability/overview.md) | **Draft** | Log Stream buffer limits; Log Stream vs. App Insights tradeoff |
+| [Container Registry Auth Expiry](container-registry-auth-expiry/overview.md) | **Draft** | Registry credential rotation impact on running vs. restarting containers |
 
 ## Published Experiments
 
@@ -147,6 +152,62 @@ Behavior of access restrictions on the SCM (Kudu) site. Tests whether main site 
 
 !!! info "Status: Draft - Awaiting Execution"
     Designed based on Oracle recommendations. Awaiting execution.
+
+### [Deployment Slot Cold Start](deployment-slots-cold-start/overview.md) — **Draft**
+
+Post-swap cold-start latency when the warming phase fails or is incomplete. Investigates ARR affinity uneven warming across instances, Always On interaction with swap timing, and how `applicationInitialization` routes affect first-request latency.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Designed to characterize the post-swap cold-start window that customers frequently report.
+
+### [Environment Variable Limits](environment-variable-limits/overview.md) — **Draft**
+
+App setting count and value size limits enforced by the ARM API. Tests Key Vault reference fallback behavior (literal reference string vs. empty value on resolution failure) and whether violations cause silent truncation or explicit errors.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Important for diagnosing "setting change not reflected" cases and KV reference failures.
+
+### [Connection Timeout Cascade](connection-timeout-cascade/overview.md) — **Draft**
+
+Thread pool saturation pattern caused by slow or unavailable outbound dependencies. Characterizes the recovery lag after dependency recovery and the diagnostic signature (low CPU, high 5xx rate).
+
+!!! info "Status: Draft - Awaiting Execution"
+    Documents the most common cascading failure pattern in multi-tier App Service applications.
+
+### [Log Stream Reliability](log-stream-reliability/overview.md) — **Draft**
+
+Log Stream message drop behavior under high log volume. Compares Log Stream latency and completeness against Application Insights. Tests file log vs. stdout capture and disconnect behavior on instance restart.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Clarifies the appropriate use of Log Stream vs. Application Insights during live incidents.
+
+### [Container Registry Auth Expiry](container-registry-auth-expiry/overview.md) — **Draft**
+
+Impact of container registry credential rotation on running App Service containers vs. containers that need to restart. Tests admin credentials, service principal secrets, and managed identity RBAC removal scenarios.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Addresses a common support pattern: app works fine until a restart after credential rotation.
+
+### [Windows vs Linux Behavioral Diff](windows-linux-behavioral-diff/overview.md) — **Draft**
+
+Side-by-side behavioral differences between Windows and Linux hosting in App Service for the same application code. Tests path separator handling, environment variable casing, signal handling, and procfs availability differences.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Documents behavioral gaps that surface when customers migrate workloads between OS tiers.
+
+### [WebSocket Connection Limits](websocket-connection-limits/overview.md) — **Draft**
+
+WebSocket connection limit behavior at the ARR (Application Request Routing) layer. Tests per-instance connection caps, idle timeout disconnection, ARR affinity interaction with WebSocket sessions, and instance count impact on total connection headroom.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Addresses a common support pattern: WebSocket apps fail under scale without obvious CPU or memory pressure.
+
+### [Managed Identity Scope Mismatch](managed-identity-scope-mismatch/overview.md) — **Draft**
+
+Token acquisition failure when managed identity is used with incorrect resource scope or wrong identity type. Tests system-assigned vs user-assigned identity selection, wrong scope in token requests, and cross-tenant access failures.
+
+!!! info "Status: Draft - Awaiting Execution"
+    Documents the most common managed identity misconfiguration pattern in App Service deployments.
 
 ## Related Experiments in Other Services
 
