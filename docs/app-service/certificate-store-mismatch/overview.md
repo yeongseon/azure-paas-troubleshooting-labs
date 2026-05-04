@@ -15,7 +15,8 @@ validation:
 
 # Certificate Store Mismatch: User vs. LocalMachine Store on Windows
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Windows App Service plan required. All lab plans are Linux.
 
 ## 1. Question
 

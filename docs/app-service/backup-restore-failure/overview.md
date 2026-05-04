@@ -15,7 +15,8 @@ validation:
 
 # Backup and Restore: Partial Restore and Database Mismatch
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: PremiumV3 plan + PostgreSQL Flexible Server required. Current plan is S1 Standard.
 
 ## 1. Question
 

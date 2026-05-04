@@ -15,7 +15,8 @@ validation:
 
 # NSG Outbound Block: Silent Connectivity Failure to External Services
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: VNet Integration required. No VNet available.
 
 ## 1. Question
 

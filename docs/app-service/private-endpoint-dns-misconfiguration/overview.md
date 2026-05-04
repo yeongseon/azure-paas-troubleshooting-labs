@@ -15,7 +15,8 @@ validation:
 
 # Private Endpoint DNS Misconfiguration: Missing or Wrong Zone Link
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Private Endpoint + custom DNS VM required. VNet not provisioned.
 
 ## 1. Question
 

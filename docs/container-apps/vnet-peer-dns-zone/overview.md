@@ -15,7 +15,8 @@ validation:
 
 # VNet Peer Private DNS Zone Not Visible from Container Apps Environment
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: VNet peering + private DNS zone required.
 
 ## 1. Question
 

@@ -15,7 +15,8 @@ validation:
 
 # Application Gateway URL Rewrite Breaking App-Internal Redirects
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Application Gateway WAF_v2 SKU required. Cost constraint prevents provisioning in this subscription.
 
 ## 1. Question
 

@@ -15,7 +15,8 @@ validation:
 
 # Hybrid Connections vs VNet Integration: Outbound Connectivity Behavioral Differences
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: VNet Integration required. No VNet with P2S gateway available in the subscription.
 
 ## 1. Question
 

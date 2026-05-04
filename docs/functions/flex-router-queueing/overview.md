@@ -15,7 +15,8 @@ validation:
 
 # Flex Consumption Router Queueing Before Invocation
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Flex Consumption plan creation blocked by Azure Policy.
 
 ## 1. Question
 

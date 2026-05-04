@@ -15,7 +15,8 @@ validation:
 
 # UDR Asymmetric Routing: Return Traffic Dropped When Egress Controlled by UDR
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Custom VNet with UDR and NVA required.
 
 ## 1. Question
 

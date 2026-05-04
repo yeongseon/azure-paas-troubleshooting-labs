@@ -15,7 +15,8 @@ validation:
 
 # ACR Geo-Replication Lag: Stale Image Pulled from Remote Replica
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: ACR Premium SKU with geo-replication required. Current ACR is Standard.
 
 ## 1. Question
 

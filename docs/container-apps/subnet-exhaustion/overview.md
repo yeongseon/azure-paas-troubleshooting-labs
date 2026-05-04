@@ -15,7 +15,8 @@ validation:
 
 # Environment Subnet IP Exhaustion: Impact on New Replica Provisioning
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Custom VNet with small subnet required. No VNet provisioned.
 
 ## 1. Question
 

@@ -15,7 +15,8 @@ validation:
 
 # HTTP Concurrency Cliffs on Flex Consumption
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Flex Consumption plan creation blocked by Azure Policy.
 
 ## 1. Question
 

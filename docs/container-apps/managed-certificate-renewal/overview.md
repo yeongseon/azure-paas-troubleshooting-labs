@@ -15,7 +15,8 @@ validation:
 
 # Managed Certificate Renewal Failure on Custom Domain
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Custom domain DNS record required. No custom domain available in this lab.
 
 ## 1. Question
 

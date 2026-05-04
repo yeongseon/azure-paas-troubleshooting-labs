@@ -15,7 +15,8 @@ validation:
 
 # Flex Consumption Site Update Strategy and In-Flight Behavior
 
-!!! info "Status: Planned"
+!!! warning "Status: Draft - Blocked"
+    Execution blocked: Flex Consumption plan creation blocked by Azure Policy.
 
 ## 1. Question
 
