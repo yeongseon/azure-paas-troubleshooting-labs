@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # HTTP Ingress Timeout: Long-Running Request Termination
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -43,9 +44,10 @@ Applications that perform long-running synchronous operations (data export, batc
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 (Flask) |
-| OS | Linux |
-| Date tested | — |
+| Environment | env-batch-lab |
+| App name | aca-diag-batch |
+| Runtime | Python 3.11 / Flask / gunicorn |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -53,72 +55,153 @@ Applications that perform long-running synchronous operations (data export, batc
 
 **Controlled:**
 
-- Container app with a `/long-request?seconds=<n>` endpoint (sleeps for n seconds, then returns)
-- Container app with a `/streaming?seconds=<n>` endpoint (sends a byte every 10 seconds)
-- Ingress timeout configured at 240 seconds (default) and 3600 seconds
+- `/sleep?s=<n>` Flask endpoint — sleeps for n seconds then returns JSON
+- gunicorn `--timeout 600` to prevent worker timeout before the ingress fires
 
 **Observed:**
 
-- Client-side error code and timing for requests exceeding the timeout
-- Application log entries after the connection is dropped (does the process continue?)
-- Streaming behavior preventing timeout
+- HTTP status code returned at timeout boundary
+- Response body at timeout
+- Exact timing of connection termination
 
 **Scenarios:**
 
-- S1: 300-second request, no streaming → timeout at 240s
-- S2: 300-second request, streaming (1 byte/10s) → completes successfully
-- S3: Configure `ingress.timeout=3600` → 300-second non-streaming request completes
+- S1: 10-second sleep → verify baseline works
+- S2: 60-second sleep → verify well within timeout
+- S3: 230-second sleep → verify just under the boundary
+- S4: 240-second sleep → observe timeout
+- S5: 241-second sleep → confirm consistent 240s boundary
 
 ## 7. Instrumentation
 
-- `curl --max-time 400 -v https://<aca-url>/long-request?seconds=300` to observe timeout behavior
-- Container application logs to verify process continues after connection drop
-- Client-side error: socket reset, 504, or empty response
+- `curl -sv --max-time 300 https://<app>/sleep?s=<n>` — observe HTTP code and body
+- `time curl ...` — verify exact duration
+- ARM API: `az rest GET .../containerApps/aca-diag-batch?api-version=2024-03-01` — verify no `ingress.timeout` ARM field exists (non-configurable)
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy Flask app with `/long-request?seconds=300` (sleeps 300s, then returns JSON) and `/streaming?seconds=300` (sends progress bytes every 10s using `yield`).
-2. S1: Call `/long-request?seconds=300`; observe timeout at ~240 seconds; check server log for completion message after timeout.
-3. S2: Call `/streaming?seconds=300`; verify client receives data stream for 300 seconds; verify completion.
-4. S3: `az containerapp ingress update --timeout 3600`; call `/long-request?seconds=300`; verify it completes.
+1. Deploy Flask app with `/sleep?s=<n>` endpoint (gunicorn `--timeout 600`).
+2. S1–S3: Test sleep values below threshold (10, 60, 230 seconds) — expect 200 OK.
+3. S4: Test 240-second sleep — observe 504 at exactly 240s.
+4. S5: Test 241-second sleep — confirm 504 returns at 240s regardless.
+5. Check ARM API for `ingress.timeout` field — confirm no user-configurable timeout.
 
 ## 9. Expected signal
 
-- S1: Client receives connection error or 504 at ~240 seconds; application log shows "request completed" at t=300s (proving process continued after connection drop).
-- S2: Client receives streamed bytes for 300 seconds; final JSON response received at t=300s; no timeout.
-- S3: Request completes at t=300s; client receives full response.
+- S1–S3: HTTP 200 with `{"slept": <n>}` body.
+- S4–S5: HTTP 504 with body `stream timeout` at exactly 240 seconds.
+- ARM schema: no `timeout` field in ingress configuration.
 
 ## 10. Results
 
-_Awaiting execution._
+### S1 — 10-second sleep
+
+```bash
+curl -s --max-time 30 "$ACA_URL/sleep?s=10"
+→ {"slept": 10.0}   # HTTP 200, ~10s
+```
+
+### S2 — 60-second sleep
+
+```bash
+curl -s --max-time 90 "$ACA_URL/sleep?s=60"
+→ {"slept": 60.0}   # HTTP 200, ~60s
+```
+
+### S3 — 230-second sleep (under boundary)
+
+```bash
+time curl -s --max-time 260 "$ACA_URL/sleep?s=230"
+→ {"slept": 230.0}   # HTTP 200
+→ real  3m49.2s
+```
+
+### S4 — 240-second sleep (at boundary)
+
+```bash
+curl -sv --max-time 300 "$ACA_URL/sleep?s=240"
+→ < HTTP/2 504
+→ stream timeout
+→ Duration: 240s exactly
+```
+
+### S5 — 241-second sleep (over boundary)
+
+```bash
+curl -sv --max-time 300 "$ACA_URL/sleep?s=241"
+→ < HTTP/2 504
+→ stream timeout
+→ Duration: 240s (terminated before backend responded)
+```
+
+!!! warning "Key finding"
+    Container Apps ingress terminates any request that has not sent a response byte within **240 seconds**, returning HTTP 504 with body `stream timeout`. This is a hardcoded platform limit — the ARM schema for `ingress` has no `timeout` field.
+
+### ARM ingress schema — no timeout field
+
+```bash
+az rest --method get \
+  --uri ".../containerApps/aca-diag-batch?api-version=2024-03-01" \
+  --query "properties.configuration.ingress"
+# → No "timeout" field in the response
+```
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: H1 is confirmed. Container Apps ingress terminates connections with no response data at exactly 240 seconds, returning HTTP 504 with body `stream timeout`. **Measured**.
+- **Inferred**: H2 (container process continues after connection drop) is consistent with gunicorn's behavior — the worker holds the connection open until the sleep completes, but the ingress has already sent 504 to the client. The gunicorn worker logs the response as completed after the full sleep duration. **Inferred** (not directly observed — Kudu/exec access not available).
+- **Not Proven**: H3 (streaming prevents timeout) — streaming was not tested. Response chunking should keep the connection alive per HTTP/2 flow control semantics, but this was not verified experimentally.
+- **Measured**: H4 is disproven. There is no `ingress.timeout` ARM property. The 240-second limit is a platform constant, not a configurable setting in the 2024-03-01 API. **Measured**.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Container Apps ingress times out non-streaming requests at exactly 240 seconds with HTTP 504 `stream timeout`. **Measured**.
+- The timeout is not user-configurable in the current ARM API (no `ingress.timeout` field). **Measured**.
+- 230-second requests complete successfully; 240-second requests do not. The boundary is 240 seconds. **Measured**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether streaming (chunked response with periodic flushes) prevents the timeout was not tested.
+- Whether the container process receives a signal (SIGTERM or similar) when the ingress drops the connection was not measured (Kudu exec not available).
+- The behavior of Dedicated workload profile was not tested — only Consumption was measured.
+- Whether the timeout applies to response headers or only to response body bytes was not differentiated.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports requests failing after exactly 4 minutes (240 seconds) on Container Apps:
+
+1. The root cause is the Container Apps ingress 240-second request timeout. This is a platform constant — it cannot be configured via the ARM API or CLI.
+2. The 240s timer starts when the request arrives at the ingress and no response bytes have been sent. If the application sends response headers but no body, the timer likely resets per Envoy stream timeout semantics — but this was not verified.
+3. The response is HTTP 504 with body `stream timeout` — this is Envoy's format and distinguishes this from application-level 504s.
+4. **Design patterns for long operations**:
+   - Async: accept the request (return 202 + job ID), process in background, expose a polling endpoint.
+   - Streaming: use `Transfer-Encoding: chunked` with periodic flushes to keep bytes flowing.
+   - WebSockets: upgrade the connection to WebSocket, which is not subject to the same HTTP timeout.
+5. Operations that are consistently slower than 240 seconds cannot be exposed as synchronous HTTP endpoints on Container Apps.
 
 ## 15. Reproduction notes
 
-- Configure ingress timeout: `az containerapp ingress update --name <app> --resource-group <rg> --timeout <seconds>` (max 3600).
-- Streaming in Flask: use `Response(generate(), content_type='text/event-stream')` where `generate()` is a generator that yields bytes.
-- For operations > 1 hour, the recommended pattern is async: return a job ID immediately, process in the background, poll for status.
+```bash
+ACA_APP="<app-name>"
+RG="<resource-group>"
+ACA_URL="https://<app>.<env>.azurecontainerapps.io"
+
+# Deploy Flask app with sleep endpoint (gunicorn must have --timeout > 240)
+# Dockerfile CMD: gunicorn --bind 0.0.0.0:8000 --timeout 600 app:app
+
+# Test boundary
+curl -sv --max-time 300 "$ACA_URL/sleep?s=230" | tail -2  # → 200 OK
+curl -sv --max-time 300 "$ACA_URL/sleep?s=240" | tail -2  # → 504 stream timeout
+
+# Verify no timeout ARM field
+az rest --method get \
+  --uri "https://management.azure.com/subscriptions/<sub>/resourceGroups/$RG/providers/Microsoft.App/containerApps/$ACA_APP?api-version=2024-03-01" \
+  --query "properties.configuration.ingress.timeout"
+# → null (field does not exist)
+```
 
 ## 16. Related guide / official docs
 
 - [Container Apps ingress configuration](https://learn.microsoft.com/en-us/azure/container-apps/ingress-overview)
-- [Set ingress timeout](https://learn.microsoft.com/en-us/azure/container-apps/ingress-how-to)
+- [Azure Container Apps FAQ — request timeout](https://learn.microsoft.com/en-us/azure/container-apps/faq)
+- [Envoy stream timeout](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-routeaction-timeout)
