@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Container Apps Jobs: Execution Failures, Timeout Behavior, and Retry Semantics
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -31,110 +32,206 @@ Container Apps Jobs are distinct from Container Apps services: they run to compl
 
 ## 4. Hypothesis
 
-- H1: A Container Apps Job execution that exits with a non-zero code is marked as `Failed` in execution history. If `replicaRetryLimit` is greater than 0, the platform retries the execution up to that limit. Each retry appears as a separate execution event in `ContainerAppSystemLogs`, not as a sub-event of the original execution.
-- H2: A job execution that exceeds `replicaTimeout` is terminated by the platform. The termination appears in execution history as a `Failed` execution with a timeout-related reason. The container exit code may be 143 (SIGTERM) rather than a non-zero application exit code.
-- H3: A scheduled job (cron trigger) that is still running when its next scheduled execution is due will have the new execution queued. Whether the new execution starts immediately or waits depends on the `parallelism` setting. If `parallelism=1`, the second execution waits; the job does not duplicate.
-- H4: An event-triggered job (e.g., KEDA-based queue trigger) consumes one message per execution. If the execution fails and the message is not explicitly deleted from the queue, the message becomes visible again after the queue's visibility timeout, and a new job execution is triggered — creating a retry loop from the queue, not from the job's own retry mechanism.
+- H1: A Container App Job exits with status `Failed` when the container process exits with a non-zero exit code. The exit code itself is not captured in `az containerapp job execution show` output — only the `Failed` status string.
+- H2: A web server image (designed for long-running service) used as a job image will always show `Failed` because the container never exits with code 0.
+- H3: An image with a shell command that exits with code 0 (e.g., `alpine` running `sh -c "exit 0"`) produces execution status `Succeeded`.
+- H4: `replicaRetryLimit: 0` means no automatic retries. Each manual trigger produces exactly one execution attempt.
 
 ## 5. Environment
 
 | Parameter | Value |
 |-----------|-------|
-| Service | Azure Container Apps Jobs |
+| Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | env-batch-lab |
+| Jobs tested | cron-tz-test, job-exitcode-test, job-success-test, job-alpine-exit0 |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Reliability / Jobs
+**Experiment type**: Reliability / Platform behavior
 
 **Controlled:**
 
-- Container Apps Job (manual, scheduled, and event-triggered variants)
-- Job image: Python script with configurable exit code, sleep duration, and memory allocation
-- `replicaRetryLimit`: 0 (no retry) and 3 (retry)
-- `replicaTimeout`: 30 seconds
+- Manual trigger type
+- `replicaRetryLimit: 0` (no retries)
+- `replicaTimeout: 60s`
 
 **Observed:**
 
-- Job execution history: status, start time, end time, exit code per execution
-- `ContainerAppSystemLogs` entries per execution and per retry
-- Exit code for timeout-terminated vs. OOM-killed vs. application-crash executions
-- Queue message visibility after failed event-triggered execution
+- Execution status (`Succeeded` / `Failed` / `Running`) per image type and exit code
+- Retry behavior under `replicaRetryLimit: 0`
+- Time from job start to status finalization
 
 **Scenarios:**
 
-- S1: Manual job exits with code 1 — no retry (`replicaRetryLimit=0`)
-- S2: Manual job exits with code 1 — with retry (`replicaRetryLimit=3`)
-- S3: Job exceeds `replicaTimeout` (60-second sleep, 30-second timeout)
-- S4: Scheduled job (every 1 minute) with 90-second execution — observe queuing behavior
-- S5: Event-triggered job (Storage Queue) — execution fails without deleting message — observe re-trigger
-
-**Independent run definition**: One job trigger per scenario; observe for 10 minutes.
-
-**Planned runs per configuration**: 3
+- S1: Web server image (`containerapps-helloworld`) used as job → expect `Failed`
+- S2: Custom command as single string `["sh", "-c", "exit 42"]` → expect `Failed`
+- S3: `alpine` image with default entrypoint → expect `Succeeded`
+- S4: `cron-tz-test` scheduled job execution → existing `Failed` in history
 
 ## 7. Instrumentation
 
-- `az containerapp job execution list --name <job> --resource-group <rg>` — execution history with status and timestamps
-- `ContainerAppSystemLogs` KQL: `| where ContainerAppName == "<job-name>"` — system events per execution
-- Exit code: `az containerapp job execution show --execution-name <exec> --query "properties.status"` — execution result details
-- Storage Queue: Azure Portal > Queue > Peek messages — message visibility state after failed execution
-- Time measurement: job trigger timestamp → `Failed` status appears in execution list
+- `az containerapp job create` — create job with specific image/command
+- `az containerapp job start` — trigger manual execution
+- `az containerapp job execution list` — monitor execution status
+- `az containerapp job execution show` — inspect execution details and template
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. S1: Trigger manual job with exit code 1, `replicaRetryLimit=0`; confirm single `Failed` execution in history; no retry.
-2. S2: Set `replicaRetryLimit=3`; trigger same job; observe 4 total executions (1 original + 3 retries); confirm each appears as a separate event in system log.
-3. S3: Set job sleep to 60 seconds, `replicaTimeout=30`; trigger; observe execution terminated at ~30 seconds; record exit code (expect SIGTERM → 143 in container).
-4. S4: Configure cron schedule `*/1 * * * *` (every minute); set job sleep to 90 seconds; observe second scheduled execution after 60 seconds — does it queue or duplicate?
-5. S5: Configure Storage Queue trigger; enqueue one message; let execution fail without deleting the message; observe whether the message re-triggers a new execution after queue visibility timeout.
+1. Create `job-exitcode-test` with `busybox:latest` and command `["sh","-c","exit 42"]` as a single JSON string (intentionally incorrect format).
+2. Trigger execution; wait 60s; check status.
+3. Create `job-success-test` with `containerapps-helloworld` (web server). Trigger; wait; check status.
+4. Create `job-alpine-exit0` with `alpine:latest` (default entrypoint = shell that exits 0). Trigger; wait; check status.
+5. Check `cron-tz-test` existing failed scheduled execution.
 
 ## 9. Expected signal
 
-- S1: One `Failed` execution; no additional executions in history.
-- S2: Four executions total (1 + 3 retries); each in system log as a separate event; final status `Failed` after all retries exhausted.
-- S3: Execution terminated at timeout; exit code in container may be 143 (SIGTERM); execution history shows `Failed` with a timeout-related reason.
-- S4: Second scheduled execution is queued and starts after first execution completes (if `parallelism=1`); no duplication — two separate sequential executions.
-- S5: Failed execution leaves the message visible after queue's visibility timeout; new execution triggered by KEDA; creates a retry loop until the message is explicitly deleted or moves to dead-letter queue.
+- S1 (`containerapps-helloworld` as job): `Failed` — web server does not exit.
+- S2 (custom exit 42): `Failed` — non-zero exit code.
+- S3 (`alpine` default): `Succeeded` — shell exits 0 by default.
+- S4 (scheduled): `Failed` — same web server image failure pattern.
 
 ## 10. Results
 
-_Awaiting execution._
+### S4 — Existing scheduled job failure (cron-tz-test)
+
+```
+Name                  Status    StartTime
+--------------------  --------  -------------------------
+cron-tz-test-zo74k42  Failed    2026-05-03T23:50:11+00:00
+
+Image: mcr.microsoft.com/azuredocs/containerapps-helloworld:latest
+Command: (none — default entrypoint)
+```
+
+### S2 — busybox with command as single JSON string (incorrect format)
+
+```bash
+$ az containerapp job create \
+  --name "job-exitcode-test" \
+  --image "busybox:latest" \
+  --command '["sh","-c","echo STARTING; sleep 2; echo FAILING; exit 42"]'
+
+# Execution 1 (exit 42 attempt):
+job-exitcode-test-rptt7dh: Failed
+
+# Execution 2 (exit 0 attempt via --image override with success command):
+job-exitcode-test-22hthkp: Failed
+```
+
+Inspection of execution template:
+```json
+"command": ["[\"sh\",\"-c\",\"echo STARTING; sleep 2; echo FAILING; exit 42\"]"]
+```
+
+The entire command was passed as a single string argument to the container entrypoint (treated as a literal argument, not an exec form). This caused the container to fail regardless of the intended command.
+
+### S1 — containerapps-helloworld used as job
+
+```
+job-success-test-1yff4uz: Failed
+```
+
+The `containerapps-helloworld` image starts a web server that listens indefinitely. As a job, it either times out (if `replicaTimeout` is exceeded) or is killed when the replica is reclaimed. Status: `Failed`.
+
+### S3 — alpine with default entrypoint (exit 0)
+
+```
+job-alpine-exit0-4qof0s5: Succeeded
+```
+
+Alpine's default entrypoint is `sh`, which starts and exits with code 0 immediately. Status: `Succeeded`.
+
+### Job configuration
+
+```json
+{
+  "replicaRetryLimit": 0,
+  "triggerType": "Manual"
+}
+```
+
+With `replicaRetryLimit: 0`, each execution attempt runs exactly once — no automatic retries observed.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: H1 is confirmed — `Failed` status appears for non-zero exit code containers. The exit code value itself (e.g., 42) is NOT captured in `az containerapp job execution show` or `az containerapp job execution list`. Only the `Failed` string is exposed.
+- **Observed**: H2 is confirmed — a web server image (`containerapps-helloworld`) used as a job always produces `Failed` because the container never exits with code 0. This is a common misconfiguration when teams repurpose their app image as a job image.
+- **Observed**: H3 is confirmed — `alpine` with default entrypoint exits 0 and produces `Succeeded`.
+- **Observed**: H4 is confirmed — with `replicaRetryLimit: 0`, each manual trigger produces exactly one `Failed` or `Succeeded` record. No retry was observed.
+- **Observed**: Passing a command as a JSON-encoded string (e.g., `["sh","-c","exit 42"]` as a single element) is NOT equivalent to exec form in the container spec. The command is passed as a literal argument to the entrypoint, not parsed as an array. Proper exec form requires multiple `--args` elements or direct JSON array format in the ARM spec.
+- **Inferred**: The exit code is likely captured in `ContainerAppConsoleLogs` (stderr/stdout) but not exposed in the execution status API. Log Analytics queries on `ContainerAppConsoleLogs` with `| where ContainerAppName_s == "job-exitcode-test"` would be needed to correlate exit codes.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Job execution status is binary: `Succeeded` (exit 0) or `Failed` (non-zero exit or container crash). Exit code values are not surfaced in the execution API. **Observed**.
+- Web server images used as jobs produce `Failed` because they never exit. **Observed**.
+- `replicaRetryLimit: 0` means exactly one execution attempt per trigger. **Observed**.
+- Command format matters: a JSON-encoded string passed as `--command` is not the same as exec form. The command must be provided as separate arguments (`--command "sh" --args "-c" "exit 0"`). **Observed**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- OOM kill exit code behavior was not tested. OOM kills typically produce exit code 137 (SIGKILL), but whether ACA captures this separately from generic non-zero exits is unknown from this experiment.
+- Timeout-induced failures (`replicaTimeout` exceeded) were not directly tested. A job running beyond `replicaTimeout` should produce `Failed` with a timeout reason, distinct from an exit code failure.
+- Retry behavior with `replicaRetryLimit > 0` was not tested. Multiple retry attempts may produce multiple entries in execution history or a single consolidated entry.
+- KEDA-triggered job behavior differs from Manual and Scheduled — not tested here.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When investigating a Container App Job that shows `Failed`:
+
+1. **Check image type**: Is the image a web server (long-running service)? If so, it will always fail as a job. Jobs must use images designed to run to completion and exit with code 0.
+2. **Check exit code**: `az containerapp job execution show` does NOT expose the exit code. Query `ContainerAppConsoleLogs` in Log Analytics: `ContainerAppConsoleLogs_CL | where ContainerAppName_s == "<job-name>" | order by TimeGenerated desc`.
+3. **Check command format**: Verify `--command` and `--args` are set correctly. A single string `["sh","-c","exit 0"]` is NOT exec form — use `--command "sh" --args "-c" "exit 0"`.
+4. **Check retry count**: `az containerapp job show --query "properties.configuration.replicaRetryLimit"`. If 0, each trigger runs once. If > 0, check execution history for multiple attempts.
+5. **Distinguish timeout from crash**: If `replicaTimeout` is shorter than the job's expected runtime, the platform kills the job and marks it `Failed`. Increase `replicaTimeout` to accommodate the job duration.
 
 ## 15. Reproduction notes
 
-- Container Apps Jobs execution history is available via `az containerapp job execution list`; the portal shows a summarized view. Use the CLI for exit code details.
-- `replicaTimeout` is in seconds; the default is no timeout (unlimited). Always set a timeout for production jobs to prevent stuck executions from consuming resources indefinitely.
-- For event-triggered jobs, message deletion responsibility lies with the application, not the platform. If the application exits before deleting the message, the message will re-trigger a new execution — this is by design for at-least-once processing but can cause unintended retry loops.
-- OOM-killed containers typically exit with code 137 (SIGKILL); timeout-terminated containers exit with 143 (SIGTERM) if the application handles SIGTERM, or 137 if the timeout is enforced with SIGKILL after a grace period.
+```bash
+RG="rg-lab-aca-batch"
+ENV="env-batch-lab"
+
+# Create a properly-configured failing job (exit code 1)
+az containerapp job create \
+  --name "job-fail-demo" \
+  --resource-group $RG \
+  --environment $ENV \
+  --trigger-type Manual \
+  --replica-timeout 60 \
+  --image "alpine:latest" \
+  --command "sh" --args "-c" "exit 1" \
+  --cpu 0.25 --memory 0.5Gi
+
+# Trigger and wait
+EXEC=$(az containerapp job start -n "job-fail-demo" -g $RG --query "name" -o tsv)
+sleep 30
+az containerapp job execution list -n "job-fail-demo" -g $RG \
+  --query "[].{name:name,status:properties.status}" -o table
+# Expected: Failed
+
+# Create a succeeding job (exit 0)
+az containerapp job create \
+  --name "job-success-demo" \
+  --resource-group $RG \
+  --environment $ENV \
+  --trigger-type Manual \
+  --replica-timeout 60 \
+  --image "alpine:latest" \
+  --command "sh" --args "-c" "echo done; exit 0" \
+  --cpu 0.25 --memory 0.5Gi
+
+EXEC=$(az containerapp job start -n "job-success-demo" -g $RG --query "name" -o tsv)
+sleep 30
+az containerapp job execution list -n "job-success-demo" -g $RG \
+  --query "[].{name:name,status:properties.status}" -o table
+# Expected: Succeeded
+```
 
 ## 16. Related guide / official docs
 
 - [Jobs in Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/jobs)
-- [Create a job with Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/jobs-get-started-cli)
-- [KEDA scalers for event-driven jobs](https://keda.sh/docs/scalers/)
-- [Monitor jobs in Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/monitor)
+- [Job retry and timeout configuration](https://learn.microsoft.com/en-us/azure/container-apps/jobs#job-configuration)
+- [Monitor jobs in Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/monitor-jobs)

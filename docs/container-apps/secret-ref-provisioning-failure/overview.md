@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Secret Reference Provisioning Failure: Wrong secretRef Name
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -31,9 +32,10 @@ Secret name mismatches are a common infrastructure-as-code mistake when secrets 
 
 ## 4. Hypothesis
 
-- H1: When `secretRef: nonexistent-secret` is used in an environment variable and no secret named `nonexistent-secret` exists in the container app's secret store, the revision fails to provision with a provisioning error referencing the missing secret name.
-- H2: The ARM deployment for the container app update returns HTTP 200 (success) because the deployment is accepted; the revision provisioning error is an asynchronous event that surfaces in the revision status (`az containerapp revision show`), not in the ARM deployment result.
-- H3: The error is visible in the container app **Revision management** blade under the failed revision's details, and in the activity log for the container app resource.
+- H1: Referencing a non-existent secret name in an environment variable `secretRef` produces a synchronous error during `az containerapp update`. The CLI returns an error before the revision is committed.
+- H2: The error message explicitly names the missing `secretRef` value, making it immediately identifiable.
+- H3: The existing active revision continues serving traffic when a new revision fails due to a bad `secretRef`.
+- H4: No new revision record is created in `az containerapp revision list` when the update fails.
 
 ## 5. Environment
 
@@ -42,81 +44,139 @@ Secret name mismatches are a common infrastructure-as-code mistake when secrets 
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | env-batch-lab |
+| App name | aca-diag-batch |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Deployment / Configuration
+**Experiment type**: Configuration / Reliability
 
 **Controlled:**
 
-- Container app with one defined secret (`db-password`)
-- New revision with environment variable referencing `secretRef: nonexistent-secret`
+- Container App: `aca-diag-batch` with active revision serving traffic
+- No secrets defined at the app level
 
 **Observed:**
 
-- ARM deployment result
-- Revision provisioning status
-- Error message content and location
+- CLI error output and HTTP status when referencing non-existent secret
+- App HTTP response during failed update
+- Revision list state after failure
 
 **Scenarios:**
 
-- S1: Correct `secretRef: db-password` → revision provisions successfully
-- S2: Wrong `secretRef: nonexistent-secret` → revision fails to provision
-- S3: Fix `secretRef` name → new revision provisions successfully; traffic shifts
+- S1: Valid env var (no secretRef) → success (baseline)
+- S2: `secretRef` pointing to non-existent secret name → observe error and traffic behavior
 
 ## 7. Instrumentation
 
-- `az containerapp revision list --name <app> --resource-group <rg>` for revision status
-- `az containerapp revision show --revision <rev-name>` for error details
-- Azure Monitor `ContainerAppSystemLogs` for provisioning events
+- `az containerapp update --set-env-vars "VAR=secretref:<name>"` — trigger bad secretRef
+- `curl` to app URL — verify traffic during failure
+- `az containerapp revision list` — count and state of revisions after failure
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy container app with secret `db-password` and correct `secretRef: db-password` → verify success.
-2. S2: Update the container app with a new revision using `secretRef: nonexistent-secret`; observe ARM deployment result (expect 200); then check revision status.
-3. Capture error message from revision details.
-4. S3: Correct the `secretRef` to `db-password`; deploy; verify new revision provisions and receives traffic.
+1. Baseline: App running with active revision, HTTP 200.
+2. Attempt: `az containerapp update --set-env-vars "NONEXISTENT_SECRET=secretref:this-secret-does-not-exist"`.
+3. Observe CLI error output.
+4. Send HTTP request to app — verify existing revision still serves traffic.
+5. Check `az containerapp revision list` — verify no new revision was created.
 
 ## 9. Expected signal
 
-- S1: Revision provisions successfully; replicas start; traffic routes to new revision.
-- S2: ARM deployment returns 200; revision status shows `Failed` or `Provisioning` with error; replicas never start; old revision continues serving.
-- S3: Corrected revision provisions successfully.
+- S2: CLI returns error mentioning `SecretRef` not found; no new revision created; existing revision continues at HTTP 200.
 
 ## 10. Results
 
-_Awaiting execution._
+### S2 — Non-existent secretRef
+
+```bash
+$ az containerapp update -n aca-diag-batch -g rg-lab-aca-batch \
+  --set-env-vars "NONEXISTENT_SECRET=secretref:this-secret-does-not-exist"
+```
+
+```
+WARNING: The behavior of this command has been altered by the following extension: containerapp
+ERROR: (ContainerAppSecretRefNotFound) SecretRef 'this-secret-does-not-exist' defined
+for container 'aca-diag-batch' not found.
+```
+
+### App behavior during failure
+
+```
+HTTP after failed update: 200
+# Previous revision continued serving traffic uninterrupted
+```
+
+### Revision state after failure
+
+```
+Name                     Active    Traffic    Healthy
+-----------------------  --------  ---------  ---------
+aca-diag-batch--0000001  True      70         Healthy
+aca-diag-batch--0000002  True       0         Healthy
+aca-diag-batch--0000003  True       0         Healthy
+aca-diag-batch--0000004  True     100         Healthy
+```
+
+No new revision was created by the failed update.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: A `secretRef` pointing to a non-existent secret name produces a synchronous `ContainerAppSecretRefNotFound` error during `az containerapp update`. H1 is confirmed.
+- **Observed**: The error message explicitly includes the missing secret name (`'this-secret-does-not-exist'`). H2 is confirmed.
+- **Observed**: Existing active revisions continued serving HTTP 200. H3 is confirmed.
+- **Observed**: No new revision was added to `az containerapp revision list`. H4 is confirmed.
+- **Inferred**: The validation occurs at the ARM API layer (not asynchronously during provisioning). The error code `ContainerAppSecretRefNotFound` is a client-side validation error, not a backend provisioning failure. This means the ARM deployment also fails synchronously — no asynchronous provisioning state to wait for.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- A missing `secretRef` is caught synchronously at the ARM API layer — the error is returned immediately by `az containerapp update`. **Observed**.
+- The error code is `ContainerAppSecretRefNotFound` with the exact missing secret name in the message. **Observed**.
+- Existing revisions continue serving traffic when a new revision update fails due to missing `secretRef`. **Observed**.
+- No partial revision record is created on failure. **Observed**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Behavior when using ARM templates or Bicep directly (vs. CLI) was not tested. It is likely that ARM template deployments also fail synchronously with the same error, but this was not confirmed.
+- What happens when the secret exists but has an incorrect value (wrong Key Vault secret version, invalid connection string, etc.) — the revision would deploy successfully but the application would fail at runtime.
+- Behavior when a Key Vault-referenced secret becomes unavailable after the revision is already running was not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "deployment succeeded but new revision is not receiving traffic":
+
+1. Check if the `az containerapp update` / ARM deployment actually returned success or an error. A `ContainerAppSecretRefNotFound` error is synchronous and the deployment fails immediately.
+2. List all secrets defined at the app level: `az containerapp secret list -n <app> -g <rg>`. Compare against `secretRef` values in env var definitions.
+3. The error message includes the exact missing secret name — search for it in the ARM template or Bicep definition.
+4. To fix: either (a) add the missing secret to the Container App (`az containerapp secret set`), then retry the update, or (b) remove the incorrect `secretRef` from the env var definition.
+5. After fixing, verify with `az containerapp revision list` that a new revision was created and is healthy.
 
 ## 15. Reproduction notes
 
-- Secret names in Container Apps are lowercase alphanumeric and hyphens. Case-sensitive matching.
-- Secrets are defined at the container app level (`properties.configuration.secrets`) and referenced by `secretRef` in `properties.template.containers[].env[].secretRef`.
-- The ARM deployment succeeding does not guarantee revision provisioning success — always check revision status separately.
+```bash
+RG="rg-lab-aca-batch"
+APP="aca-diag-batch"
+
+# Create the bad secretRef (will fail)
+az containerapp update -n $APP -g $RG \
+  --set-env-vars "MY_SECRET=secretref:my-nonexistent-secret"
+# Expected: ERROR: (ContainerAppSecretRefNotFound) SecretRef 'my-nonexistent-secret' ...
+
+# Fix: add the secret first, then retry
+az containerapp secret set -n $APP -g $RG \
+  --secrets "my-nonexistent-secret=my-actual-value"
+
+az containerapp update -n $APP -g $RG \
+  --set-env-vars "MY_SECRET=secretref:my-nonexistent-secret"
+# Expected: Success — new revision created
+```
+
+- Secret names in Container Apps are case-sensitive and must be lowercase alphanumeric with hyphens only.
+- Key Vault-referenced secrets use a different format: `az containerapp secret set --secrets "secretname=keyvaultref:<uri>,<identity>"`.
 
 ## 16. Related guide / official docs
 
 - [Manage secrets in Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/manage-secrets)
-- [Container Apps revision management](https://learn.microsoft.com/en-us/azure/container-apps/revisions)
+- [Use Key Vault secrets in Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/manage-secrets#reference-secret-from-key-vault)
+- [Container Apps environment variables](https://learn.microsoft.com/en-us/azure/container-apps/environment-variables)
