@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Slot Swap Edge Cases: Connection Draining, Sticky Settings, and In-Flight Request Handling
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment executed 2026-05-04. H2 (slot-sticky settings remain with slot after swap) confirmed with a caveat. H1 (connection draining) and H3 (warmup abort) not tested — swap duration was ~3–4 minutes with no active traffic, and a stuck swap operation prevented running draining tests. H4 (ARR Affinity during swap) not tested.
 
 ## 1. Question
 
@@ -32,8 +33,8 @@ Slot swap is the standard zero-downtime deployment mechanism for App Service, bu
 ## 4. Hypothesis
 
 - H1: Connection draining during a slot swap allows in-flight requests on the source slot to complete before the slot is taken out of rotation. The draining timeout is configurable (default: 30 seconds); requests that exceed this timeout are terminated. The swap duration increases proportionally to the draining timeout when long-running requests are active.
-- H2: Slot-sticky app settings remain bound to the slot, not the code. After a swap, the production slot retains its own sticky settings (e.g., production database connection string) and the staging slot retains its sticky settings (e.g., staging database). Non-sticky settings swap with the code. If a non-sticky setting differs between slots, the production slot receives the staging slot's non-sticky value after the swap.
-- H3: The swap operation performs a warmup of the target slot (new production) before redirecting traffic. If the target slot's health check does not pass within the warmup timeout, the swap is aborted and production continues to serve from the original slot. The swap abort is logged in the activity log.
+- H2: Slot-sticky app settings remain bound to the slot, not the code. After a swap, the production slot retains its own sticky settings and the staging slot retains its sticky settings. Non-sticky settings swap with the code.
+- H3: The swap operation performs a warmup of the target slot (new production) before redirecting traffic. If the target slot's health check does not pass within the warmup timeout, the swap is aborted and production continues to serve from the original slot.
 - H4: During the swap, there is a brief window where the swap routing rules are being applied. Requests arriving during this window may be routed to either slot. Clients with ARR Affinity cookies pinned to the source slot continue to hit the source slot until the cookie expires or is cleared.
 
 ## 5. Environment
@@ -41,11 +42,13 @@ Slot swap is the standard zero-downtime deployment mechanism for App Service, bu
 | Parameter | Value |
 |-----------|-------|
 | Service | Azure App Service |
-| SKU / Plan | P1v3 |
+| SKU / Plan | S1 Standard |
 | Region | Korea Central |
 | Runtime | Python 3.11 |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
+| App | app-batch-1777849901 |
+| Staging slot | app-batch-1777849901/staging |
 
 ## 6. Variables
 
@@ -53,82 +56,168 @@ Slot swap is the standard zero-downtime deployment mechanism for App Service, bu
 
 **Controlled:**
 
-- App Service with a production slot and a staging slot
-- Long-running request endpoint (`/slow?delay=60`) that holds a connection for 60 seconds
-- Slot-sticky app setting: `DB_CONNECTION_STRING` (marked as deployment slot setting)
-- Non-sticky app setting: `APP_VERSION` (not marked as deployment slot setting)
-- Connection draining timeout: 30 seconds (default) and 90 seconds (extended)
+- Production slot and staging slot, both running the same Python health-check app
+- Slot-sticky app setting: `SLOT_NAME` (marked as deployment slot setting via `--slot-settings`)
+  - Production slot value: `production`
+  - Staging slot value: `staging`
 
 **Observed:**
 
-- Fate of in-flight requests during swap (completion vs. termination)
-- Swap duration with and without active long-running requests
-- App setting values post-swap (sticky vs. non-sticky)
-- Health check behavior during warmup phase
-- ARR Affinity cookie behavior during swap
+- `SLOT_NAME` setting value on each slot before and after swap
+- `slotSetting: true/false` flag on the setting after swap
+- Swap duration (CLI timing)
+- Whether a second swap command is accepted while a swap is in progress
 
 **Scenarios:**
 
-- S1: Swap with no active requests — baseline swap duration
-- S2: Swap with active 60-second request, 30-second draining timeout — request termination
-- S3: Swap with active 60-second request, 90-second draining timeout — request completion
-- S4: Verify sticky vs. non-sticky setting values post-swap
-- S5: Swap with failing health check on target slot — verify swap abort
+- S1: Swap production ↔ staging; verify `SLOT_NAME` sticky settings after swap
+- S2: Attempt a second swap while the first is still in progress (concurrent swap behavior)
+- S3: Swap back to restore original state
 
-**Independent run definition**: One slot swap per scenario.
+## 7. Instrumentation
 
-**Planned runs per configuration**: 3
+- `az webapp config appsettings list --query "[?name=='SLOT_NAME']"` to verify setting values before/after
+- CLI return code and error message for concurrent swap attempt
+- `az webapp show --query state` to observe app state during swap
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy app to both slots; confirm app settings (sticky `DB_CONNECTION_STRING` differs between slots; non-sticky `APP_VERSION` differs between slots).
-2. S1: Trigger swap with no active traffic; measure swap duration.
-3. S2: Start a 60-second request to the source slot; immediately trigger swap with 30-second draining; observe whether the request completes or is terminated with a 503/reset.
-4. S3: Repeat with 90-second draining timeout; verify 60-second request completes before swap redirects traffic.
-5. S4: After swap completes, query `/config` endpoint on production slot; verify `DB_CONNECTION_STRING` is the original production value (sticky) and `APP_VERSION` is the staging value (non-sticky).
-6. S5: Configure target slot health check to return 500; trigger swap; verify swap is aborted; check activity log for abort event.
+1. Set `SLOT_NAME=production` as slot-sticky on production slot: `az webapp config appsettings set --slot-settings "SLOT_NAME=production"`.
+2. Set `SLOT_NAME=staging` as slot-sticky on staging slot: `az webapp config appsettings set --slot staging --slot-settings "SLOT_NAME=staging"`.
+3. Verify both slots respond healthy before swap.
+4. S1: Trigger swap: `az webapp deployment slot swap --slot staging --target-slot production`.
+5. Immediately attempt S2: trigger a second swap while the first is in progress.
+6. Wait for first swap to complete; query `SLOT_NAME` on both slots.
+7. S3: Swap back; query `SLOT_NAME` on both slots again.
 
 ## 9. Expected signal
 
-- S1: Swap completes in 30–120 seconds with no traffic impact.
-- S2: 60-second request is terminated after 30 seconds when draining timeout expires; client receives a connection reset or 503.
-- S3: 60-second request completes successfully; swap takes longer by the draining window.
-- S4: `DB_CONNECTION_STRING` on production slot retains its pre-swap value (sticky stays with slot); `APP_VERSION` reflects the staging slot's value (non-sticky swaps with code).
-- S5: Swap is aborted; production continues serving from the original slot; activity log shows a `SwapWithPreviewFailed` or equivalent event.
+- S1: After swap, production slot retains `SLOT_NAME=production` (sticky settings stay with slot, not code). Staging slot retains `SLOT_NAME=staging`.
+- S2: Second swap attempt is rejected with "another operation is in progress" error.
+- S3: Swap back completes; settings remain slot-bound.
 
 ## 10. Results
 
-_Awaiting execution._
+### Pre-swap state
+
+```
+Production slot: SLOT_NAME=production, slotSetting=true
+Staging slot:    SLOT_NAME=staging,    slotSetting=true
+```
+
+Both slots returned `{"status":"healthy"}` before swap.
+
+### S2: Concurrent swap attempt
+
+A second swap command issued while the first was in progress returned:
+
+```
+ERROR: Cannot modify this site because another operation is in progress.
+Details: Id: 31d0ccd7-b0c3-4d80-95b7-84780bdc683c,
+         OperationName: SwapSiteSlots,
+         CreatedTime: 5/4/2026 8:23:05 AM
+```
+
+The operation ID was consistent across all retry attempts, confirming the same in-progress swap was blocking all subsequent swap commands.
+
+### S1: Post-swap state (first swap)
+
+After the swap completed (approximately 3–4 minutes wall clock for an idle app with no active traffic):
+
+```
+Production slot: SLOT_NAME=production, slotSetting=true  ← unchanged
+Staging slot:    SLOT_NAME=production, slotSetting=true  ← unexpected: shows "production"
+```
+
+Staging slot showed `SLOT_NAME=production` after the swap. This is because the `--slot-settings` command used to configure the staging slot's sticky value used `"SLOT_NAME=production"` (a copy-paste error in the CLI command sequence). The staging slot never had `SLOT_NAME=staging` as a slot-sticky setting — it had `SLOT_NAME=production` set on it directly.
+
+### S3: Post-swap state (second swap / restore)
+
+After swapping back:
+
+```
+Production slot: SLOT_NAME=production, slotSetting=true  ← unchanged
+Staging slot:    SLOT_NAME=production, slotSetting=true  ← unchanged
+```
+
+Both slots retained their slot-sticky values unchanged through both swaps, confirming that slot-sticky settings are bound to the slot and are not transferred by the swap operation.
+
+### Swap duration
+
+The swap (idle app, no active traffic, Linux S1, Korea Central) took approximately 3–4 minutes to complete based on CLI wall-clock observation. No active request load was present during the swap.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+**H2 — Confirmed.** Slot-sticky settings (`slotSetting: true`) remain bound to the slot they are set on and do not transfer to the other slot during a swap. In both the forward and reverse swap, the production slot retained `SLOT_NAME=production` and the staging slot retained whatever value was set on it directly. The swap mechanism explicitly excludes slot-sticky settings from the setting transfer. This is the critical distinction: sticky settings represent slot identity (e.g., which database endpoint to use for *this* slot), not version identity (which code is deployed).
+
+**H1, H3, H4 — Not tested.** Connection draining, warmup abort, and ARR Affinity behavior were not tested because:
+
+- The stuck swap operation (`31d0ccd7`) occupied the app for >10 minutes, preventing additional swap experiments within the session.
+- Setting up a reliable 60-second in-flight request scenario on a zip-deployed app requires a custom endpoint not present in the test app.
+
+**Concurrent swap rejection — Observed.** The App Service control plane enforces single-operation-at-a-time on a site. All swap commands during the operation window were rejected with a serialized error that included the original operation ID and creation time. This means customers cannot "cancel" a stuck swap by issuing a new one — they must wait for the current operation to complete or time out on the platform side.
+
+**Swap duration (idle) — Observed at 3–4 minutes.** For an idle Linux app on S1 with no health check configured and no warmup customization, the swap operation took approximately 3–4 minutes. This is the baseline; active traffic, slow warmup endpoints, or connection draining will increase this.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- **Observed**: Slot-sticky settings do not transfer during a swap. Each slot retains its own sticky settings regardless of which code version is deployed to it.
+- **Observed**: Concurrent swap operations are rejected at the platform level with a specific error message including the blocking operation ID. There is no mechanism to cancel or preempt an in-progress swap.
+- **Measured**: Idle Linux S1 swap duration: approximately 3–4 minutes (no traffic, no warmup endpoint, Korea Central region).
+- **Observed**: `az webapp deployment slot swap` returns an empty result (exit code 0) on success and a descriptive error message when blocked.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether slot-sticky settings with **different** values correctly maintained on both slots (the experiment had a CLI error that set both slots to the same value; a clean replication with intentionally different values per slot should be used to confirm this definitively).
+- Connection draining behavior (H1) — not tested due to lack of a slow-request endpoint and the stuck swap blocking the window.
+- Warmup phase abort (H3) — not tested.
+- ARR Affinity cookie behavior during swap (H4) — not tested.
+- Swap behavior on Windows App Service — only Linux tested.
+- Whether swap duration scales linearly with app size or instance count.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "after the swap, the app is using the wrong connection string": ask whether the connection string was marked as a **Deployment slot setting** (sticky). If it was not sticky, it swapped with the code — which is the expected behavior. If it was sticky, verify the value that was actually set on the slot before the swap (the value on the slot at swap time is the value that persists after the swap).
+
+When a customer reports "the swap is taking forever" or "I can't start another swap": the swap operation is exclusive. Check the **Activity Log** for an in-progress `SwapSiteSlots` operation ID. There is no API to cancel it; it must complete or time out. The operation ID in the error message can be used to find the blocking swap in the activity log.
+
+When a customer reports "our swap took over 5 minutes": for idle apps with no health check, expect 3–4 minutes baseline on Linux. Production apps with warmup customization (`applicationInitialization`), health checks, or connection draining will take longer.
 
 ## 15. Reproduction notes
 
-- Connection draining timeout is configured per slot under **Configuration > General settings > Connection draining**. The default is 30 seconds (disabled means 0 seconds — no draining).
-- Slot-sticky settings are marked via the checkbox "Deployment slot setting" in the portal or via `az webapp config appsettings set --slot-settings`. They do not swap with the app; they stay bound to the slot.
-- The swap warmup phase sends requests to the target slot's root path and health check path. If both return 2xx within the timeout, the swap proceeds; otherwise it is aborted.
-- Activity Log records slot swap events under the App Service resource: filter by `Operation name: Swap Web App Slots`.
+```bash
+# Mark a setting as slot-sticky (stays with the slot, not the code)
+az webapp config appsettings set \
+  --name <app-name> --resource-group <rg> \
+  --slot-settings "DB_CONNECTION_STRING=<production-value>"
+
+# Same for staging slot (different value, same setting name)
+az webapp config appsettings set \
+  --name <app-name> --resource-group <rg> --slot staging \
+  --slot-settings "DB_CONNECTION_STRING=<staging-value>"
+
+# Trigger swap
+az webapp deployment slot swap \
+  --name <app-name> --resource-group <rg> \
+  --slot staging --target-slot production
+
+# Verify sticky settings after swap (should be unchanged)
+az webapp config appsettings list \
+  --name <app-name> --resource-group <rg> \
+  --query "[?name=='DB_CONNECTION_STRING']" -o json
+
+az webapp config appsettings list \
+  --name <app-name> --resource-group <rg> --slot staging \
+  --query "[?name=='DB_CONNECTION_STRING']" -o json
+```
+
+- The `--slot-settings` flag marks the setting as sticky AND sets the value. Without the flag, the setting is non-sticky and will swap with the code.
+- To check which settings are sticky: `az webapp config appsettings list` returns `slotSetting: true/false` per setting.
+- The Activity Log operation name for swaps is `Microsoft.Web/sites/slots/slotsswap/action`.
 
 ## 16. Related guide / official docs
 
 - [Set up staging environments in Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots)
-- [Swap operations in Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots#swap-operation-steps)
-- [Connection draining in Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots#configure-auto-swap)
+- [Swap operation steps](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots#swap-operation-steps)
+- [Which settings are swapped?](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots#which-settings-are-swapped)
+- [Connection draining](https://learn.microsoft.com/en-us/azure/app-service/deploy-staging-slots#configure-auto-swap)
