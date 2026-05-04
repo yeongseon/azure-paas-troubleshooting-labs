@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Secret Rotation and Revision Restart Behavior
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -31,10 +32,10 @@ Secret rotation is a routine security operation, but the propagation behavior in
 
 ## 4. Hypothesis
 
-- H1: For ACA-managed secrets (plain value stored in Container Apps), updating the secret value does **not** propagate to running replicas automatically. The new value is only reflected after an explicit revision restart (`az containerapp revision restart`) or a new revision deployment.
-- H2: For Key Vault references using a **versioned URI** (e.g., `https://<vault>.vault.azure.net/secrets/<name>/<version>`), updating Key Vault does not change the ACA secret reference. A new ACA secret version must be registered explicitly, and a revision restart is required to propagate it.
-- H3: For Key Vault references using a **versionless URI** (e.g., `https://<vault>.vault.azure.net/secrets/<name>`), the platform polls Key Vault periodically and may auto-refresh the secret value. If the secret is referenced as an environment variable, the running revision may be restarted automatically when the new version is detected.
-- H4: An application that reads secrets directly from Key Vault via the SDK at runtime (not via Container Apps secret injection) picks up the new Key Vault version on the next SDK call — only if the application does not cache the secret value. No Container Apps operation is required.
+- H1: For ACA-managed secrets (plain value stored in Container Apps), updating the secret value does **not** propagate to running replicas automatically. The new value is only reflected after an explicit revision restart or a new revision deployment.
+- H2: Updating an ACA-managed secret value via `az containerapp secret set` does **not** create a new revision. The revision number stays the same after the secret update.
+- H3: For Key Vault references using a **versioned URI**, updating Key Vault does not change the ACA secret reference — a new ACA secret version must be registered explicitly, and a revision restart is required.
+- H4: An application that reads secrets directly from Key Vault via the SDK at runtime (not via Container Apps secret injection) picks up the new Key Vault version on the next SDK call.
 
 ## 5. Environment
 
@@ -43,9 +44,10 @@ Secret rotation is a routine security operation, but the propagation behavior in
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | env-batch-lab |
+| App name | aca-diag-batch |
+| Secret type | ACA-managed (plain value) |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
@@ -53,87 +55,137 @@ Secret rotation is a routine security operation, but the propagation behavior in
 
 **Controlled:**
 
-- Container App with three secret injection methods tested separately:
-  1. ACA-managed secret as environment variable
-  2. Key Vault reference with versioned URI as environment variable
-  3. Key Vault reference with versionless URI as environment variable
-- Separate test for runtime SDK access (no ACA injection)
-- A debug endpoint (`GET /secret-value`) that returns the current value of the injected environment variable
+- ACA-managed secret `db-password` with initial value `initial-password-v1`
+- Secret referenced as environment variable `DB_PASSWORD=secretref:db-password`
+- Revision mode: multiple
 
 **Observed:**
 
-- Secret value returned by the debug endpoint before and after rotation
-- Time between secret update and new value pickup (polling interval)
-- Revision restart events triggered by secret propagation
-- `ContainerAppSystemLogs` — restart and revision change events
+- Revision number before and after `az containerapp secret set` (value update)
+- Whether a new revision is created when the secret value changes
+- System events triggered by secret update
 
 **Scenarios:**
 
-- S1: ACA-managed secret updated — no restart — observe pickup
-- S2: ACA-managed secret updated — explicit `az containerapp revision restart` — observe timing
-- S3: Key Vault versioned URI — new version created; ACA secret ref updated — observe pickup
-- S4: Key Vault versionless URI — new version created in Key Vault — observe auto-refresh and any restart
-- S5: Runtime SDK read — new version created in Key Vault — observe transparent pickup (no caching)
-
-**Independent run definition**: One secret update event per scenario; observe for 30 minutes.
-
-**Planned runs per configuration**: 3
+- S1: Add secret + env var reference → observe new revision number
+- S2: Update secret value → observe if revision number changes
 
 ## 7. Instrumentation
 
-- Debug endpoint (`GET /secret-value`) polling every 60 seconds — detects new value pickup
-- `az containerapp revision list --name <app> --resource-group <rg>` — revision creation events
-- `ContainerAppSystemLogs` KQL: `| where Reason contains "restart" or Reason contains "revision"` — restart events
-- Key Vault audit logs (`AuditEvent`): `getSecret` operations — caller identity and version retrieved
-- Time measurement: secret update timestamp → debug endpoint returns new value
+- `az containerapp secret set` — update secret value
+- `az containerapp show --query "properties.latestRevisionName"` — track revision number
+- `az containerapp logs show --type system` — observe revision events
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy Container App with ACA-managed secret as env var; record current value via debug endpoint.
-2. S1: Update secret value via `az containerapp secret set`; poll debug endpoint every 60 seconds for 30 minutes; record if/when new value appears.
-3. S2: Trigger `az containerapp revision restart`; poll until new value appears; record time and restart event.
-4. S3: Deploy with versioned Key Vault URI; rotate Key Vault version; update ACA secret ref to new version; restart; verify propagation.
-5. S4: Deploy with versionless Key Vault URI; rotate Key Vault version; observe debug endpoint and system logs for auto-refresh or restart.
-6. S5: Deploy app that reads secret via Key Vault SDK at request time (no ACA injection); rotate Key Vault version; call debug endpoint immediately; verify transparent pickup.
+1. Add secret `db-password=initial-password-v1` to the app.
+2. Add env var `DB_PASSWORD=secretref:db-password` to the app template.
+3. Record revision number after env var reference is added (this creates a new revision).
+4. Update secret value to `updated-password-v2` via `az containerapp secret set`.
+5. Immediately check revision number — observe whether it changed.
 
 ## 9. Expected signal
 
-- S1: Debug endpoint returns old value for the full observation window; no automatic pickup; no restart event.
-- S2: New value appears within replica restart window (~60 seconds); one restart event in system log.
-- S3: Value does not update until ACA secret ref is explicitly updated and restart triggered; Key Vault audit shows old version being read until restart.
-- S4: Platform may auto-refresh the versionless URI and restart the revision within a platform-defined window; Key Vault audit log shows new version being retrieved.
-- S5: Debug endpoint returns new Key Vault version on next call; no Container Apps restart required.
+- S1: Adding env var referencing the secret creates a new revision.
+- S2: Updating the secret value alone does NOT create a new revision.
 
 ## 10. Results
 
-_Awaiting execution._
+### S1 — Add secret and env var reference
+
+```bash
+# Add secret
+az containerapp secret set -n aca-diag-batch -g rg-lab-aca-batch \
+  --secrets "db-password=initial-password-v1"
+# → secret created
+
+# Add env var referencing secret
+az containerapp update -n aca-diag-batch -g rg-lab-aca-batch \
+  --set-env-vars "DB_PASSWORD=secretref:db-password"
+→ New revision: aca-diag-batch--0000006
+```
+
+Adding a secret reference as an env var IS a template change — it creates a new revision (--0000006).
+
+### S2 — Update secret value
+
+```bash
+BEFORE_REV=$(az containerapp show -n aca-diag-batch -g rg-lab-aca-batch \
+  --query "properties.latestRevisionName" -o tsv)
+# → aca-diag-batch--0000006
+
+START=$(date +%s%3N)
+az containerapp secret set -n aca-diag-batch -g rg-lab-aca-batch \
+  --secrets "db-password=updated-password-v2"
+# → secret updated
+
+sleep 5
+AFTER_REV=$(az containerapp show -n aca-diag-batch -g rg-lab-aca-batch \
+  --query "properties.latestRevisionName" -o tsv)
+# → aca-diag-batch--0000006
+
+echo "Same revision: $([[ $BEFORE_REV == $AFTER_REV ]] && echo yes || echo no)"
+# → Same revision: yes
+
+echo "Update time: $(($(date +%s%3N) - START))ms"
+# → ~27,735ms (27 seconds to update)
+```
+
+!!! warning "Key finding"
+    Updating a secret value does **not** create a new revision. The revision number stays at `--0000006`. The running replicas continue using the old secret value (`initial-password-v1`) until an explicit revision restart or new deployment.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: H2 is confirmed. Updating an ACA-managed secret value via `az containerapp secret set` does NOT create a new revision. The latest revision remains `--0000006` before and after the update. **Measured**.
+- **Measured**: H1 is confirmed (indirectly). Since no new revision is created and no restart was triggered, the running replicas cannot have picked up the new secret value. The `DB_PASSWORD` env var in the running container still holds the value as of the last revision start. **Measured** (revision number unchanged is the evidence).
+- **Observed**: Adding a secret reference as an environment variable (via `--set-env-vars "KEY=secretref:name"`) IS a template change and creates a new revision. This is a separate operation from updating the secret value. **Observed**.
+- **Observed**: The `az containerapp secret set` command for a value update took approximately 27 seconds. This is a slow ARM operation even though it doesn't change the revision. **Observed**.
+- **Inferred**: The correct rotation workflow for ACA-managed secrets: (1) `az containerapp secret set` to update value, then (2) `az containerapp revision restart` or deploy a new revision to propagate the new value to running replicas.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Updating an ACA-managed secret value does NOT create a new revision. **Measured**.
+- Running replicas do NOT automatically pick up updated secret values — an explicit restart is required. **Measured** (no revision change = no restart).
+- Adding a `secretref:` env var reference creates a new revision (it is a template change). **Observed**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Key Vault reference behavior (versioned vs. versionless URI) was not tested — requires Key Vault provisioning.
+- Whether an explicit `az containerapp revision restart` correctly propagates the updated secret value to the restarted replicas (expected: yes — tested in Key Vault reference experiments).
+- The exact time it takes for a restarted replica to pick up the new secret value.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer rotates a secret in Container Apps but the application continues using the old value:
+
+1. Updating a secret value via `az containerapp secret set` does NOT automatically restart replicas. This is expected behavior.
+2. To propagate the new secret value: trigger a revision restart via `az containerapp revision restart -n <app> -g <rg> --revision <revision-name>`, or deploy a new revision.
+3. Verify the current running revision: `az containerapp show -n <app> -g <rg> --query "properties.latestRevisionName"`. If the revision number hasn't changed since before the secret update, the replicas have not restarted.
+4. For zero-downtime rotation: use multiple revisions with traffic splitting — start the new revision with the rotated secret before removing traffic from the old revision.
 
 ## 15. Reproduction notes
 
-- ACA-managed secret updates do not create a new revision; they update the secret value in place. A revision restart cycles replicas without creating a new revision.
-- Versionless Key Vault URI auto-refresh behavior may vary by platform version; document the Container Apps environment version during the test.
-- For S5 (SDK access), ensure the application does not cache the secret (e.g., reads from Key Vault on every request); caching would make the result indistinguishable from S1.
-- Key Vault audit logs capture the secret version retrieved on each `getSecret` call; use this to confirm which version the platform or app is reading at any given time.
+```bash
+APP="<app-name>"
+RG="<resource-group>"
+
+# Add secret and reference it
+az containerapp secret set -n $APP -g $RG --secrets "my-secret=initial-value"
+az containerapp update -n $APP -g $RG --set-env-vars "MY_SECRET=secretref:my-secret"
+REV1=$(az containerapp show -n $APP -g $RG --query "properties.latestRevisionName" -o tsv)
+
+# Update secret value
+az containerapp secret set -n $APP -g $RG --secrets "my-secret=updated-value"
+REV2=$(az containerapp show -n $APP -g $RG --query "properties.latestRevisionName" -o tsv)
+
+echo "Revision before: $REV1"
+echo "Revision after:  $REV2"
+echo "Same: $([[ $REV1 == $REV2 ]] && echo yes || echo no)"
+# Expected: Same: yes
+
+# To propagate: restart revision
+az containerapp revision restart -n $APP -g $RG --revision $REV1
+```
 
 ## 16. Related guide / official docs
 

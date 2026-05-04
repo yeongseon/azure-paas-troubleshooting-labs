@@ -57,6 +57,8 @@ nav:
           - Overview: app-service/arr-affinity-behavior/overview.md
       - App Insights vs OpenTelemetry Gap:
           - Overview: app-service/appinsights-opentelemetry-gap/overview.md
+      - App Insights Connection String Injection:
+          - Overview: app-service/appinsights-connection-string-injection/overview.md
       - Managed Identity Token Acquisition Failures:
           - Overview: app-service/managed-identity-token-acquisition-failures/overview.md
       - TLS Binding Edge Cases:

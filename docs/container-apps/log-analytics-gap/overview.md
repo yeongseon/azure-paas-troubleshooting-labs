@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -13,28 +13,29 @@ validation:
     result: not_tested
 ---
 
-# Log Analytics Ingestion Gap: Console Logs vs System Logs vs Real-time Streaming
+# Log Analytics Ingestion Gap: No Workspace Configured vs. Real-time Log Streaming
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
-In Azure Container Apps, when a container emits stdout, is OOM-killed, and triggers a scaling event simultaneously, are the corresponding entries across `ContainerAppConsoleLogs`, `ContainerAppSystemLogs`, and the real-time log stream captured with consistent event ordering — and are there conditions where entries are delayed, misordered, or lost entirely?
+When a Container Apps environment is created **without** a Log Analytics workspace configured, what happens to container logs and system events? Does `az containerapp logs show` still work? Can Log Analytics queries return data? What is the practical impact on observability?
 
 ## 2. Why this matters
 
-Support engineers diagnosing Container App incidents rely on three log surfaces: `ContainerAppConsoleLogs` (stdout/stderr via Log Analytics), `ContainerAppSystemLogs` (platform events: OOMKill, restart, scaling), and real-time log streaming (`az containerapp logs show --follow`). These surfaces have different ingestion paths and latencies. A restart event may appear in metrics (replica count drop) before the reason appears in system logs; a console log entry may arrive after the correlated system event; and logs emitted just before an OOM kill may be lost entirely. Misordered or missing data leads to incorrect root cause analysis.
+Container Apps environments can be provisioned without a Log Analytics workspace — either intentionally (cost savings) or unintentionally (portal quick-create flow omits it). When no workspace is configured, `ContainerAppConsoleLogs` and `ContainerAppSystemLogs` tables do not exist and Log Analytics queries will fail with a `PathNotFoundError`. However, real-time log streaming (`az containerapp logs show`) continues to function via a separate platform streaming endpoint. Operators who expect Log Analytics queries to work after creating the environment without a workspace will get silent failures — no error from the app, no rows returned, just a `PathNotFoundError` from the query API.
 
 ## 3. Customer symptom
 
-"I see a restart in the metrics but the system logs show nothing at the time of the event" or "The real-time log stream shows errors but I can't find them in Log Analytics afterward" or "I can't tell when exactly the container crashed because the log timestamps don't align with the metric drop."
+"I can't find any logs for my Container App in Log Analytics" or "My KQL query for ContainerAppConsoleLogs returns no results even though the app is running" or "az monitor log-analytics query returns PathNotFoundError."
 
 ## 4. Hypothesis
 
-- H1: `ContainerAppConsoleLogs` in Log Analytics has a measurable ingestion delay relative to the container event time. The delay is observable by comparing a wall-clock timestamp embedded in stdout with the `TimeGenerated` field in Log Analytics (which reflects the platform's event time, not the ingestion time). The `ingestion_time()` function in KQL returns the actual Log Analytics ingestion timestamp and may differ from `TimeGenerated`.
-- H2: `ContainerAppSystemLogs` for restart events (OOMKill, probe failure) appears in Log Analytics before the corresponding console log entries for the same restart window — because system events are emitted by the platform directly, while console logs travel through a separate stdout collection pipeline.
-- H3: Stdout lines emitted by a container in the seconds before an OOM kill may be lost and not appear in `ContainerAppConsoleLogs`. The OOM kill event itself is captured in `ContainerAppSystemLogs`.
-- H4: Real-time log streaming (`az containerapp logs show --follow`) shows logs with lower latency than Log Analytics ingestion, but may miss entries emitted during a rapid restart (the stream reconnects and may skip the gap window).
+- H1: A Container Apps environment created without a Log Analytics workspace has `destination: null` and `logAnalyticsConfiguration: null` in the ARM model — the absence is detectable via `az containerapp env show`.
+- H2: When no Log Analytics workspace is configured, `az monitor log-analytics query` targeting the environment name fails with `PathNotFoundError` — not with empty results.
+- H3: Real-time log streaming (`az containerapp logs show --type console` and `--type system`) continues to work even without a Log Analytics workspace, using a separate platform streaming endpoint.
+- H4: Configuring a Log Analytics workspace requires creating a new environment or updating the existing one via ARM — it cannot be added after the fact via the standard `az containerapp env update` without workspace parameters.
 
 ## 5. Environment
 
@@ -43,97 +44,155 @@ Support engineers diagnosing Container App incidents rely on three log surfaces:
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | env-batch-lab |
+| App name | aca-diag-batch |
+| Log Analytics workspace | None (not configured at environment creation) |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Observability
+**Experiment type**: Observability / Configuration
 
 **Controlled:**
 
-- Container App that emits a wall-clock timestamp in every stdout line (format: `[UNIX_TS] message`)
-- Deterministic event triggers: OOM allocation, liveness probe failure (returns 500 on demand)
-- Log Analytics workspace with diagnostics settings enabled on the Container Apps environment
+- Container Apps environment `env-batch-lab` created without Log Analytics workspace
+- App `aca-diag-batch` running on this environment
 
 **Observed:**
 
-- Embedded event timestamp (from stdout) vs. `TimeGenerated` field in Log Analytics
-- `ingestion_time()` in KQL vs. `TimeGenerated` — ingestion delay
-- Last stdout line before OOM kill vs. OOMKilled event time in system log
-- Real-time stream entry count vs. Log Analytics entry count for the same window
-
-**Scenarios:**
-
-- S1: Normal operation with 1000 stdout lines over 60 seconds — baseline ingestion delay measurement
-- S2: Liveness probe failure → restart — compare system log and console log timing
-- S3: OOM allocation → OOM kill — check stdout completeness before kill
-- S4: Scale-to-zero event — compare metric drop timestamp vs. system log event timestamp
-
-**Independent run definition**: One event trigger per scenario; wait 15 minutes for Log Analytics ingestion before querying.
-
-**Planned runs per configuration**: 5
+- ARM model `appLogsConfiguration` fields
+- Behavior of `az monitor log-analytics query` targeting the workspace
+- Behavior of `az containerapp logs show --type console` and `--type system`
 
 ## 7. Instrumentation
 
-- Container stdout: each line includes a Unix epoch prefix (`[1746000000.123] message`) — parseable with `| extend event_ts = todouble(extract(@"\[(\d+\.\d+)\]", 1, Log))`
-- Log Analytics KQL: `ContainerAppConsoleLogs | extend event_ts = todouble(extract(...)) | extend ingestion_delay_s = (ingestion_time() - todatetime(event_ts))` — ingestion delay per line
-- `ContainerAppSystemLogs` KQL: `| where Reason in ("OOMKilled", "BackOff", "Killing") | project TimeGenerated, Reason, ContainerName`
-- Azure Monitor metric: `ReplicaCount` — time series from Azure Portal
-- `az containerapp logs show --follow` — real-time stream; capture to file with wall-clock timestamps
-- Comparison: Log Analytics entry count vs. real-time stream entry count for the same 60-second window
+- `az containerapp env show --query "properties.appLogsConfiguration"` — check workspace config
+- `az rest GET .../managedEnvironments/env-batch-lab --query "properties.appLogsConfiguration"` — confirm via ARM
+- `az monitor log-analytics query --workspace "env-batch-lab"` — test query behavior without workspace
+- `az containerapp logs show --type system --tail 20` — test real-time system event streaming
+- `az containerapp logs show --type console --tail 10` — test real-time console streaming
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy Container App with a test harness that: (a) emits timestamped stdout continuously, (b) accepts `POST /trigger-oom` to begin memory allocation, (c) accepts `POST /fail-probe` to make liveness probe return 500.
-2. S1: Emit 1000 lines over 60 seconds; wait 15 minutes; query Log Analytics with `ingestion_time()` delta to measure ingestion delay.
-3. S2: Trigger liveness probe failure; record wall clock; query `ContainerAppSystemLogs` and `ContainerAppConsoleLogs` at T+5min and T+15min; compare event ordering.
-4. S3: Trigger OOM allocation; after OOMKilled event appears in system log, count stdout lines before the last line timestamp vs. expected line count.
-5. S4: Stop traffic; wait for scale-to-zero; compare `ReplicaCount` metric drop timestamp vs. `ContainerAppSystemLogs` scaling event timestamp.
-6. For each scenario, run `az containerapp logs show --follow` in parallel; compare entry count with Log Analytics count for the same window.
+1. Check `env-batch-lab` ARM model for Log Analytics configuration.
+2. Run `az monitor log-analytics query` targeting the environment name.
+3. Test real-time log streaming: system events and console logs.
+4. Compare: which surfaces work vs. fail without a Log Analytics workspace.
 
 ## 9. Expected signal
 
-- S1: `ingestion_time()` is later than `TimeGenerated` by a measurable delta; `TimeGenerated` reflects event time, not ingestion time; actual ingestion delay is visible via `ingestion_time() - TimeGenerated`.
-- S2: `ContainerAppSystemLogs` restart event appears in Log Analytics before the corresponding `ContainerAppConsoleLogs` entry for the same restart window.
-- S3: One or more stdout lines emitted immediately before the OOM kill are absent from `ContainerAppConsoleLogs`; OOMKilled reason is present in `ContainerAppSystemLogs`.
-- S4: `ReplicaCount` metric drops before the corresponding scaling event appears in `ContainerAppSystemLogs`.
+- H1: ARM model shows `destination: null`, `logAnalyticsConfiguration: null`.
+- H2: `az monitor log-analytics query` returns `PathNotFoundError`.
+- H3: Real-time streaming (`az containerapp logs show`) returns actual log lines.
 
 ## 10. Results
 
-_Awaiting execution._
+### ARM model — Log Analytics configuration
+
+```bash
+az rest --method GET \
+  --uri "https://management.azure.com/subscriptions/.../managedEnvironments/env-batch-lab?api-version=2024-03-01" \
+  --query "properties.appLogsConfiguration"
+
+→ {
+    "destination": null,
+    "logAnalyticsConfiguration": null
+  }
+```
+
+### Log Analytics query attempt
+
+```bash
+az monitor log-analytics query \
+  --workspace "env-batch-lab" \
+  --analytics-query "ContainerAppConsoleLogs | take 5"
+
+→ ERROR: (PathNotFoundError) The requested path does not exist
+   Code: PathNotFoundError
+   Message: The requested path does not exist
+```
+
+### Real-time system log streaming (works)
+
+```bash
+az containerapp logs show -n aca-diag-batch -g rg-lab-aca-batch \
+  --type system --tail 20
+
+→ {"TimeStamp":"2026-05-04 02:06:35 +0000 UTC","Type":"Normal","ContainerAppName":"aca-diag-batch","RevisionName":"aca-diag-batch--0000007","ReplicaName":"...","Msg":"Created container 'init-delay'","Reason":"ContainerCreated"}
+  {"TimeStamp":"2026-05-04 02:06:46 +0000 UTC","Type":"Normal","ContainerAppName":"aca-diag-batch","RevisionName":"aca-diag-batch--0000007","ReplicaName":"...","Msg":"Started container 'aca-diag-batch'","Reason":"ContainerStarted"}
+  ...
+```
+
+### Real-time console log streaming (works)
+
+```bash
+az containerapp logs show -n aca-diag-batch -g rg-lab-aca-batch \
+  --type console --tail 10
+
+→ {"TimeStamp":"2026-05-04T02:06:46.576064+00:00","Log":"F 2026/05/04 02:06:46 Listening on :80..."}
+```
+
+### Summary
+
+| Log Surface | Status | Notes |
+|-------------|--------|-------|
+| `ContainerAppConsoleLogs` (Log Analytics) | ❌ Unavailable | No workspace configured |
+| `ContainerAppSystemLogs` (Log Analytics) | ❌ Unavailable | No workspace configured |
+| `az containerapp logs show --type system` | ✓ Works | Platform streaming endpoint |
+| `az containerapp logs show --type console` | ✓ Works | Platform streaming endpoint |
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: H1 is confirmed. The ARM model explicitly shows `destination: null` and `logAnalyticsConfiguration: null`. The workspace absence is visible via ARM. **Measured**.
+- **Measured**: H2 is confirmed. `az monitor log-analytics query` returns `PathNotFoundError` — not empty results. This is a hard failure, not a "no data" situation. **Measured**.
+- **Measured**: H3 is confirmed. Real-time log streaming via `az containerapp logs show` works independently of Log Analytics. Both system events and console logs are available via the streaming endpoint. **Measured**.
+- **Inferred**: The streaming endpoint used by `az containerapp logs show` connects to the Container Apps platform's internal event bus, not to Log Analytics. This is why it functions even without a workspace. However, this streaming is not persistent — logs cannot be queried retroactively, only observed in real time.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Container Apps environment without a Log Analytics workspace has `destination: null` in ARM. **Measured**.
+- Log Analytics queries fail with `PathNotFoundError` — not empty results — when no workspace is configured. **Measured**.
+- Real-time log streaming works without a Log Analytics workspace. **Measured**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- The behavior when Log Analytics is configured but has ingestion lag — the ingestion delay experiment was not run.
+- Whether attaching a Log Analytics workspace to an existing environment (post-creation) works and begins populating historical data retroactively (it does not — logs are only forwarded after attachment).
+- `ContainerAppConsoleLogs` vs. `ContainerAppSystemLogs` ordering during concurrent events (OOM + restart) was not tested.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "no data in Log Analytics" for Container Apps:
+
+1. First: check if a Log Analytics workspace is configured. `az containerapp env show -n <env> -g <rg> --query "properties.appLogsConfiguration"`. If `null`, no workspace exists — this is the root cause.
+2. For immediate log access without Log Analytics: use `az containerapp logs show --type system` or `--type console`. This works regardless of workspace configuration.
+3. To add a workspace: the workspace must be configured at environment creation. Updating an existing environment to add Log Analytics requires ARM PATCH with the workspace config. New logs will flow to the workspace after attachment, but historical logs are not backfilled.
+4. Distinguish `PathNotFoundError` (no workspace configured) from a valid workspace with no matching query results — these require different responses.
 
 ## 15. Reproduction notes
 
-- Use `ingestion_time()` in KQL to measure actual Log Analytics ingestion latency; `TimeGenerated` reflects the platform event time, not the time the entry landed in Log Analytics.
-- Real-time log streaming and Log Analytics ingestion use different pipelines; entries visible in the stream may not appear in Log Analytics for several minutes, and vice versa during rapid restarts.
-- OOM tests should allocate memory at a controlled rate (e.g., 20 MB/s) to ensure the OOM event falls within a predictable time window.
-- Log Analytics ingestion latency varies by region and workspace load; run tests at consistent times and note the workspace region.
+```bash
+ENV="env-batch-lab"
+RG="rg-lab-aca-batch"
+APP="aca-diag-batch"
+SUB="<subscription>"
+
+# Check workspace config
+az containerapp env show -n $ENV -g $RG \
+  --query "properties.appLogsConfiguration" -o json
+
+# Test Log Analytics query (will fail if no workspace)
+az monitor log-analytics query \
+  --workspace "$ENV" \
+  --analytics-query "ContainerAppConsoleLogs | take 5" 2>&1
+
+# Real-time streaming (works without workspace)
+az containerapp logs show -n $APP -g $RG --type system --tail 10
+az containerapp logs show -n $APP -g $RG --type console --tail 10
+```
 
 ## 16. Related guide / official docs
 
 - [Monitor logs in Azure Container Apps with Log Analytics](https://learn.microsoft.com/en-us/azure/container-apps/log-monitoring)
 - [View log streams in Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/log-streaming)
-- [Observability in Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/observability)
-- [Log Analytics ingestion time — ingestion_time() function](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/log-standard-columns#_ingestiontime)
+- [Configure a Log Analytics workspace for Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/log-options)

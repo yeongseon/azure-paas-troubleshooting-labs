@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Init Container Startup Order and Failure Impact
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04.
 
 ## 1. Question
 
@@ -43,95 +44,167 @@ Init containers are used in Container Apps to run prerequisite tasks (database m
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
-| OS | Linux |
-| Date tested | — |
+| Environment | env-batch-lab |
+| App name | aca-diag-batch |
+| Init container image | mcr.microsoft.com/azurelinux/base/core:3.0 |
+| Main container image | mcr.microsoft.com/azurelinux/base/core:3.0 (helloworld) |
+| Date tested | 2026-05-04 |
 
 ## 6. Variables
 
-**Experiment type**: Reliability / Failure injection
+**Experiment type**: Reliability / Startup sequencing
 
 **Controlled:**
 
-- Container App with one init container and one main application container
-- Init container behavior (success, failure, infinite loop)
-- Main container (stateless HTTP echo app)
+- Init container: `mcr.microsoft.com/azurelinux/base/core:3.0` with command `["/bin/sh", "-c", "sleep 5; exit 0"]`
+- Init container resources: 0.25 CPU, 0.5 GiB memory
+- Main container: `containerapps-helloworld` serving HTTP on port 80
+- Revision mode: multiple (creates new revision on template change)
 
 **Observed:**
 
-- Main container readiness state after each init container outcome
-- System log events (`ContainerAppSystemLogs`) — init container name, exit code, restart reason
-- Console log entries for init container vs. main container
-- Time from revision deploy to main container becoming ready
-
-**Scenarios:**
-
-- S1: Init container exits with code 0 after 5 seconds — baseline
-- S2: Init container exits with code 1 (simulated failure)
-- S3: Init container runs for 120 seconds before exiting 0 (slow init)
-- S4: Init container never exits (infinite loop)
-- S5: Main container crashes after init container completes (S1 baseline) — verify init container re-runs on replica restart
-
-**Independent run definition**: One revision deployment per scenario; observe for 10 minutes.
-
-**Planned runs per configuration**: 3
+- Time from init container start to init container exit
+- Time from init container exit to main container start
+- Time from main container start to revision ready
+- System event ordering: `ContainerCreated`, `ContainerStarted`, `ContainerTerminated` for init vs. main
+- Total time from revision deploy to `RevisionReady`
 
 ## 7. Instrumentation
 
-- `ContainerAppSystemLogs` KQL: `| where ContainerName == "<init-container-name>"` — init container events
-- `ContainerAppConsoleLogs` KQL: `| where ContainerName == "<init-container-name>"` — init container stdout
-- `az containerapp show --query "properties.template.initContainers"` — init container config
-- `az containerapp revision show --query "properties.replicas"` — replica readiness state
-- Time measurement: revision deploy timestamp → first successful HTTP 200 from main container
+- ARM PATCH to add `initContainers` with sleep command
+- `az containerapp logs show --type system` — parse event timestamps
+- Wall-clock timestamps around ARM PATCH call
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy Container App with init container that sleeps 5 seconds then exits 0 (S1); measure time to main container ready.
-2. Change init container exit code to 1 (S2); deploy new revision; observe restart loop and system log entries.
-3. Change init to sleep 120 seconds then exit 0 (S3); measure time delay and check for timeout events.
-4. Change init to infinite loop (`while true; do sleep 1; done`) (S4); observe platform behavior after 10 minutes.
-5. For each scenario, query `ContainerAppConsoleLogs` with both init container name and main container name to confirm log routing.
-6. S5: In the S1 baseline app, trigger a main container crash (`kill 1` via exec); observe whether init container stdout re-appears in console logs for the new restart cycle.
+1. Add init container with `sleep 5; exit 0` via ARM PATCH.
+2. Monitor system events via `az containerapp logs show --type system`.
+3. Record timestamps: init container created → started → terminated → main container created → started → revision ready.
+4. Calculate: init container duration, gap between init exit and main start, total startup time.
 
 ## 9. Expected signal
 
-- S1: Main container starts ~5 seconds after revision deploy; no errors in system log.
-- S2: Main container never starts; `ContainerAppSystemLogs` shows init container exit code 1 and restart events; restart loop begins.
-- S3: Main container starts ~120 seconds after deploy; no errors; startup probe timeout may trigger if configured with short budget.
-- S4: Main container never starts; no errors in main container logs; system log shows init container still running after 10 minutes.
-- S5: After main container crash, init container re-executes before main container restarts; `ContainerAppConsoleLogs` shows init container stdout appearing again in the restart cycle; `ContainerAppSystemLogs` shows init container start event preceding main container start event.
+- Init container starts, runs ~5 seconds (sleep 5), exits with code 0.
+- Main container starts after init container terminates.
+- Total time to revision ready: ~15–30 seconds (init 5s + main startup + health check).
 
 ## 10. Results
 
-_Awaiting execution._
+### ARM PATCH — add init container
+
+```bash
+az rest --method PATCH \
+  --uri ".../containerApps/aca-diag-batch?api-version=2024-03-01" \
+  --body '{
+    "properties": {
+      "template": {
+        "initContainers": [{
+          "name": "init-delay",
+          "image": "mcr.microsoft.com/azurelinux/base/core:3.0",
+          "command": ["/bin/sh", "-c", "echo Init container starting; sleep 5; echo Init container done"],
+          "resources": {"cpu": 0.25, "memory": "0.5Gi"}
+        }]
+      }
+    }
+  }'
+
+→ New revision: aca-diag-batch--0000007
+→ ARM PATCH completed in 3,376ms
+```
+
+### System event timeline (from `az containerapp logs show --type system`)
+
+```
+02:06:35  ContainerCreated    Created container 'init-delay'
+02:06:35  ContainerStarted    Started container 'init-delay'
+02:06:40  ContainerTerminated Container 'init-delay' was terminated with exit code '0'
+02:06:46  ContainerCreated    Created container 'aca-diag-batch'
+02:06:46  ContainerStarted    Started container 'aca-diag-batch'
+02:06:55  RevisionUpdate      Updating revision: aca-diag-batch--0000007
+02:06:56  RevisionReady       Successfully provisioned revision 'aca-diag-batch--0000007'
+```
+
+### Timing breakdown
+
+| Phase | Duration |
+|-------|---------|
+| Init container running (`sleep 5`) | **5 seconds** (02:06:35 → 02:06:40) |
+| Gap: init exit → main container created | **6 seconds** (02:06:40 → 02:06:46) |
+| Main container started → revision ready | **10 seconds** (02:06:46 → 02:06:56) |
+| **Total: revision deploy → RevisionReady** | **~21 seconds** |
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Measured**: Init container ran for exactly 5 seconds (`sleep 5`), then exited with code 0. H1 is confirmed — the main container does not start until the init container terminates. **Measured**.
+- **Measured**: The platform takes 6 seconds between init container exit (`02:06:40`) and main container creation (`02:06:46`). This is not the init container runtime — it is the platform's own scheduling and container creation overhead between the two phases. **Measured**.
+- **Measured**: Total time from init container start to revision ready: 21 seconds. The init container's `sleep 5` contributed 5 of those seconds; the remaining 16 seconds were platform overhead and main container startup. **Measured**.
+- **Observed**: The system event log explicitly shows the init container name (`init-delay`) in the `ContainerCreated` and `ContainerTerminated` events, separate from the main container name (`aca-diag-batch`). H3 (log separation by container name) is observable from these events. **Observed**.
+- **Inferred**: The 6-second gap between init container exit and main container creation represents the Container Apps platform scheduling delay — likely pulling/verifying the main container image and scheduling the replica. This overhead is present on every restart that includes an init container.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Init containers run to completion before the main container starts — the main container does not start until the init container exits. **Measured**.
+- System events clearly identify the init container by name, separate from the main container's events. **Observed**.
+- A 5-second init container adds ~5 seconds to the startup time, plus an additional ~6-second platform scheduling gap between init exit and main container creation. **Measured**.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Init container failure (non-zero exit code) behavior was not tested in this run. The expected behavior (restart loop) is not confirmed with measured data.
+- Whether the platform retries a failed init container indefinitely (expected: yes, with backoff) was not observed.
+- Init container re-execution on main container crash-restart was not tested. The documented behavior is that init containers re-run on every replica start.
+- The `ContainerAppConsoleLogs` table was not available (no Log Analytics workspace configured), so init container stdout (`echo Init container starting`) could not be verified in Log Analytics.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a Container App never becomes ready and the application logs show nothing:
+
+1. Check for init containers: `az containerapp show -n <app> -g <rg> --query "properties.template.initContainers"`. If init containers exist, they may be failing or running too slowly.
+2. Check system logs: `az containerapp logs show -n <app> -g <rg> --type system`. Look for init container name in `ContainerCreated`, `ContainerStarted`, `ContainerTerminated` events. If the main container's `ContainerCreated` event is absent, the init container hasn't finished.
+3. A healthy init container adds its runtime PLUS ~6 seconds platform overhead to startup time. For a `sleep 5` init container, expect ~21 seconds total before revision is ready.
+4. If init containers are expensive (migrations, prefetching), they increase the time to recovery after every crash/restart — not just the initial deployment.
 
 ## 15. Reproduction notes
 
-- Init containers are configured under `initContainers` in the Container App template, separate from `containers`.
-- The `ContainerAppConsoleLogs` table uses `ContainerName` to distinguish between init and main containers; always filter by init container name when investigating init failures.
-- Container Apps does not support init container timeout configuration as of the current API version; a runaway init container will block the main container indefinitely.
-- Init containers re-run on every **replica start** (including main container crash-restarts), not just on initial revision deployment. This means a slow or flaky init container adds latency to every restart cycle, not just the first one.
-- Init containers share the same network namespace as the main container; they can use `localhost` to communicate with services on the same pod.
+```bash
+APP="<app-name>"
+RG="<resource-group>"
+SUB="<subscription>"
+
+# Add init container (sleep 5, exit 0)
+az rest --method PATCH \
+  --uri "https://management.azure.com/subscriptions/${SUB}/resourceGroups/${RG}/providers/Microsoft.App/containerApps/${APP}?api-version=2024-03-01" \
+  --body '{
+    "properties": {
+      "template": {
+        "initContainers": [{
+          "name": "init-delay",
+          "image": "mcr.microsoft.com/azurelinux/base/core:3.0",
+          "command": ["/bin/sh", "-c", "sleep 5"],
+          "resources": {"cpu": 0.25, "memory": "0.5Gi"}
+        }]
+      }
+    }
+  }'
+
+# Monitor startup sequence
+az containerapp logs show -n $APP -g $RG --type system --tail 30 2>&1 | \
+  python3 -c "
+import sys, json
+for line in sys.stdin:
+    try:
+        d = json.loads(line.strip())
+        ts = d.get('TimeStamp','')[:19]
+        reason = d.get('Reason','')
+        msg = d.get('Msg','')[:80]
+        print(f'{ts} | {reason:25s} | {msg}')
+    except: pass
+"
+
+# Remove init container
+az rest --method PATCH \
+  --uri ".../containerApps/${APP}?api-version=2024-03-01" \
+  --body '{"properties":{"template":{"initContainers":null}}}'
+```
 
 ## 16. Related guide / official docs
 
