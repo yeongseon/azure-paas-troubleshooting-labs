@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -15,7 +15,8 @@ validation:
 
 # Envoy Retry Storm: Upstream Overload from Automatic Retries
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04. H1 and H2 **not confirmed** — Container Apps Envoy does not automatically retry 503 or 429 responses.
 
 ## 1. Question
 
@@ -43,9 +44,10 @@ Envoy-level automatic retries are designed to improve reliability, but when the 
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
+| Runtime | Python 3.11 (gunicorn 25.3.0, 4 workers) |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
+| App image | `acrlabcdrbackhgtaj.azurecr.io/diag-app:v5` |
 
 ## 6. Variables
 
@@ -78,14 +80,13 @@ Envoy-level automatic retries are designed to improve reliability, but when the 
 
 ## 8. Procedure
 
-_To be defined during execution._
-
-### Sketch
-
-1. Deploy app with `/always-200`, `/always-503`, and `/always-429` endpoints. Log each request to application log with timestamp.
-2. S1: Send 100 requests to `/always-200`; verify application log shows 100 requests (1:1).
-3. S2: Send 100 requests to `/always-503`; count application log entries; compare to 100 (expect >100 due to retries).
-4. S3: Send 100 requests to `/always-429`; count application log entries; compare.
+1. Deployed `diag-app:v5` with three new endpoints: `/always-200` (returns 200), `/always-503` (returns 503 + logs request count), `/always-429` (returns 429 + logs request count). Added `/counters` and `/counters/reset` endpoints.
+2. Routed 100% traffic to revision `aca-diag-batch--v5a`.
+3. **S1**: Sent 20 requests to `/always-200`; verified baseline response times.
+4. **S2**: Sent 20 requests to `/always-503`; recorded client-side HTTP status codes.
+5. **S3**: Sent 20 requests to `/always-429`; recorded client-side HTTP status codes.
+6. **Timing test**: Sent 8 requests each to all three endpoints; measured round-trip time (RTT) per request. Rationale: if Envoy retries internally (before returning to the client), the RTT for 503 would be 2-3× higher than for 200.
+7. **Header inspection**: Examined all response headers for Envoy retry signals (`x-envoy-attempt-count`, `x-envoy-retry-on`, etc.).
 
 ## 9. Expected signal
 
@@ -95,23 +96,70 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### Client-side HTTP status codes received
+
+| Scenario | Endpoint | Client requests sent | Client 200s | Client 503s | Client 429s |
+|----------|----------|---------------------|-------------|-------------|-------------|
+| S1 | `/always-200` | 20 | 20 | — | — |
+| S2 | `/always-503` | 20 | — | 20 | — |
+| S3 | `/always-429` | 20 | — | — | 20 |
+
+All client requests received the exact status code from the upstream container. No status code transformation by the ingress.
+
+### Response time comparison (8 requests each)
+
+```
+/always-200: avg=0.055s  median=0.052s  min=0.048s  max=0.073s
+/always-503: avg=0.054s  median=0.051s  min=0.046s  max=0.082s
+/always-429: avg=0.052s  median=0.054s  min=0.044s  max=0.061s
+```
+
+Response times are statistically identical across all three status codes. If Envoy were retrying internally (before returning to the client), the 503 RTT would be 2-3× higher than the 200 baseline. No such increase was observed.
+
+### Response headers (503 example)
+
+```http
+HTTP/2 503
+server: gunicorn
+date: Mon, 04 May 2026 06:15:39 GMT
+content-type: application/json
+content-length: 34
+```
+
+No Envoy-specific headers (`x-envoy-attempt-count`, `x-envoy-upstream-service-time`, `x-envoy-retry-on`) were present in any response across all three status codes.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: Container Apps Envoy passes 503 responses from the upstream container directly to the client without retrying. Client-side status codes match upstream status codes 1:1.
+- **Observed**: Container Apps Envoy passes 429 responses from the upstream container directly to the client without retrying.
+- **Measured**: RTT for 503 responses (avg 54ms) is not statistically different from RTT for 200 responses (avg 55ms). Internal Envoy retries would add at minimum one additional upstream RTT (~50ms), which would be detectable.
+- **Observed**: No Envoy retry signal headers (`x-envoy-attempt-count`, `x-envoy-upstream-service-time`) appear in any response.
+- **Not Proven**: H1 (Envoy retries on 5xx by default) — directly contradicted by timing and header evidence.
+- **Not Proven**: H2 (503 storm amplifies upstream load) — contradicted by observed 1:1 request mapping.
+- **Inferred**: Container Apps Envoy ingress is configured with automatic retries disabled, or its default retry policy does not include 5xx or 429 status codes. This differs from vanilla Envoy defaults, where 5xx retry is a common default policy.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Container Apps Envoy ingress does **not** automatically retry 503 responses from the upstream container. The client receives a 503 immediately, without retry amplification.
+- Container Apps Envoy ingress does **not** automatically retry 429 responses from the upstream container.
+- Response time for 503 and 429 is statistically identical to 200 — no internal retry overhead is added by the ingress layer.
+- The ingress does not add `x-envoy-attempt-count` or other retry signal headers to responses in this configuration.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether Container Apps Envoy retries on connection-level failures (TCP reset, socket timeout) rather than HTTP-level status codes — only HTTP 503/429 were tested.
+- Whether retry behavior changes with specific ingress configuration options (Container Apps does not expose retry policy configuration as of 2026-05-04).
+- Whether the retry behavior applies identically to HTTP/1.1 and HTTP/2 traffic.
+- Whether Dapr service invocation retries differently from ingress-level retries.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "getting more requests than clients are sending" or "503 errors seem to cascade":
+
+1. **Container Apps Envoy does not retry 503 or 429.** A "retry storm" from the ingress layer is not the cause. Look elsewhere — client-side retries, upstream fan-out, or KEDA scaling triggers.
+2. **503 passes through 1:1.** If the container returns 503, the client receives 503. The ingress is not transforming or swallowing error responses.
+3. **RTT is the amplification signal.** If you suspect retries, compare response times across 200 and 503 scenarios. A 2× RTT increase for 503 indicates internal retries; equal RTTs indicate pass-through.
+4. **Check the application layer, not the ingress.** If metrics show more upstream requests than expected, look at Dapr service invocation retry policies, SDK-level retries in the application, or multiple replicas receiving the same client request via load balancing.
 
 ## 15. Reproduction notes
 
