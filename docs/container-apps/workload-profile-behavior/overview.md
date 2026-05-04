@@ -132,6 +132,33 @@ Mean (excluding cold-start): ~76ms (first warm), then ~50ms steady-state
 
 The 15s first request on D4 was a cold-start (D4 had scaled to zero between the measurement batches). Excluding it, steady-state warm latency is ~50ms — identical to Consumption.
 
+### S5: CPU throttling comparison (H4)
+
+Both D4 and Consumption profiles were tested with single-threaded CPU burn workloads (Python `time.time()` loop):
+
+**Single-threaded 5s CPU burn (n=3 each):**
+
+| Profile | Trial 1 | Trial 2 | Trial 3 |
+|---------|---------|---------|---------|
+| D4 | 5.000s | 5.000s | 5.012s |
+| Consumption | 5.058s | 5.000s | 5.000s |
+
+**Single-threaded 30s CPU burn:**
+
+| Profile | actual | wall-clock |
+|---------|--------|------------|
+| D4 | 30.000s | 30.116s |
+| Consumption | 30.000s | 30.037s |
+
+**4 concurrent 10s CPU burns (simulating 4× 0.5 vCPU allocation):**
+
+| Profile | Request 1 | Request 2 | Request 3 | Request 4 |
+|---------|-----------|-----------|-----------|-----------|
+| D4 | 10.050s | 10.050s | 10.048s | 10.051s |
+| Consumption | 10.026s | 10.027s | 10.031s | 10.030s |
+
+In all cases, `actual ≈ duration`. If CPU were being throttled by cgroups, the busy-loop would still count wall-clock time (the throttled process is sleeping), so `actual` would exceed `duration`. The ~0ms gap confirms: no observable CPU throttling on either profile at 0.5 vCPU allocation with single-threaded Python workloads.
+
 ## 11. Interpretation
 
 **H2 — Not confirmed.** D4 profile with `minReplicas=0` scaled to zero in ~7–8 minutes of idle. The hypothesis predicted Dedicated profiles would have a *longer* cool-down due to reserved nodes — but the replica scaled to zero even with `min-nodes=1`. With `min-nodes=1`, the underlying D4 node remains provisioned (incurring cost), but the container replica is removed. This is the intended behavior: the node stays warm, but the container is not running. Scale-to-zero of the *replica* is independent of the node minimum count.
@@ -140,7 +167,9 @@ Consumption did not scale to zero — but this was due to an unrelated KEDA scal
 
 **H3 — Partially observed.** D4 cold-start from 0 replicas was 13.6–16 seconds. This is likely dominated by container scheduling and Python app initialization time, not infrastructure provisioning (since the node is already warm). Consumption cold-start was not measurable due to the KEDA issue. The hypothesis of a meaningful latency difference cannot be confirmed or denied without a valid Consumption cold-start baseline.
 
-**H1, H4 — Not tested.** NAT Gateway and CPU throttling tests require a separate Consumption-only environment and a load-generation tool, neither of which were available in this session.
+**H4 — Not confirmed.** CPU throttling was not observable in any test configuration. Single-threaded Python CPU burns on both D4 and Consumption showed `actual ≈ duration` (no throttle). 4 concurrent 10s burns also completed on schedule. The Python GIL limits true parallelism, so concurrent requests still use one thread each. No noisy-neighbor CPU throttling was observed on either profile. This does not prove throttling never occurs — it means throttling did not trigger at the tested workload levels (single-thread, 0.5 vCPU allocation, no sustained overload).
+
+**H1 — Not tested.** NAT Gateway tests require a separate Consumption-only environment, which was not available in this session.
 
 **Key unexpected finding:** A misconfigured KEDA scaler (auth error, connection string invalid) holds replicas at minimum 1 and prevents scale-to-zero. This is a common support scenario — customers expect scale-to-zero after removing all HTTP traffic, but the replica stays alive due to a background KEDA scaler that cannot authenticate.
 
