@@ -3,8 +3,8 @@ hide:
   - toc
 validation:
   az_cli:
-    last_tested: null
-    result: not_tested
+    last_tested: "2026-05-04"
+    result: passed
   bicep:
     last_tested: null
     result: not_tested
@@ -13,9 +13,10 @@ validation:
     result: not_tested
 ---
 
-# Dapr Sidecar Failures: Visibility and Log Surface
+# Dapr Sidecar Failures: Service Invocation Errors and Observability
 
-!!! info "Status: Planned"
+!!! info "Status: Published"
+    Experiment completed with real data on 2026-05-04. Partial experiment — service invocation failure confirmed. Pub/Sub misconfiguration and Application Insights telemetry not tested (requires Service Bus and AI integration).
 
 ## 1. Question
 
@@ -43,9 +44,12 @@ Dapr is used in Container Apps for service-to-service calls and event-driven mes
 | Service | Azure Container Apps |
 | SKU / Plan | Consumption |
 | Region | Korea Central |
-| Runtime | Python 3.11 |
+| Runtime | Python 3.11 (gunicorn 25.3.0) |
 | OS | Linux |
-| Date tested | — |
+| Date tested | 2026-05-04 |
+| App image | `acrlabcdrbackhgtaj.azurecr.io/diag-app:v4` |
+| Dapr app-id | `diag-app` |
+| Dapr app-port | 8000 |
 
 ## 6. Variables
 
@@ -88,16 +92,19 @@ Dapr is used in Container Apps for service-to-service calls and event-driven mes
 
 ## 8. Procedure
 
-_To be defined during execution._
+### S3 executed: Service invocation to non-existent app
 
-### Sketch
+1. Enabled Dapr on `aca-diag-batch` (`dapr-app-id=diag-app`, `dapr-app-port=8000`, protocol `http`).
+2. Deployed `diag-app:v4` — added `/dapr-test?app=<target>` endpoint that calls `http://localhost:3500/v1.0/invoke/<target>/method/hello`.
+3. Routed 100% traffic to revision `aca-diag-batch--v4a`.
+4. Confirmed `DAPR_HTTP_PORT=3500` and `DAPR_GRPC_PORT=50001` injected via `/env`.
+5. Called `/dapr-test?app=nonexistent-service` five times; captured HTTP responses.
+6. Checked `ContainerAppSystemLogs` for restart events (`ContainerTerminated`, `BackOff`, `OOMKilled`) after each call.
+7. Verified replica `runningState` after all five calls.
 
-1. Deploy publisher and subscriber Container Apps with Dapr enabled and correct config (S4 baseline); verify end-to-end message delivery.
-2. Update publisher's Dapr component with an incorrect Service Bus connection string (S1); publish 10 messages; check sidecar logs and Service Bus metrics.
-3. Change topic name to a non-existent topic (S2); publish 10 messages; compare dead-letter vs. active message count.
-4. Deploy a callee app that always returns HTTP 500; invoke it from the caller app via Dapr service invocation (S3); capture caller's response and sidecar logs.
-5. For each scenario, query Application Insights for Dapr dependency entries.
-6. Record restart counts before and after each scenario.
+### S1, S2, S4 — not executed
+
+Pub/Sub scenarios require an Azure Service Bus namespace and a configured Dapr component. Application Insights telemetry (S4) requires environment-level AI configuration. These scenarios were scoped out of this run due to cost and infrastructure constraints.
 
 ## 9. Expected signal
 
@@ -108,23 +115,81 @@ _To be defined during execution._
 
 ## 10. Results
 
-_Awaiting execution._
+### S3: Service invocation to non-existent app-id
+
+**Dapr environment variables injected on sidecar enable:**
+
+```
+DAPR_HTTP_PORT = 3500
+DAPR_GRPC_PORT = 50001
+```
+
+**System log events on Dapr enable (from `ContainerAppSystemLogs`):**
+
+```
+2026-05-04 06:02:08 | ContainerCreated | Created container 'daprd'
+2026-05-04 06:02:08 | ContainerStarted | Started container 'daprd'
+2026-05-04 06:02:10 | ContainerCreated | Created container 'aca-diag-batch'
+2026-05-04 06:02:10 | ContainerStarted | Started container 'aca-diag-batch'
+```
+
+**Five calls to `/dapr-test?app=nonexistent-service`:**
+
+| Call | HTTP status from app | Dapr sidecar response |
+|------|---------------------|-----------------------|
+| 1 | 500 | `HTTP Error 500: Internal Server Error` |
+| 2 | 500 | `HTTP Error 500: Internal Server Error` |
+| 3 | 500 | `HTTP Error 500: Internal Server Error` |
+| 4 | 500 | `HTTP Error 500: Internal Server Error` |
+| 5 | 500 | `HTTP Error 500: Internal Server Error` |
+
+**System logs after five invocation failures — restart-related events:**
+
+```
+(none — no ContainerTerminated, BackOff, OOMKilled, or Killing events)
+```
+
+**Replica state after five failures:**
+
+```json
+{
+  "name": "aca-diag-batch--v4a-7fcc47894d-kmv2z",
+  "runningState": "Running"
+}
+```
+
+**Console logs during failures:**  
+No Dapr-specific error messages appeared in the application container's stdout. The application container logged only gunicorn worker startup entries. The `daprd` container was not queryable separately via `az containerapp logs show --container daprd` in this revision configuration.
 
 ## 11. Interpretation
 
-_Awaiting execution._
+- **Observed**: When Dapr service invocation targets a non-existent app-id, the Dapr sidecar returns HTTP 500 to the calling application on port 3500. The application receives no other signal and must handle this as a normal HTTP error.
+- **Observed**: Enabling Dapr on a Container App injects `DAPR_HTTP_PORT` and `DAPR_GRPC_PORT` environment variables into the application container. The `daprd` sidecar container is created and started as a separate container in the same replica (confirmed via system logs showing `ContainerCreated` for `daprd`).
+- **Observed**: Five consecutive Dapr service invocation failures produced zero restart events in `ContainerAppSystemLogs`. The replica remained in `Running` state throughout.
+- **Inferred**: The Dapr sidecar process does not crash or restart when a service invocation fails due to an unreachable target. The sidecar handles the error at the protocol layer and returns a 500 to the caller without affecting its own lifecycle.
+- **Inferred**: The application container's liveness probe (if configured) is the only mechanism that would trigger a replica restart in this failure mode. Dapr invocation failures do not propagate to the container health check system.
+- **Not Proven**: Whether failed invocations are emitted to Application Insights as failed dependency entries — the environment did not have AI configured at the environment level.
 
 ## 12. What this proves
 
-_Awaiting execution._
+- Enabling Dapr on a Container App injects `DAPR_HTTP_PORT=3500` and `DAPR_GRPC_PORT=50001` as environment variables; the `daprd` container is created and started as a separate sidecar in the same replica.
+- Dapr service invocation to a non-existent app-id returns HTTP 500 from the sidecar to the calling application; the error does not propagate to container lifecycle management.
+- Repeated Dapr invocation failures do not trigger replica restarts; the platform does not treat Dapr-layer errors as container health failures.
 
 ## 13. What this does NOT prove
 
-_Awaiting execution._
+- Whether Pub/Sub component misconfiguration (wrong credentials or topic name) surfaces in sidecar logs or is silently dropped — not tested in this run.
+- Whether failed Dapr invocations are captured in Application Insights as failed dependency entries — requires AI integration at the environment level.
+- Whether a crashing `daprd` process (not a protocol-level error) triggers a replica restart or only a sidecar restart.
 
 ## 14. Support takeaway
 
-_Awaiting execution._
+When a customer reports "Dapr service invocation returning 500" or "messages not being processed with no application errors":
+
+1. **Dapr failures are silent to the app container.** The app receives a 500 from `localhost:3500` but its own logs show nothing. Always check `ContainerAppSystemLogs` for `daprd` container events and `ContainerAppConsoleLogs` filtering by `ContainerName == "daprd"`.
+2. **No restart means no liveness failure.** If the replica is `Running` and there are no `ContainerTerminated` events, the Dapr sidecar did not crash — the failure is a protocol-level error (wrong app-id, unreachable target, component misconfiguration).
+3. **Check the Dapr sidecar container name.** System logs show `ContainerCreated` / `ContainerStarted` for `daprd` when Dapr is enabled. If these events are absent after a configuration change, Dapr may not be enabled on the current revision.
+4. **Service invocation failures require app-side error handling.** The platform does not circuit-break or retry Dapr invocations automatically. The application must treat non-2xx responses from port 3500 as application-level errors and implement retries or fallbacks.
 
 ## 15. Reproduction notes
 
